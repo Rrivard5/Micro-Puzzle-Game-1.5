@@ -427,7 +427,7 @@ const InstructorInterface = () => {
         alert('Error reading file. Please try again.');
         setUploadingImages(prev => ({ ...prev, [uploadKey]: false }));
       };
-      reader.readAsDataURL(file);
+      reader.readAsText(file);
     }
   };
 
@@ -1329,6 +1329,21 @@ const InstructorInterface = () => {
                             🔄 Reset to Defaults
                           </button>
                         </div>
+
+                        {/* Settings Summary */}
+                        <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-700 mb-2">Current Settings</h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                            <div>Size: {currentSettings.size}%</div>
+                            <div>Opacity: {currentSettings.opacity}%</div>
+                            <div>X: {currentSettings.xOffset}px</div>
+                            <div>Y: {currentSettings.yOffset}px</div>
+                            <div>Rotation: {currentSettings.rotation}°</div>
+                            <div>Layer: {currentSettings.zIndex}</div>
+                            <div>Table: {currentSettings.showTable ? 'Yes' : 'No'}</div>
+                            <div>Type: {currentSettings.tableType}</div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
@@ -1404,3 +1419,314 @@ const InstructorInterface = () => {
                           <p className="text-lg">No image to preview</p>
                           <p className="text-sm">Upload an equipment image to see the preview</p>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {/* Bulk Operations */}
+            <div className="mt-8 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">📋 Bulk Operations</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => {
+                    if (confirm('Apply current settings to all groups for this equipment?')) {
+                      const currentSettings = getEquipmentSettings(selectedEquipment, selectedGroup);
+                      for (let i = 1; i <= 15; i++) {
+                        updateEquipmentSettings(selectedEquipment, i, currentSettings);
+                      }
+                      alert('Settings applied to all groups!');
+                    }
+                  }}
+                  className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  📤 Apply to All Groups
+                  <div className="text-xs mt-1 opacity-75">For {selectedEquipment}</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (confirm('Reset all equipment settings to defaults?')) {
+                      const defaultSettings = {
+                        size: 100,
+                        xOffset: 0,
+                        yOffset: 0,
+                        rotation: 0,
+                        opacity: 100,
+                        zIndex: 10,
+                        showTable: true,
+                        tableType: 'default'
+                      };
+                      
+                      equipmentTypes.forEach(equipment => {
+                        for (let i = 1; i <= 15; i++) {
+                          updateEquipmentSettings(equipment, i, defaultSettings);
+                        }
+                      });
+                      alert('All settings reset to defaults!');
+                    }
+                  }}
+                  className="bg-gray-600 text-white px-4 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  🔄 Reset All Settings
+                  <div className="text-xs mt-1 opacity-75">All equipment & groups</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const settings = JSON.stringify(equipmentSettings, null, 2);
+                    const blob = new Blob([settings], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'equipment_settings_backup.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  💾 Export Settings
+                  <div className="text-xs mt-1 opacity-75">Download JSON backup</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Word Scramble Settings */}
+        {activeTab === 'word-settings' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">🧩 Word Scramble Settings</h2>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Target Word Configuration</h3>
+              <p className="text-gray-600 mb-6">
+                Set up the target word for the class word scramble challenge. Letters will be automatically 
+                distributed randomly among the groups.
+              </p>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Word</label>
+                  <input
+                    type="text"
+                    value={wordSettings.targetWord}
+                    onChange={(e) => {
+                      const newWord = e.target.value.toUpperCase();
+                      const updatedSettings = { ...wordSettings, targetWord: newWord };
+                      if (newWord.trim()) {
+                        assignLettersToGroups(updatedSettings, newWord, wordSettings.numGroups);
+                      }
+                      setWordSettings(updatedSettings);
+                    }}
+                    placeholder="Enter the target word (e.g., MICROBIOLOGY)"
+                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Groups</label>
+                  <input
+                    type="number"
+                    value={wordSettings.numGroups}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value);
+                      if (isNaN(num) || num < 1) return;
+                      const updatedSettings = { ...wordSettings, numGroups: num };
+                      if (wordSettings.targetWord.trim()) {
+                        assignLettersToGroups(updatedSettings, wordSettings.targetWord, num);
+                      }
+                      setWordSettings(updatedSettings);
+                    }}
+                    min="1"
+                    max="50"
+                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Letter Distribution Preview */}
+            {wordSettings.targetWord && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Letter Distribution Preview</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                  {Object.entries(wordSettings.groupLetters).map(([groupNum, letter]) => (
+                    <div
+                      key={groupNum}
+                      className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg text-center border border-blue-200"
+                    >
+                      <div className="font-bold text-blue-800">Group {groupNum}</div>
+                      <div className="text-3xl font-bold text-blue-600 mt-1">{letter}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const updatedSettings = { ...wordSettings };
+                    assignLettersToGroups(updatedSettings, wordSettings.targetWord, wordSettings.numGroups);
+                    setWordSettings(updatedSettings);
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  🎲 Randomize Letter Distribution Again
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Data Management */}
+        {activeTab === 'data-management' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">🗂️ Data Management & Cleanup</h2>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">⚠️ Data Cleanup Operations</h3>
+              <p className="text-gray-600 mb-6">
+                Use these tools to clear data between class sessions or when testing.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">Clear Word Scramble Progress</h4>
+                  <p className="text-sm text-red-600 mb-4">
+                    Removes all group completion records from the word scramble.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear ALL word scramble progress?')) {
+                        localStorage.removeItem('class-letters-progress');
+                        localStorage.removeItem('word-scramble-success');
+                        alert('Word scramble progress cleared!');
+                      }
+                    }}
+                    className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                  >
+                    🗑️ Clear Word Scramble Data
+                  </button>
+                </div>
+                
+                <div className="border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Clear Student Tracking Data</h4>
+                  <p className="text-sm text-orange-600 mb-4">
+                    Removes all student progress and lab completion records.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear ALL student tracking data?')) {
+                        localStorage.removeItem('instructor-student-progress');
+                        localStorage.removeItem('instructor-student-data');
+                        alert('Student tracking data cleared!');
+                      }
+                    }}
+                    className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold"
+                  >
+                    📊 Clear Student Data
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Import/Export Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">📦 Import/Export Configuration</h3>
+              <p className="text-gray-600 mb-6">
+                Backup and restore your entire lab configuration including images, questions, and settings.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2">Export Complete Configuration</h4>
+                  <p className="text-sm text-green-600 mb-4">
+                    Download all settings, questions, images, and configurations as a backup file.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const fullConfig = {
+                        labQuestions,
+                        labImages,
+                        equipmentImages,
+                        backgroundImages,
+                        equipmentSettings,
+                        wordSettings,
+                        exportDate: new Date().toISOString(),
+                        version: '1.0'
+                      };
+                      
+                      const blob = new Blob([JSON.stringify(fullConfig, null, 2)], { 
+                        type: 'application/json' 
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `microbiology_lab_config_${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold"
+                  >
+                    💾 Export Configuration
+                  </button>
+                </div>
+                
+                <div className="border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Import Configuration</h4>
+                  <p className="text-sm text-blue-600 mb-4">
+                    Restore settings from a previously exported configuration file.
+                  </p>
+                  <label className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold cursor-pointer block text-center">
+                    📁 Import Configuration
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            try {
+                              const config = JSON.parse(event.target.result);
+                              
+                              if (confirm('This will replace all current settings. Are you sure?')) {
+                                if (config.labQuestions) setLabQuestions(config.labQuestions);
+                                if (config.labImages) setLabImages(config.labImages);
+                                if (config.equipmentImages) setEquipmentImages(config.equipmentImages);
+                                if (config.backgroundImages) setBackgroundImages(config.backgroundImages);
+                                if (config.equipmentSettings) setEquipmentSettings(config.equipmentSettings);
+                                if (config.wordSettings) setWordSettings(config.wordSettings);
+                                
+                                alert('Configuration imported successfully!');
+                              }
+                            } catch (error) {
+                              alert('Error importing configuration file. Please check the file format.');
+                            }
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+    </div>
+  );
+};
+
+export default InstructorInterface;
