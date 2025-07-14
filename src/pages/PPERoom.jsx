@@ -9,26 +9,80 @@ export default function PPERoom() {
   const [showHint, setShowHint] = useState(false)
   const [attempts, setAttempts] = useState(0)
   const [feedback, setFeedback] = useState(null)
-  const [ppeItems, setPpeItems] = useState({
-    gloves: false,
-    labCoat: false,
-    safetyGoggles: false,
-    closedShoes: false
+  const [selectedItems, setSelectedItems] = useState({
+    footwear: null,
+    pants: null,
+    shirt: null,
+    eyewear: null,
+    handwear: null
   })
-  const [allPpeEquipped, setAllPpeEquipped] = useState(false)
+  const [allPpeCorrect, setAllPpeCorrect] = useState(false)
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt } = useGame()
+
+  // Define clothing options with correct/incorrect choices
+  const clothingOptions = {
+    footwear: {
+      correct: ['closedShoes', 'labBoots'],
+      options: {
+        closedShoes: { emoji: '👟', name: 'Closed-toe Shoes', correct: true },
+        labBoots: { emoji: '🥾', name: 'Lab Boots', correct: true },
+        sandals: { emoji: '👡', name: 'Sandals', correct: false },
+        flipFlops: { emoji: '🩴', name: 'Flip Flops', correct: false },
+        heels: { emoji: '👠', name: 'High Heels', correct: false }
+      }
+    },
+    pants: {
+      correct: ['longPants', 'labPants'],
+      options: {
+        longPants: { emoji: '👖', name: 'Long Pants', correct: true },
+        labPants: { emoji: '🦺', name: 'Lab Pants', correct: true },
+        shorts: { emoji: '🩳', name: 'Shorts', correct: false },
+        skirt: { emoji: '👗', name: 'Short Skirt', correct: false }
+      }
+    },
+    shirt: {
+      correct: ['labCoat'],
+      options: {
+        labCoat: { emoji: '🥼', name: 'Lab Coat', correct: true },
+        tShirt: { emoji: '👕', name: 'T-Shirt', correct: false },
+        tankTop: { emoji: '🎽', name: 'Tank Top', correct: false },
+        hoodie: { emoji: '🧥', name: 'Hoodie', correct: false }
+      }
+    },
+    eyewear: {
+      correct: ['safetyGoggles'],
+      options: {
+        safetyGoggles: { emoji: '🥽', name: 'Safety Goggles', correct: true },
+        sunglasses: { emoji: '🕶️', name: 'Sunglasses', correct: false },
+        glasses: { emoji: '👓', name: 'Regular Glasses', correct: false },
+        none: { emoji: '👁️', name: 'No Eyewear', correct: false }
+      }
+    },
+    handwear: {
+      correct: ['latexGloves', 'nitrileGloves'],
+      options: {
+        latexGloves: { emoji: '🧤', name: 'Latex Gloves', correct: true },
+        nitrileGloves: { emoji: '🫱', name: 'Nitrile Gloves', correct: true },
+        winterGloves: { emoji: '🧤', name: 'Winter Gloves', correct: false },
+        none: { emoji: '✋', name: 'No Gloves', correct: false }
+      }
+    }
+  }
 
   useEffect(() => {
     loadPPEQuestion()
   }, [studentInfo])
 
   useEffect(() => {
-    // Check if all PPE is equipped
-    const allEquipped = Object.values(ppeItems).every(equipped => equipped)
-    setAllPpeEquipped(allEquipped)
-  }, [ppeItems])
+    // Check if all PPE selections are correct
+    const allCorrect = Object.entries(selectedItems).every(([category, selectedItem]) => {
+      if (!selectedItem) return false
+      return clothingOptions[category].options[selectedItem].correct
+    })
+    setAllPpeCorrect(allCorrect && Object.values(selectedItems).every(item => item !== null))
+  }, [selectedItems])
 
   const loadPPEQuestion = () => {
     // Load PPE question from instructor settings or use default
@@ -98,35 +152,55 @@ export default function PPERoom() {
     }
   }
 
-  const togglePPE = (item) => {
+  const selectClothing = (category, itemKey) => {
     if (!lockerOpen) return
     
-    setPpeItems(prev => ({
+    setSelectedItems(prev => ({
       ...prev,
-      [item]: !prev[item]
+      [category]: itemKey
     }))
   }
 
   const proceedToLab = () => {
-    if (allPpeEquipped) {
+    if (allPpeCorrect) {
       navigate('/lab')
     }
   }
 
+  const getIncorrectSelections = () => {
+    return Object.entries(selectedItems).filter(([category, selectedItem]) => {
+      if (!selectedItem) return false
+      return !clothingOptions[category].options[selectedItem].correct
+    }).map(([category, selectedItem]) => ({
+      category,
+      item: clothingOptions[category].options[selectedItem].name
+    }))
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-blue-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-slate-200 to-blue-200 relative overflow-hidden">
+      {/* Realistic Floor */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-400 via-gray-300 to-transparent opacity-30"></div>
+      
+      {/* Ceiling Lights */}
+      <div className="absolute top-0 left-0 right-0 flex justify-around py-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="w-16 h-4 bg-gradient-to-b from-yellow-200 to-yellow-100 rounded-lg shadow-lg opacity-80"></div>
+        ))}
+      </div>
+
       <div className="relative z-10 max-w-6xl mx-auto p-6">
         
         {/* Room Title */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-green-600 to-purple-600">
-            🥽 PPE Safety Room
+            🥽 Personal Protective Equipment Room
           </h1>
           <p className="text-blue-700 text-lg">Prepare for laboratory entry - Group {studentInfo?.groupNumber}</p>
         </div>
 
         {/* Safety Alert */}
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-8">
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-8 shadow-lg">
           <div className="flex items-center mb-3">
             <span className="text-3xl mr-3">⚠️</span>
             <h2 className="text-2xl font-bold text-red-800">LABORATORY SAFETY PROTOCOL</h2>
@@ -136,135 +210,119 @@ export default function PPERoom() {
           </p>
           <ol className="text-red-700 mt-4 space-y-2">
             <li>1. Answer the safety question to access your personal locker</li>
-            <li>2. Equip all required Personal Protective Equipment (PPE)</li>
-            <li>3. Proceed to the laboratory for urgent sample analysis</li>
+            <li>2. Select appropriate Personal Protective Equipment (PPE) from available options</li>
+            <li>3. Ensure all PPE selections meet laboratory safety standards</li>
+            <li>4. Proceed to the laboratory for urgent sample analysis</li>
           </ol>
         </div>
 
         {/* Main Room Layout */}
-        <div className="relative bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-8 shadow-2xl border-4 border-gray-300 min-h-[600px]">
+        <div className="relative bg-gradient-to-br from-gray-100 to-blue-50 rounded-3xl p-8 shadow-2xl border-4 border-gray-400 min-h-[700px]">
           
-          {/* Room Background */}
-          <div className="absolute inset-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-2xl opacity-20"></div>
+          {/* Realistic Room Background */}
+          <div className="absolute inset-4">
+            {/* Floor tiles */}
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-300 to-gray-200 rounded-b-2xl"></div>
+            {/* Wall panels */}
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-gray-100 rounded-2xl opacity-90"></div>
+            {/* Wall trim */}
+            <div className="absolute top-4 left-4 right-4 h-2 bg-gray-300 rounded"></div>
+            <div className="absolute bottom-20 left-4 right-4 h-2 bg-gray-300 rounded"></div>
+          </div>
           
-          <div className="relative z-10 grid grid-cols-12 grid-rows-8 gap-4 h-full min-h-[500px]">
+          <div className="relative z-10 grid grid-cols-12 grid-rows-8 gap-4 h-full min-h-[600px]">
             
             {/* Personal Locker - Center Focus */}
-            <div className="col-span-6 row-span-6 col-start-4 row-start-2 flex flex-col items-center justify-center">
+            <div className="col-span-8 row-span-8 col-start-3 flex flex-col items-center justify-center">
               
-              {/* Locker */}
-              <div className={`relative w-48 h-64 bg-gradient-to-b from-gray-400 to-gray-600 rounded-lg shadow-2xl border-4 ${
-                lockerOpen ? 'border-green-400' : 'border-gray-500'
+              {/* Realistic Locker */}
+              <div className={`relative w-80 h-96 bg-gradient-to-b from-gray-500 to-gray-700 rounded-lg shadow-2xl border-4 ${
+                lockerOpen ? 'border-green-400' : 'border-gray-600'
               }`}>
                 
                 {/* Locker Door */}
-                <div className={`absolute inset-2 bg-gradient-to-b from-gray-300 to-gray-500 rounded-lg transition-transform duration-500 ${
-                  lockerOpen ? 'rotate-y-90 opacity-0' : ''
-                }`}>
+                <div className={`absolute inset-2 bg-gradient-to-b from-gray-400 to-gray-600 rounded-lg transition-transform duration-500 ${
+                  lockerOpen ? 'transform -translate-x-full opacity-0' : ''
+                } overflow-hidden`}>
+                  {/* Door Handle */}
+                  <div className="absolute top-1/2 right-4 transform -translate-y-1/2">
+                    <div className="w-4 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg shadow-lg"></div>
+                  </div>
+                  
                   {/* Lock */}
-                  <div className="absolute top-32 left-1/2 transform -translate-x-1/2">
-                    <div className={`w-8 h-8 rounded-full ${lockerOpen ? 'bg-green-500' : 'bg-red-500'} shadow-lg`}>
-                      <div className="w-full h-full flex items-center justify-center text-white font-bold">
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-8">
+                    <div className={`w-12 h-12 rounded-full ${lockerOpen ? 'bg-green-500' : 'bg-red-500'} shadow-lg border-4 border-gray-300`}>
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
                         {lockerOpen ? '🔓' : '🔒'}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Locker Number */}
-                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white rounded px-3 py-1">
-                    <span className="font-bold text-gray-800">#{studentInfo?.groupNumber || '1'}</span>
+                  {/* Locker Number Plate */}
+                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-b from-white to-gray-100 rounded px-4 py-2 shadow-lg border border-gray-300">
+                    <span className="font-bold text-gray-800 text-lg">#{studentInfo?.groupNumber || '1'}</span>
+                  </div>
+                  
+                  {/* Ventilation slots */}
+                  <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 space-y-1">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="w-32 h-1 bg-gray-600 rounded"></div>
+                    ))}
                   </div>
                 </div>
 
                 {/* Locker Contents (visible when open) */}
                 {lockerOpen && (
-                  <div className="absolute inset-2 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4">
-                    <h3 className="text-center font-bold text-gray-800 mb-4 text-sm">PPE Equipment</h3>
+                  <div className="absolute inset-2 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4 overflow-y-auto">
+                    <h3 className="text-center font-bold text-gray-800 mb-4 text-lg">Select Appropriate PPE</h3>
                     
-                    {/* PPE Items Grid */}
-                    <div className="grid grid-cols-2 gap-2">
-                      
-                      {/* Safety Gloves */}
-                      <div 
-                        onClick={() => togglePPE('gloves')}
-                        className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center ${
-                          ppeItems.gloves 
-                            ? 'border-green-400 bg-green-50' 
-                            : 'border-gray-300 bg-white hover:border-blue-400'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">🧤</div>
-                        <div className="text-xs font-semibold">Gloves</div>
-                        {ppeItems.gloves && <div className="text-xs text-green-600">✓ On</div>}
-                      </div>
-
-                      {/* Lab Coat */}
-                      <div 
-                        onClick={() => togglePPE('labCoat')}
-                        className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center ${
-                          ppeItems.labCoat 
-                            ? 'border-green-400 bg-green-50' 
-                            : 'border-gray-300 bg-white hover:border-blue-400'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">🥼</div>
-                        <div className="text-xs font-semibold">Lab Coat</div>
-                        {ppeItems.labCoat && <div className="text-xs text-green-600">✓ On</div>}
-                      </div>
-
-                      {/* Safety Goggles */}
-                      <div 
-                        onClick={() => togglePPE('safetyGoggles')}
-                        className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center ${
-                          ppeItems.safetyGoggles 
-                            ? 'border-green-400 bg-green-50' 
-                            : 'border-gray-300 bg-white hover:border-blue-400'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">🥽</div>
-                        <div className="text-xs font-semibold">Goggles</div>
-                        {ppeItems.safetyGoggles && <div className="text-xs text-green-600">✓ On</div>}
-                      </div>
-
-                      {/* Closed Shoes */}
-                      <div 
-                        onClick={() => togglePPE('closedShoes')}
-                        className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center ${
-                          ppeItems.closedShoes 
-                            ? 'border-green-400 bg-green-50' 
-                            : 'border-gray-300 bg-white hover:border-blue-400'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">👟</div>
-                        <div className="text-xs font-semibold">Shoes</div>
-                        {ppeItems.closedShoes && <div className="text-xs text-green-600">✓ On</div>}
-                      </div>
+                    {/* Clothing Categories */}
+                    <div className="space-y-6">
+                      {Object.entries(clothingOptions).map(([category, categoryData]) => (
+                        <div key={category} className="bg-gray-50 rounded-lg p-3">
+                          <h4 className="font-semibold text-gray-700 mb-2 capitalize">
+                            {category === 'handwear' ? 'Hand Protection' : 
+                             category === 'eyewear' ? 'Eye Protection' : 
+                             category === 'footwear' ? 'Foot Protection' : category}:
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {Object.entries(categoryData.options).map(([itemKey, item]) => (
+                              <div
+                                key={itemKey}
+                                onClick={() => selectClothing(category, itemKey)}
+                                className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center text-xs ${
+                                  selectedItems[category] === itemKey
+                                    ? item.correct 
+                                      ? 'border-green-400 bg-green-50' 
+                                      : 'border-red-400 bg-red-50'
+                                    : 'border-gray-300 bg-white hover:border-blue-400'
+                                }`}
+                              >
+                                <div className="text-xl mb-1">{item.emoji}</div>
+                                <div className="font-semibold text-gray-700">{item.name}</div>
+                                {selectedItems[category] === itemKey && (
+                                  <div className={`text-xs mt-1 ${item.correct ? 'text-green-600' : 'text-red-600'}`}>
+                                    {item.correct ? '✓ Appropriate' : '✗ Inappropriate'}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Locker Label */}
-              <div className="mt-4 text-center">
-                <div className="text-sm font-bold text-gray-700">Personal Equipment Locker</div>
+              <div className="mt-6 text-center">
+                <div className="text-lg font-bold text-gray-700">Personal Equipment Locker</div>
                 {lockerOpen ? (
                   <div className="text-sm text-green-600">✓ Access Granted</div>
                 ) : (
                   <div className="text-sm text-red-600">🔒 Locked - Answer Required</div>
                 )}
-              </div>
-            </div>
-
-            {/* Benches and Room Elements */}
-            <div className="col-span-2 row-span-2 flex items-center justify-center">
-              <div className="w-16 h-12 bg-gradient-to-b from-gray-400 to-gray-500 rounded-lg shadow-md">
-                <div className="text-xs text-center mt-3 text-gray-200">Bench</div>
-              </div>
-            </div>
-
-            <div className="col-span-2 row-span-2 col-start-11 flex items-center justify-center">
-              <div className="w-16 h-12 bg-gradient-to-b from-gray-400 to-gray-500 rounded-lg shadow-md">
-                <div className="text-xs text-center mt-3 text-gray-200">Bench</div>
               </div>
             </div>
           </div>
@@ -273,17 +331,17 @@ export default function PPERoom() {
           <div className="absolute bottom-8 right-8">
             <button
               onClick={proceedToLab}
-              disabled={!allPpeEquipped}
-              className={`px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 ${
-                allPpeEquipped
+              disabled={!allPpeCorrect}
+              className={`px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 ${
+                allPpeCorrect
                   ? 'bg-green-500 hover:bg-green-600 text-white transform hover:scale-105'
                   : 'bg-gray-400 text-white cursor-not-allowed opacity-50'
               }`}
             >
-              {allPpeEquipped ? (
+              {allPpeCorrect ? (
                 '🚪 Enter Laboratory'
               ) : (
-                '🚫 PPE Required'
+                '🚫 Check PPE Selection'
               )}
             </button>
           </div>
@@ -390,43 +448,63 @@ export default function PPERoom() {
         {/* PPE Status Panel */}
         {lockerOpen && (
           <div className="mt-8 bg-white rounded-xl shadow-xl p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">👷‍♀️ PPE Status Check</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(ppeItems).map(([item, equipped]) => (
-                <div 
-                  key={item}
-                  className={`p-4 rounded-lg border-2 text-center ${
-                    equipped 
-                      ? 'border-green-400 bg-green-50' 
-                      : 'border-red-400 bg-red-50'
-                  }`}
-                >
-                  <div className="text-2xl mb-2">
-                    {item === 'gloves' && '🧤'}
-                    {item === 'labCoat' && '🥼'}
-                    {item === 'safetyGoggles' && '🥽'}
-                    {item === 'closedShoes' && '👟'}
+            <h3 className="text-xl font-bold text-gray-800 mb-4">👷‍♀️ PPE Selection Status</h3>
+            
+            {/* Current Selections */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+              {Object.entries(selectedItems).map(([category, selectedItem]) => {
+                const item = selectedItem ? clothingOptions[category].options[selectedItem] : null
+                return (
+                  <div 
+                    key={category}
+                    className={`p-4 rounded-lg border-2 text-center ${
+                      item ? (item.correct ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+                      : 'border-gray-400 bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-2xl mb-2">
+                      {item ? item.emoji : '❓'}
+                    </div>
+                    <div className="font-semibold text-gray-800 capitalize text-sm">
+                      {category === 'handwear' ? 'Hands' : 
+                       category === 'eyewear' ? 'Eyes' : 
+                       category === 'footwear' ? 'Feet' : category}
+                    </div>
+                    <div className={`text-xs ${
+                      item ? (item.correct ? 'text-green-600' : 'text-red-600') : 'text-gray-500'
+                    }`}>
+                      {item ? (item.correct ? '✓ Appropriate' : '✗ Inappropriate') : 'Not Selected'}
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-800 capitalize">
-                    {item.replace(/([A-Z])/g, ' $1').trim()}
-                  </div>
-                  <div className={`text-sm ${equipped ? 'text-green-600' : 'text-red-600'}`}>
-                    {equipped ? '✓ Equipped' : '✗ Required'}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             
-            {allPpeEquipped ? (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            {/* Status Message */}
+            {allPpeCorrect ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-green-800 font-semibold text-center">
-                  ✅ All PPE equipped! You may now enter the laboratory safely.
+                  ✅ All PPE selections are appropriate! You may now enter the laboratory safely.
+                </p>
+              </div>
+            ) : Object.values(selectedItems).every(item => item !== null) ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-800 font-semibold text-center mb-2">
+                  ❌ Some PPE selections are inappropriate for laboratory work:
+                </p>
+                <ul className="text-red-700 text-sm">
+                  {getIncorrectSelections().map(({ category, item }) => (
+                    <li key={category}>• {item} is not appropriate for {category}</li>
+                  ))}
+                </ul>
+                <p className="text-red-600 text-sm mt-2 text-center">
+                  Please select appropriate laboratory-grade protective equipment.
                 </p>
               </div>
             ) : (
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-800 font-semibold text-center">
-                  ⚠️ Click on PPE items in your locker to equip them before entering the lab.
+                  ⚠️ Please select appropriate protective equipment for each category before entering the lab.
                 </p>
               </div>
             )}
