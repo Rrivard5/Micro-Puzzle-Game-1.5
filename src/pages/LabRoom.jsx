@@ -13,7 +13,6 @@ export default function LabRoom() {
   const [currentWall, setCurrentWall] = useState(0) // 0=North, 1=East, 2=South, 3=West
   const [equipmentImages, setEquipmentImages] = useState({})
   const [backgroundImages, setBackgroundImages] = useState({})
-  const [tableImages, setTableImages] = useState({})
   const [equipmentSettings, setEquipmentSettings] = useState({})
   
   const navigate = useNavigate()
@@ -43,7 +42,6 @@ export default function LabRoom() {
     loadGroupContent()
     loadEquipmentImages()
     loadBackgroundImages()
-    loadTableImages()
     loadEquipmentSettings()
   }, [studentInfo])
 
@@ -81,17 +79,6 @@ export default function LabRoom() {
     }
   }
 
-  const loadTableImages = () => {
-    const savedTableImages = localStorage.getItem('instructor-table-images')
-    if (savedTableImages) {
-      try {
-        setTableImages(JSON.parse(savedTableImages))
-      } catch (error) {
-        console.error('Error loading table images:', error)
-      }
-    }
-  }
-
   const loadEquipmentSettings = () => {
     const savedSettings = localStorage.getItem('instructor-equipment-settings')
     if (savedSettings) {
@@ -113,12 +100,13 @@ export default function LabRoom() {
     return equipmentSettings[settingsKey] || {
       size: 100,
       showTable: true,
-      tableType: 'default'
+      tableType: 'default',
+      xOffset: 0,
+      yOffset: 0,
+      zIndex: 10,
+      rotation: 0,
+      opacity: 100
     }
-  }
-
-  const getTableImage = (tableType) => {
-    return tableImages[tableType]?.data || null
   }
 
   const getBackgroundImage = (wall) => {
@@ -213,44 +201,46 @@ export default function LabRoom() {
   const renderTableComponent = (settings) => {
     if (!settings.showTable) return null
 
-    const tableImage = getTableImage(settings.tableType)
-    
-    if (tableImage) {
-      // Custom table image
-      return (
-        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 w-40 h-20">
-          <img
-            src={tableImage}
-            alt="Lab table"
-            className="w-full h-full object-cover rounded-lg shadow-xl"
-            style={{
-              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))'
-            }}
-          />
-        </div>
-      )
+    // Default table based on type with enhanced styling
+    const tableStyles = {
+      default: {
+        gradient: 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500',
+        border: 'border-gray-600',
+        highlight: 'from-white via-transparent to-transparent'
+      },
+      stainless: {
+        gradient: 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400',
+        border: 'border-gray-500',
+        highlight: 'from-white via-transparent to-transparent'
+      },
+      wooden: {
+        gradient: 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600',
+        border: 'border-amber-700',
+        highlight: 'from-amber-100 via-transparent to-transparent'
+      }
     }
 
-    // Default table based on type
-    const tableStyles = {
-      default: 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500',
-      stainless: 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400',
-      wooden: 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600'
-    }
+    const style = tableStyles[settings.tableType] || tableStyles.default
 
     return (
-      <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+      <div 
+        className="absolute -bottom-12 left-1/2 transform -translate-x-1/2"
+        style={{
+          transform: `translateX(-50%) translateY(${settings.yOffset * 0.1}px)`,
+          zIndex: Math.max(1, settings.zIndex - 1)
+        }}
+      >
         <div 
-          className={`w-40 h-20 ${tableStyles[settings.tableType] || tableStyles.default} rounded-lg shadow-xl border-2 border-gray-600`}
+          className={`w-40 h-20 ${style.gradient} rounded-lg shadow-xl border-2 ${style.border}`}
           style={{
             boxShadow: '0 12px 24px rgba(0,0,0,0.4), inset 0 3px 6px rgba(255,255,255,0.3)'
           }}
         >
           {/* Table surface detail */}
-          <div className="absolute inset-2 bg-gradient-to-br from-white via-transparent to-transparent rounded-md opacity-30"></div>
+          <div className={`absolute inset-2 bg-gradient-to-br ${style.highlight} rounded-md opacity-30`}></div>
           
           {/* Table edge */}
-          <div className="absolute inset-x-2 bottom-0 h-3 bg-gray-600 rounded-b-md shadow-inner"></div>
+          <div className={`absolute inset-x-2 bottom-0 h-3 ${style.border.replace('border-', 'bg-')} rounded-b-md shadow-inner`}></div>
           
           {/* Power outlet */}
           <div className="absolute top-2 right-2 w-5 h-4 bg-white border border-gray-500 rounded-sm shadow-inner">
@@ -266,7 +256,7 @@ export default function LabRoom() {
           <div className="absolute top-2 left-2 w-2 h-2 bg-green-400 rounded-full shadow-sm opacity-80"></div>
         </div>
         
-        {/* Table legs */}
+        {/* Table legs with perspective */}
         <div className="absolute -bottom-8 left-4 w-3 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform rotate-1"></div>
         <div className="absolute -bottom-8 right-4 w-3 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform -rotate-1"></div>
       </div>
@@ -278,13 +268,19 @@ export default function LabRoom() {
     const settings = getEquipmentSettings(equipmentType, studentInfo?.groupNumber)
     
     if (equipmentImage) {
-      // Use uploaded image with size control
-      const sizeMultiplier = settings.size / 100
-      const maxWidth = 200 * sizeMultiplier
-      const maxHeight = 200 * sizeMultiplier
+      // Calculate responsive sizes based on settings
+      const baseSizeMultiplier = settings.size / 100
+      const maxWidth = Math.min(300 * baseSizeMultiplier, window.innerWidth * 0.3)
+      const maxHeight = Math.min(300 * baseSizeMultiplier, window.innerHeight * 0.4)
       
       return (
-        <div className="relative group cursor-pointer transition-all duration-300 hover:scale-105">
+        <div 
+          className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
+          style={{
+            transform: `translate(${settings.xOffset}px, ${settings.yOffset}px)`,
+            zIndex: settings.zIndex
+          }}
+        >
           {/* Table component */}
           {renderTableComponent(settings)}
           
@@ -301,6 +297,8 @@ export default function LabRoom() {
             style={{
               maxWidth: `${maxWidth}px`,
               maxHeight: `${maxHeight}px`,
+              opacity: settings.opacity / 100,
+              transform: `rotate(${settings.rotation}deg)`,
               filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
                 state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
                 state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
@@ -309,9 +307,12 @@ export default function LabRoom() {
             onClick={() => handleEquipmentClick(equipmentType)}
           />
           
-          {/* Status indicator overlay */}
-          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
-            <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold ${
+          {/* Enhanced status indicator overlay */}
+          <div 
+            className="absolute top-0 right-0 transform translate-x-2 -translate-y-2"
+            style={{ zIndex: settings.zIndex + 1 }}
+          >
+            <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold shadow-lg ${
               state.solved 
                 ? 'bg-green-500 text-white' 
                 : state.active 
@@ -324,8 +325,14 @@ export default function LabRoom() {
             </div>
           </div>
           
-          {/* Equipment label */}
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-center">
+          {/* Equipment label with dynamic positioning */}
+          <div 
+            className="absolute left-1/2 transform -translate-x-1/2 text-center"
+            style={{ 
+              bottom: `-${48 + Math.abs(settings.yOffset * 0.1)}px`,
+              zIndex: settings.zIndex + 1
+            }}
+          >
             <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
               {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
             </div>
@@ -333,8 +340,13 @@ export default function LabRoom() {
             {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Analyzing...</div>}
           </div>
           
-          {/* Hover tooltip */}
-          <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-20 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+          {/* Enhanced hover tooltip */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+               style={{ 
+                 top: `-${80 + Math.abs(settings.yOffset * 0.1)}px`,
+                 maxWidth: '250px',
+                 whiteSpace: 'normal'
+               }}>
             {state.solved 
               ? "Equipment analysis complete - data recorded" 
               : state.active 
@@ -346,14 +358,20 @@ export default function LabRoom() {
       )
     }
     
-    // Fallback to default icon if no image
+    // Fallback to default icon if no image (with settings applied)
     return (
-      <div className="relative group cursor-pointer transition-all duration-300 hover:scale-105">
+      <div 
+        className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
+        style={{
+          transform: `translate(${settings.xOffset}px, ${settings.yOffset}px) rotate(${settings.rotation}deg)`,
+          zIndex: settings.zIndex
+        }}
+      >
         {/* Table component */}
         {renderTableComponent(settings)}
         
         <div 
-          className={`w-24 h-24 rounded-lg flex items-center justify-center text-5xl transition-all duration-300 ${
+          className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
             state.solved 
               ? 'bg-green-100 border-2 border-green-400 shadow-lg' 
               : state.active 
@@ -362,6 +380,12 @@ export default function LabRoom() {
               ? 'bg-blue-100 border-2 border-blue-400 shadow-sm'
               : 'bg-gray-100 border-2 border-gray-300'
           }`}
+          style={{
+            width: `${96 * (settings.size / 100)}px`,
+            height: `${96 * (settings.size / 100)}px`,
+            fontSize: `${48 * (settings.size / 100)}px`,
+            opacity: settings.opacity / 100
+          }}
           onClick={() => handleEquipmentClick(equipmentType)}
         >
           {equipmentType === 'microscope' && '🔬'}
@@ -371,7 +395,13 @@ export default function LabRoom() {
           {equipmentType === 'centrifuge' && '🌪️'}
         </div>
         
-        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-center">
+        <div 
+          className="absolute left-1/2 transform -translate-x-1/2 text-center"
+          style={{ 
+            bottom: `-${48 + Math.abs(settings.yOffset * 0.1)}px`,
+            zIndex: settings.zIndex + 1
+          }}
+        >
           <div className="bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-bold text-gray-700 border border-gray-200">
             {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
           </div>
@@ -518,17 +548,26 @@ export default function LabRoom() {
           }}
         />
 
-        {/* Equipment Positioning with enhanced 3D perspective */}
+        {/* Equipment Positioning with enhanced 3D perspective and custom settings */}
         <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
           {equipment.map((equipmentType, index) => {
-            const basePositions = [
-              { left: '15%', transform: 'perspective(800px) rotateX(5deg) scale(0.9)', zIndex: 8 },
-              { left: '35%', transform: 'perspective(800px) rotateX(3deg) scale(1.0)', zIndex: 10 },
-              { left: '55%', transform: 'perspective(800px) rotateX(2deg) scale(1.1)', zIndex: 12 },
-              { right: '15%', transform: 'perspective(800px) rotateX(5deg) scale(0.9)', zIndex: 8 }
-            ]
+            const settings = getEquipmentSettings(equipmentType, studentInfo?.groupNumber)
             
-            const position = basePositions[index] || basePositions[0]
+            // Dynamic positioning based on equipment count and settings
+            const positions = equipment.length === 1 
+              ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
+              : equipment.length === 2
+              ? [
+                  { left: '30%', transform: 'translateX(-50%)', bottom: '200px' },
+                  { left: '70%', transform: 'translateX(-50%)', bottom: '200px' }
+                ]
+              : [
+                  { left: '20%', transform: 'translateX(-50%)', bottom: '200px' },
+                  { left: '50%', transform: 'translateX(-50%)', bottom: '200px' },
+                  { left: '80%', transform: 'translateX(-50%)', bottom: '200px' }
+                ]
+            
+            const position = positions[index] || positions[0]
             
             return (
               <div 
@@ -536,11 +575,11 @@ export default function LabRoom() {
                 className="absolute"
                 style={{
                   ...position,
-                  bottom: '200px'
+                  zIndex: settings.zIndex
                 }}
               >
-                {/* Equipment Component */}
-                <div style={{ zIndex: 20 }}>
+                {/* Equipment Component with all settings applied */}
+                <div>
                   {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
                 </div>
               </div>
@@ -587,7 +626,7 @@ export default function LabRoom() {
           <div className="h-1 w-48 mx-auto bg-gradient-to-r from-red-500 to-blue-500 mb-4 animate-pulse"></div>
           <p className="text-red-700 text-lg font-semibold">Group {studentInfo?.groupNumber} - Patient Sample Investigation</p>
           
-          {/* Enhanced status indicator */}
+          {/* Enhanced status indicator with sizing info */}
           <div className="mt-2 text-sm">
             {Object.keys(equipmentImages).length > 0 && (
               <span className="text-green-600 mr-4">✓ {Object.keys(equipmentImages).length} Custom Equipment Images</span>
@@ -595,8 +634,8 @@ export default function LabRoom() {
             {Object.keys(backgroundImages).length > 0 && (
               <span className="text-green-600 mr-4">✓ {Object.keys(backgroundImages).length} Custom Backgrounds</span>
             )}
-            {Object.keys(tableImages).length > 0 && (
-              <span className="text-green-600">✓ {Object.keys(tableImages).length} Custom Tables</span>
+            {Object.keys(equipmentSettings).length > 0 && (
+              <span className="text-blue-600 mr-4">🎛️ {Object.keys(equipmentSettings).length} Custom Sizing Settings</span>
             )}
             {Object.keys(equipmentImages).length === 0 && Object.keys(backgroundImages).length === 0 && (
               <span className="text-amber-600">⚠ Using default graphics - upload images in instructor portal for realistic view</span>
@@ -668,7 +707,7 @@ export default function LabRoom() {
             </button>
           </div>
 
-          {/* Wall Content */}
+          {/* Wall Content with custom sizing */}
           {renderWallContent()}
 
           {/* Lab Exit */}
