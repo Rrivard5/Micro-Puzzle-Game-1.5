@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import StudentInfo from './pages/StudentInfo'
+import PPERoom from './pages/PPERoom'
 import LabRoom from './pages/LabRoom'
 import Completion from './pages/Completion'
 import WordScramble from './pages/WordScramble'
@@ -19,6 +20,16 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/student-info" element={<StudentInfo />} />
+              
+              {/* Protected PPE Room Route */}
+              <Route 
+                path="/ppe-room" 
+                element={
+                  <ProtectedRoute>
+                    <PPERoom />
+                  </ProtectedRoute>
+                } 
+              />
               
               {/* Protected Lab Route */}
               <Route 
