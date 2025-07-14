@@ -31,11 +31,36 @@ const InstructorInterface = () => {
   const [processingImages, setProcessingImages] = useState({});
   const [backgroundImages, setBackgroundImages] = useState({});
   const [equipmentSettings, setEquipmentSettings] = useState({});
+  const [tableImages, setTableImages] = useState({});
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
 
   const equipmentTypes = ['microscope', 'incubator', 'petriDish', 'autoclave', 'centrifuge'];
+
+  // Z-index layers for context
+  const zIndexLayers = {
+    1: 'Floor/Background elements',
+    2: 'Wall fixtures',
+    3: 'Tables/Surfaces',
+    4: 'Basic equipment',
+    5: 'Standard equipment',
+    6: 'Raised equipment',
+    7: 'Desktop items',
+    8: 'Monitors/Displays',
+    9: 'Foreground equipment',
+    10: 'Primary equipment (default)',
+    11: 'Elevated equipment',
+    12: 'Hanging equipment',
+    13: 'Overlays',
+    14: 'Active indicators',
+    15: 'Top-level equipment',
+    16: 'Floating elements',
+    17: 'Pop-ups',
+    18: 'Tooltips',
+    19: 'Modal backgrounds',
+    20: 'Modal content (front)'
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -45,6 +70,7 @@ const InstructorInterface = () => {
       loadEquipmentImages();
       loadBackgroundImages();
       loadEquipmentSettings();
+      loadTableImages();
     }
   }, [isAuthenticated]);
 
@@ -197,6 +223,17 @@ const InstructorInterface = () => {
     }
   };
 
+  const loadTableImages = () => {
+    const savedTableImages = localStorage.getItem('instructor-table-images');
+    if (savedTableImages) {
+      try {
+        setTableImages(JSON.parse(savedTableImages));
+      } catch (error) {
+        console.error('Error loading table images:', error);
+      }
+    }
+  };
+
   const assignLettersToGroups = (settings, word, numGroups) => {
     if (!word || numGroups < 1) return;
     
@@ -230,6 +267,7 @@ const InstructorInterface = () => {
       localStorage.setItem('instructor-equipment-images', JSON.stringify(equipmentImages));
       localStorage.setItem('instructor-background-images', JSON.stringify(backgroundImages));
       localStorage.setItem('instructor-equipment-settings', JSON.stringify(equipmentSettings));
+      localStorage.setItem('instructor-table-images', JSON.stringify(tableImages));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('All settings saved successfully!');
@@ -253,29 +291,25 @@ const InstructorInterface = () => {
     }));
   };
 
-  // Enhanced equipment settings management
-  const updateEquipmentSettings = (equipment, group, newSettings) => {
-    const settingsKey = `${equipment}_group${group}`;
+  // Enhanced equipment settings management (layout same for all groups)
+  const updateEquipmentSettings = (equipment, newSettings) => {
     setEquipmentSettings(prev => ({
       ...prev,
-      [settingsKey]: {
-        ...prev[settingsKey],
+      [equipment]: {
+        ...prev[equipment],
         ...newSettings
       }
     }));
   };
 
-  const getEquipmentSettings = (equipment, group) => {
-    const settingsKey = `${equipment}_group${group}`;
-    return equipmentSettings[settingsKey] || {
+  const getEquipmentSettings = (equipment) => {
+    return equipmentSettings[equipment] || {
       size: 100,
       showTable: true,
       tableType: 'default',
       xOffset: 0,
       yOffset: 0,
-      zIndex: 10,
-      rotation: 0,
-      opacity: 100
+      zIndex: 10
     };
   };
 
@@ -393,6 +427,35 @@ const InstructorInterface = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleTableImageUpload = (event, equipment) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload only image files (JPG, PNG, etc.)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setTableImages(prev => ({
+        ...prev,
+        [equipment]: {
+          data: e.target.result,
+          name: file.name,
+          size: file.size,
+          lastModified: new Date().toISOString()
+        }
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleImageUpload = (event, equipment, groupNumber) => {
     const file = event.target.files[0];
     if (file) {
@@ -427,7 +490,7 @@ const InstructorInterface = () => {
         alert('Error reading file. Please try again.');
         setUploadingImages(prev => ({ ...prev, [uploadKey]: false }));
       };
-      reader.readAsText(file);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -463,6 +526,16 @@ const InstructorInterface = () => {
     }
   };
 
+  const removeTableImage = (equipment) => {
+    if (confirm('Are you sure you want to remove this table image?')) {
+      setTableImages(prev => {
+        const updated = { ...prev };
+        delete updated[equipment];
+        return updated;
+      });
+    }
+  };
+
   const addNewGroup = (equipment) => {
     const existingGroups = Object.keys(labQuestions[equipment].groups).map(Number);
     const newGroupNumber = existingGroups.length > 0 ? Math.max(...existingGroups) + 1 : 1;
@@ -481,6 +554,142 @@ const InstructorInterface = () => {
     setSelectedGroup(newGroupNumber);
   };
 
+  // Room preview component
+  const renderRoomPreview = (equipment) => {
+    const settings = getEquipmentSettings(equipment);
+    const imageKey = `${equipment}_group${selectedGroup}`;
+    const currentImage = equipmentImages[imageKey];
+    const tableImage = tableImages[equipment];
+    
+    return (
+      <div className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden">
+        {/* Lab Room SVG Background */}
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f1f5f9"/>
+              <stop offset="100%" stopColor="#e2e8f0"/>
+            </linearGradient>
+            <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff"/>
+              <stop offset="100%" stopColor="#f8fafc"/>
+            </linearGradient>
+            <pattern id="floorTiles" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+              <rect width="50" height="50" fill="#f8fafc"/>
+              <rect width="48" height="48" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" strokeWidth="1"/>
+            </pattern>
+          </defs>
+          
+          {/* Floor */}
+          <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" strokeWidth="2"/>
+          
+          {/* Back wall */}
+          <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+          
+          {/* Side walls */}
+          <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+          <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+          
+          {/* Lab bench */}
+          <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" strokeWidth="2"/>
+          <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
+          <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
+          
+          {/* Ceiling lights */}
+          <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+          <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
+          <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+        </svg>
+        
+        {/* Table (behind equipment) */}
+        {settings.showTable && (
+          <div 
+            className="absolute"
+            style={{
+              left: '50%',
+              bottom: `${100 + settings.yOffset}px`,
+              transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
+              zIndex: Math.max(1, settings.zIndex - 1)
+            }}
+          >
+            {tableImage ? (
+              <img
+                src={tableImage.data}
+                alt="Table"
+                className="object-contain"
+                style={{
+                  maxWidth: '160px',
+                  maxHeight: '80px',
+                  filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))'
+                }}
+              />
+            ) : (
+              <div 
+                className={`w-40 h-20 rounded-lg shadow-xl border-2 border-gray-600 ${
+                  settings.tableType === 'stainless' 
+                    ? 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400'
+                    : settings.tableType === 'wooden'
+                    ? 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600'
+                    : 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500'
+                }`}
+                style={{
+                  boxShadow: '0 12px 24px rgba(0,0,0,0.4)'
+                }}
+              />
+            )}
+          </div>
+        )}
+        
+        {/* Equipment Image */}
+        {currentImage && (
+          <div 
+            className="absolute"
+            style={{
+              left: '50%',
+              bottom: `${120 + settings.yOffset}px`,
+              transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
+              zIndex: settings.zIndex
+            }}
+          >
+            <img
+              src={currentImage.processed}
+              alt="Equipment preview"
+              className="object-contain transition-all duration-300"
+              style={{
+                maxWidth: `${200 * (settings.size / 100)}px`,
+                maxHeight: `${200 * (settings.size / 100)}px`,
+                filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Equipment position indicator */}
+        <div 
+          className="absolute w-4 h-4 border-2 border-red-400 rounded-full bg-red-100 opacity-60"
+          style={{
+            left: '50%',
+            bottom: `${120 + settings.yOffset}px`,
+            transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
+            zIndex: settings.zIndex + 1
+          }}
+        />
+        
+        {/* Grid overlay for reference */}
+        <div className="absolute inset-0 pointer-events-none">
+          <svg className="w-full h-full" viewBox="0 0 400 300">
+            <defs>
+              <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3"/>
+          </svg>
+        </div>
+      </div>
+    );
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 to-green-900 flex items-center justify-center p-6">
@@ -488,7 +697,7 @@ const InstructorInterface = () => {
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">🧪 Microbiology Lab</h1>
             <h2 className="text-xl font-semibold text-gray-600 mb-2">Instructor Portal</h2>
-            <p className="text-gray-600">Enhanced with Image Sizing & Positioning</p>
+            <p className="text-gray-600">Enhanced Lab Management System</p>
           </div>
           <div className="space-y-4">
             <input
@@ -520,7 +729,7 @@ const InstructorInterface = () => {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800">🧪 Microbiology Lab - Enhanced Instructor Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-800">🧪 Microbiology Lab - Instructor Dashboard</h1>
             <div className="flex items-center space-x-4">
               <button
                 onClick={saveAllSettings}
@@ -552,7 +761,7 @@ const InstructorInterface = () => {
               { id: 'dashboard', name: 'Student Progress', icon: '📊' },
               { id: 'equipment', name: 'Lab Equipment', icon: '🔬' },
               { id: 'equipment-images', name: 'Realistic Images', icon: '📸' },
-              { id: 'image-sizing', name: 'Image Sizing & Layout', icon: '📐' },
+              { id: 'image-sizing', name: 'Image Layout', icon: '📐' },
               { id: 'word-settings', name: 'Word Scramble', icon: '🧩' },
               { id: 'data-management', name: 'Data Management', icon: '🗂️' }
             ].map(tab => (
@@ -1085,16 +1294,16 @@ const InstructorInterface = () => {
           </div>
         )}
 
-        {/* NEW: Image Sizing & Layout Tab */}
+        {/* Image Layout Tab */}
         {activeTab === 'image-sizing' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">📐 Image Sizing & Layout Controls</h2>
+              <h2 className="text-xl font-bold text-gray-800">📐 Image Layout Controls</h2>
             </div>
             
-            {/* Equipment Selection for Sizing */}
+            {/* Equipment Selection */}
             <div className="mb-6 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Equipment & Group to Configure</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Equipment to Configure Layout</h3>
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
@@ -1112,7 +1321,7 @@ const InstructorInterface = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Number</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Group for Preview</label>
                   <select
                     value={selectedGroup}
                     onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
@@ -1124,300 +1333,263 @@ const InstructorInterface = () => {
                   </select>
                 </div>
               </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+                <p className="text-yellow-800 text-sm">
+                  <strong>Note:</strong> Layout settings apply to all groups for this equipment type. 
+                  The group selection above is only for preview purposes.
+                </p>
+              </div>
             </div>
 
             {(() => {
               const imageKey = `${selectedEquipment}_group${selectedGroup}`;
               const currentImage = equipmentImages[imageKey];
-              const currentSettings = getEquipmentSettings(selectedEquipment, selectedGroup);
+              const currentSettings = getEquipmentSettings(selectedEquipment);
               
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Controls Panel */}
                   <div className="bg-white rounded-lg shadow p-6">
                     <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                      Size & Position Controls
+                      Layout Controls for {selectedEquipment.charAt(0).toUpperCase() + selectedEquipment.slice(1)}
                     </h3>
                     
-                    {currentImage ? (
-                      <div className="space-y-6">
-                        {/* Size Control */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Equipment Size: {currentSettings.size}%
-                          </label>
-                          <input
-                            type="range"
-                            min="25"
-                            max="200"
-                            value={currentSettings.size}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              size: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>25% (Small)</span>
-                            <span>100% (Normal)</span>
-                            <span>200% (Large)</span>
-                          </div>
+                    <div className="space-y-6">
+                      {/* Size Control */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Equipment Size: {currentSettings.size}%
+                        </label>
+                        <input
+                          type="range"
+                          min="25"
+                          max="200"
+                          value={currentSettings.size}
+                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                            size: parseInt(e.target.value)
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>25% (Small)</span>
+                          <span>100% (Normal)</span>
+                          <span>200% (Large)</span>
                         </div>
+                      </div>
 
-                        {/* X Offset */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Horizontal Position: {currentSettings.xOffset}px
-                          </label>
-                          <input
-                            type="range"
-                            min="-200"
-                            max="200"
-                            value={currentSettings.xOffset}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              xOffset: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>-200px (Left)</span>
-                            <span>0px (Center)</span>
-                            <span>200px (Right)</span>
-                          </div>
+                      {/* X Offset */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Horizontal Position: {currentSettings.xOffset}px
+                        </label>
+                        <input
+                          type="range"
+                          min="-200"
+                          max="200"
+                          value={currentSettings.xOffset}
+                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                            xOffset: parseInt(e.target.value)
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>-200px (Left)</span>
+                          <span>0px (Center)</span>
+                          <span>200px (Right)</span>
                         </div>
+                      </div>
 
-                        {/* Y Offset */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Vertical Position: {currentSettings.yOffset}px
-                          </label>
-                          <input
-                            type="range"
-                            min="-100"
-                            max="100"
-                            value={currentSettings.yOffset}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              yOffset: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>-100px (Up)</span>
-                            <span>0px (Center)</span>
-                            <span>100px (Down)</span>
-                          </div>
+                      {/* Y Offset */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Vertical Position: {currentSettings.yOffset}px
+                        </label>
+                        <input
+                          type="range"
+                          min="-100"
+                          max="100"
+                          value={currentSettings.yOffset}
+                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                            yOffset: parseInt(e.target.value)
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>-100px (Up)</span>
+                          <span>0px (Center)</span>
+                          <span>100px (Down)</span>
                         </div>
+                      </div>
 
-                        {/* Rotation */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Rotation: {currentSettings.rotation}°
-                          </label>
-                          <input
-                            type="range"
-                            min="-45"
-                            max="45"
-                            value={currentSettings.rotation}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              rotation: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>-45° (Left)</span>
-                            <span>0° (Normal)</span>
-                            <span>45° (Right)</span>
-                          </div>
+                      {/* Z-Index with context */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Layer Order (Z-Index): {currentSettings.zIndex}
+                        </label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={currentSettings.zIndex}
+                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                            zIndex: parseInt(e.target.value)
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>1 (Behind)</span>
+                          <span>10 (Normal)</span>
+                          <span>20 (Front)</span>
                         </div>
-
-                        {/* Opacity */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Opacity: {currentSettings.opacity}%
-                          </label>
-                          <input
-                            type="range"
-                            min="10"
-                            max="100"
-                            value={currentSettings.opacity}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              opacity: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>10% (Transparent)</span>
-                            <span>50% (Semi)</span>
-                            <span>100% (Solid)</span>
-                          </div>
-                        </div>
-
-                        {/* Z-Index (Layer Order) */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Layer Order (Z-Index): {currentSettings.zIndex}
-                          </label>
-                          <input
-                            type="range"
-                            min="1"
-                            max="20"
-                            value={currentSettings.zIndex}
-                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              zIndex: parseInt(e.target.value)
-                            })}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>1 (Behind)</span>
-                            <span>10 (Normal)</span>
-                            <span>20 (Front)</span>
-                          </div>
-                        </div>
-
-                        {/* Table Settings */}
-                        <div className="border-t pt-4">
-                          <h4 className="font-semibold text-gray-700 mb-3">Table Settings</h4>
-                          
-                          <div className="space-y-4">
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={currentSettings.showTable}
-                                onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                                  showTable: e.target.checked
-                                })}
-                                className="mr-2"
-                              />
-                              Show table under equipment
-                            </label>
-
-                            {currentSettings.showTable && (
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Table Type
-                                </label>
-                                <select
-                                  value={currentSettings.tableType}
-                                  onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                                    tableType: e.target.value
-                                  })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="default">Default (Gray)</option>
-                                  <option value="stainless">Stainless Steel</option>
-                                  <option value="wooden">Wooden</option>
-                                </select>
+                        
+                        {/* Z-Index Context */}
+                        <div className="mt-2 bg-gray-50 rounded p-3">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2">Layer Reference:</h4>
+                          <div className="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto">
+                            {Object.entries(zIndexLayers).map(([index, description]) => (
+                              <div 
+                                key={index} 
+                                className={`flex justify-between ${
+                                  parseInt(index) === currentSettings.zIndex ? 'font-bold text-blue-600' : ''
+                                }`}
+                              >
+                                <span>{index}:</span>
+                                <span className="ml-2">{description}</span>
                               </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Reset Button */}
-                        <div className="border-t pt-4">
-                          <button
-                            onClick={() => updateEquipmentSettings(selectedEquipment, selectedGroup, {
-                              size: 100,
-                              xOffset: 0,
-                              yOffset: 0,
-                              rotation: 0,
-                              opacity: 100,
-                              zIndex: 10,
-                              showTable: true,
-                              tableType: 'default'
-                            })}
-                            className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                          >
-                            🔄 Reset to Defaults
-                          </button>
-                        </div>
-
-                        {/* Settings Summary */}
-                        <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-700 mb-2">Current Settings</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                            <div>Size: {currentSettings.size}%</div>
-                            <div>Opacity: {currentSettings.opacity}%</div>
-                            <div>X: {currentSettings.xOffset}px</div>
-                            <div>Y: {currentSettings.yOffset}px</div>
-                            <div>Rotation: {currentSettings.rotation}°</div>
-                            <div>Layer: {currentSettings.zIndex}</div>
-                            <div>Table: {currentSettings.showTable ? 'Yes' : 'No'}</div>
-                            <div>Type: {currentSettings.tableType}</div>
+                            ))}
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <div className="text-4xl mb-4">📸</div>
-                        <p className="text-lg mb-2">No image uploaded yet</p>
-                        <p className="text-sm">Upload an image in the "Realistic Images" tab first to configure its size and position.</p>
+
+                      {/* Table Settings */}
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold text-gray-700 mb-3">Table Settings</h4>
+                        
+                        <div className="space-y-4">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={currentSettings.showTable}
+                              onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                                showTable: e.target.checked
+                              })}
+                              className="mr-2"
+                            />
+                            Show table under equipment
+                          </label>
+
+                          {currentSettings.showTable && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Table Type
+                              </label>
+                              <select
+                                value={currentSettings.tableType}
+                                onChange={(e) => updateEquipmentSettings(selectedEquipment, {
+                                  tableType: e.target.value
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="default">Default (Gray)</option>
+                                <option value="stainless">Stainless Steel</option>
+                                <option value="wooden">Wooden</option>
+                                <option value="custom">Custom Image</option>
+                              </select>
+                              
+                              {/* Custom Table Image Upload */}
+                              {currentSettings.tableType === 'custom' && (
+                                <div className="mt-3">
+                                  {tableImages[selectedEquipment] ? (
+                                    <div className="space-y-2">
+                                      <img
+                                        src={tableImages[selectedEquipment].data}
+                                        alt="Custom table"
+                                        className="w-32 h-16 object-cover rounded border"
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => removeTableImage(selectedEquipment)}
+                                          className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                                        >
+                                          Remove
+                                        </button>
+                                        <label className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 cursor-pointer">
+                                          Replace
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => handleTableImageUpload(e, selectedEquipment)}
+                                            className="hidden"
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <label className="block w-full">
+                                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                                        <div className="text-lg mb-1">🏷️</div>
+                                        <p className="text-xs font-medium text-gray-700">Upload Table Image</p>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleTableImageUpload(e, selectedEquipment)}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+
+                      {/* Reset Button */}
+                      <div className="border-t pt-4">
+                        <button
+                          onClick={() => updateEquipmentSettings(selectedEquipment, {
+                            size: 100,
+                            xOffset: 0,
+                            yOffset: 0,
+                            zIndex: 10,
+                            showTable: true,
+                            tableType: 'default'
+                          })}
+                          className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                          🔄 Reset to Defaults
+                        </button>
+                      </div>
+
+                      {/* Settings Summary */}
+                      <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-2">Current Settings</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                          <div>Size: {currentSettings.size}%</div>
+                          <div>Layer: {currentSettings.zIndex}</div>
+                          <div>X: {currentSettings.xOffset}px</div>
+                          <div>Y: {currentSettings.yOffset}px</div>
+                          <div>Table: {currentSettings.showTable ? 'Yes' : 'No'}</div>
+                          <div>Type: {currentSettings.tableType}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Preview Panel */}
+                  {/* Preview Panel with Room Context */}
                   <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Live Preview</h3>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Live Room Preview</h3>
                     
                     {currentImage ? (
-                      <div className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden">
-                        {/* Preview Background */}
-                        <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-gray-100"></div>
-                        
-                        {/* Sample Table */}
-                        {currentSettings.showTable && (
-                          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
-                            <div 
-                              className={`w-32 h-16 rounded-lg shadow-lg border-2 border-gray-600 ${
-                                currentSettings.tableType === 'stainless' 
-                                  ? 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400'
-                                  : currentSettings.tableType === 'wooden'
-                                  ? 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600'
-                                  : 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500'
-                              }`}
-                            />
-                          </div>
-                        )}
-                        
-                        {/* Equipment Image Preview */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <img
-                            src={currentImage.processed}
-                            alt="Equipment preview"
-                            className="object-contain transition-all duration-300"
-                            style={{
-                              maxWidth: `${currentSettings.size * 0.8}px`,
-                              maxHeight: `${currentSettings.size * 0.8}px`,
-                              transform: `translate(${currentSettings.xOffset * 0.5}px, ${currentSettings.yOffset * 0.5}px) rotate(${currentSettings.rotation}deg)`,
-                              opacity: currentSettings.opacity / 100,
-                              zIndex: currentSettings.zIndex,
-                              filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
-                            }}
-                          />
-                        </div>
-                        
-                        {/* Grid overlay for reference */}
-                        <div className="absolute inset-0 pointer-events-none">
-                          <svg className="w-full h-full" viewBox="0 0 400 300">
-                            <defs>
-                              <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
-                                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
-                              </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.5"/>
-                          </svg>
-                        </div>
-                        
-                        {/* Center crosshair */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <div className="w-4 h-4 border-2 border-red-400 rounded-full bg-red-100 opacity-60"></div>
-                        </div>
-                      </div>
+                      renderRoomPreview(selectedEquipment)
                     ) : (
                       <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center text-gray-500">
                         <div className="text-center">
                           <div className="text-6xl mb-4">📷</div>
                           <p className="text-lg">No image to preview</p>
-                          <p className="text-sm">Upload an equipment image to see the preview</p>
+                          <p className="text-sm">Upload an equipment image in the "Realistic Images" tab to see the preview</p>
                         </div>
                       </div>
                     )}
@@ -1426,70 +1598,51 @@ const InstructorInterface = () => {
               );
             })()}
             
-            {/* Bulk Operations */}
+            {/* Apply to All Equipment */}
             <div className="mt-8 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">📋 Bulk Operations</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">📋 Apply Layout to Other Equipment</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
                   onClick={() => {
-                    if (confirm('Apply current settings to all groups for this equipment?')) {
-                      const currentSettings = getEquipmentSettings(selectedEquipment, selectedGroup);
-                      for (let i = 1; i <= 15; i++) {
-                        updateEquipmentSettings(selectedEquipment, i, currentSettings);
-                      }
-                      alert('Settings applied to all groups!');
+                    if (confirm('Apply current layout settings to all equipment types?')) {
+                      const currentSettings = getEquipmentSettings(selectedEquipment);
+                      equipmentTypes.forEach(equipment => {
+                        if (equipment !== selectedEquipment) {
+                          updateEquipmentSettings(equipment, currentSettings);
+                        }
+                      });
+                      alert('Layout settings applied to all equipment!');
                     }
                   }}
                   className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  📤 Apply to All Groups
-                  <div className="text-xs mt-1 opacity-75">For {selectedEquipment}</div>
+                  📤 Apply to All Equipment
+                  <div className="text-xs mt-1 opacity-75">Copy current settings to all types</div>
                 </button>
                 
                 <button
                   onClick={() => {
-                    if (confirm('Reset all equipment settings to defaults?')) {
+                    if (confirm('Reset all equipment layout settings to defaults?')) {
                       const defaultSettings = {
                         size: 100,
                         xOffset: 0,
                         yOffset: 0,
-                        rotation: 0,
-                        opacity: 100,
                         zIndex: 10,
                         showTable: true,
                         tableType: 'default'
                       };
                       
                       equipmentTypes.forEach(equipment => {
-                        for (let i = 1; i <= 15; i++) {
-                          updateEquipmentSettings(equipment, i, defaultSettings);
-                        }
+                        updateEquipmentSettings(equipment, defaultSettings);
                       });
-                      alert('All settings reset to defaults!');
+                      alert('All layout settings reset to defaults!');
                     }
                   }}
                   className="bg-gray-600 text-white px-4 py-3 rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  🔄 Reset All Settings
-                  <div className="text-xs mt-1 opacity-75">All equipment & groups</div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    const settings = JSON.stringify(equipmentSettings, null, 2);
-                    const blob = new Blob([settings], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'equipment_settings_backup.json';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  💾 Export Settings
-                  <div className="text-xs mt-1 opacity-75">Download JSON backup</div>
+                  🔄 Reset All Layouts
+                  <div className="text-xs mt-1 opacity-75">All equipment to defaults</div>
                 </button>
               </div>
             </div>
@@ -1657,6 +1810,7 @@ const InstructorInterface = () => {
                         equipmentImages,
                         backgroundImages,
                         equipmentSettings,
+                        tableImages,
                         wordSettings,
                         exportDate: new Date().toISOString(),
                         version: '1.0'
@@ -1702,6 +1856,7 @@ const InstructorInterface = () => {
                                 if (config.equipmentImages) setEquipmentImages(config.equipmentImages);
                                 if (config.backgroundImages) setBackgroundImages(config.backgroundImages);
                                 if (config.equipmentSettings) setEquipmentSettings(config.equipmentSettings);
+                                if (config.tableImages) setTableImages(config.tableImages);
                                 if (config.wordSettings) setWordSettings(config.wordSettings);
                                 
                                 alert('Configuration imported successfully!');
