@@ -30,13 +30,30 @@ const InstructorInterface = () => {
   const [equipmentImages, setEquipmentImages] = useState({});
   const [processingImages, setProcessingImages] = useState({});
   const [backgroundImages, setBackgroundImages] = useState({});
-  const [equipmentSettings, setEquipmentSettings] = useState({});
-  const [tableImages, setTableImages] = useState({});
+  
+  // NEW: Room Elements System
+  const [roomElements, setRoomElements] = useState({});
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [showAddElementModal, setShowAddElementModal] = useState(false);
+  const [newElementData, setNewElementData] = useState({
+    name: '',
+    type: 'furniture',
+    wall: 'north',
+    hasQuestion: false
+  });
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
 
   const equipmentTypes = ['microscope', 'incubator', 'petriDish', 'autoclave', 'centrifuge'];
+  const wallOptions = ['north', 'east', 'south', 'west'];
+  const elementTypes = {
+    furniture: 'Furniture (tables, chairs, cabinets)',
+    equipment: 'Lab Equipment (non-interactive)',
+    decoration: 'Decorative Items',
+    safety: 'Safety Equipment',
+    storage: 'Storage Items'
+  };
 
   // Z-index layers for context
   const zIndexLayers = {
@@ -69,8 +86,7 @@ const InstructorInterface = () => {
       loadWordSettings();
       loadEquipmentImages();
       loadBackgroundImages();
-      loadEquipmentSettings();
-      loadTableImages();
+      loadRoomElements();
     }
   }, [isAuthenticated]);
 
@@ -212,24 +228,13 @@ const InstructorInterface = () => {
     }
   };
 
-  const loadEquipmentSettings = () => {
-    const savedSettings = localStorage.getItem('instructor-equipment-settings');
-    if (savedSettings) {
+  const loadRoomElements = () => {
+    const savedElements = localStorage.getItem('instructor-room-elements');
+    if (savedElements) {
       try {
-        setEquipmentSettings(JSON.parse(savedSettings));
+        setRoomElements(JSON.parse(savedElements));
       } catch (error) {
-        console.error('Error loading equipment settings:', error);
-      }
-    }
-  };
-
-  const loadTableImages = () => {
-    const savedTableImages = localStorage.getItem('instructor-table-images');
-    if (savedTableImages) {
-      try {
-        setTableImages(JSON.parse(savedTableImages));
-      } catch (error) {
-        console.error('Error loading table images:', error);
+        console.error('Error loading room elements:', error);
       }
     }
   };
@@ -266,8 +271,7 @@ const InstructorInterface = () => {
       localStorage.setItem('instructor-word-settings', JSON.stringify(wordSettings));
       localStorage.setItem('instructor-equipment-images', JSON.stringify(equipmentImages));
       localStorage.setItem('instructor-background-images', JSON.stringify(backgroundImages));
-      localStorage.setItem('instructor-equipment-settings', JSON.stringify(equipmentSettings));
-      localStorage.setItem('instructor-table-images', JSON.stringify(tableImages));
+      localStorage.setItem('instructor-room-elements', JSON.stringify(roomElements));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('All settings saved successfully!');
@@ -291,26 +295,137 @@ const InstructorInterface = () => {
     }));
   };
 
-  // Enhanced equipment settings management (layout same for all groups)
-  const updateEquipmentSettings = (equipment, newSettings) => {
-    setEquipmentSettings(prev => ({
+  // NEW: Room Elements Management
+  const addRoomElement = () => {
+    if (!newElementData.name.trim()) {
+      alert('Please enter a name for the element');
+      return;
+    }
+
+    const elementId = `${newElementData.type}_${Date.now()}`;
+    const newElement = {
+      id: elementId,
+      name: newElementData.name,
+      type: newElementData.type,
+      wall: newElementData.wall,
+      hasQuestion: newElementData.hasQuestion,
+      settings: {
+        size: 100,
+        xOffset: 0,
+        yOffset: 0,
+        zIndex: 3
+      },
+      image: null,
+      question: newElementData.hasQuestion ? {
+        groups: {
+          1: [{
+            id: `${elementId}_q1`,
+            question: `Question about ${newElementData.name}...`,
+            type: 'multiple_choice',
+            options: ['Option A', 'Option B', 'Option C', 'Option D'],
+            answer: 'Option A',
+            hint: 'Hint for this question...',
+            clue: 'Clue revealed when solved...'
+          }]
+        }
+      } : null
+    };
+
+    setRoomElements(prev => ({
       ...prev,
-      [equipment]: {
-        ...prev[equipment],
-        ...newSettings
+      [elementId]: newElement
+    }));
+
+    setNewElementData({
+      name: '',
+      type: 'furniture',
+      wall: 'north',
+      hasQuestion: false
+    });
+    setShowAddElementModal(false);
+  };
+
+  const updateElementSettings = (elementId, newSettings) => {
+    setRoomElements(prev => ({
+      ...prev,
+      [elementId]: {
+        ...prev[elementId],
+        settings: {
+          ...prev[elementId].settings,
+          ...newSettings
+        }
       }
     }));
   };
 
-  const getEquipmentSettings = (equipment) => {
-    return equipmentSettings[equipment] || {
-      size: 100,
-      showTable: true,
-      tableType: 'default',
-      xOffset: 0,
-      yOffset: 0,
-      zIndex: 10
-    };
+  const updateElementQuestion = (elementId, groupNumber, questionData) => {
+    setRoomElements(prev => ({
+      ...prev,
+      [elementId]: {
+        ...prev[elementId],
+        question: {
+          ...prev[elementId].question,
+          groups: {
+            ...prev[elementId].question?.groups,
+            [groupNumber]: [questionData]
+          }
+        }
+      }
+    }));
+  };
+
+  const handleElementImageUpload = async (event, elementId) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload only image files (JPG, PNG, etc.)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setProcessingImages(prev => ({ ...prev, [elementId]: true }));
+
+    try {
+      const processedImageData = await processImage(file);
+      
+      setRoomElements(prev => ({
+        ...prev,
+        [elementId]: {
+          ...prev[elementId],
+          image: {
+            original: URL.createObjectURL(file),
+            processed: processedImageData,
+            name: file.name,
+            size: file.size,
+            lastModified: new Date().toISOString()
+          }
+        }
+      }));
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('Error processing image. Please try again.');
+    } finally {
+      setProcessingImages(prev => ({ ...prev, [elementId]: false }));
+    }
+  };
+
+  const deleteRoomElement = (elementId) => {
+    if (confirm('Are you sure you want to delete this room element?')) {
+      setRoomElements(prev => {
+        const updated = { ...prev };
+        delete updated[elementId];
+        return updated;
+      });
+      if (selectedElement === elementId) {
+        setSelectedElement(null);
+      }
+    }
   };
 
   // Image processing functions
@@ -334,7 +449,7 @@ const InstructorInterface = () => {
     return canvas.toDataURL('image/png');
   };
 
-  const processImage = (file, equipment, group) => {
+  const processImage = (file) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const canvas = canvasRef.current;
@@ -373,7 +488,7 @@ const InstructorInterface = () => {
     setProcessingImages(prev => ({ ...prev, [uploadKey]: true }));
 
     try {
-      const processedImageData = await processImage(file, equipment, group);
+      const processedImageData = await processImage(file);
       
       const imageKey = `${equipment}_group${group}`;
       setEquipmentImages(prev => ({
@@ -417,35 +532,6 @@ const InstructorInterface = () => {
       setBackgroundImages(prev => ({
         ...prev,
         [wallType]: {
-          data: e.target.result,
-          name: file.name,
-          size: file.size,
-          lastModified: new Date().toISOString()
-        }
-      }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleTableImageUpload = (event, equipment) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload only image files (JPG, PNG, etc.)');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setTableImages(prev => ({
-        ...prev,
-        [equipment]: {
           data: e.target.result,
           name: file.name,
           size: file.size,
@@ -526,16 +612,6 @@ const InstructorInterface = () => {
     }
   };
 
-  const removeTableImage = (equipment) => {
-    if (confirm('Are you sure you want to remove this table image?')) {
-      setTableImages(prev => {
-        const updated = { ...prev };
-        delete updated[equipment];
-        return updated;
-      });
-    }
-  };
-
   const addNewGroup = (equipment) => {
     const existingGroups = Object.keys(labQuestions[equipment].groups).map(Number);
     const newGroupNumber = existingGroups.length > 0 ? Math.max(...existingGroups) + 1 : 1;
@@ -555,11 +631,9 @@ const InstructorInterface = () => {
   };
 
   // Room preview component
-  const renderRoomPreview = (equipment) => {
-    const settings = getEquipmentSettings(equipment);
-    const imageKey = `${equipment}_group${selectedGroup}`;
-    const currentImage = equipmentImages[imageKey];
-    const tableImage = tableImages[equipment];
+  const renderRoomPreview = (selectedWall = 'north') => {
+    const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
+    const selectedEquipmentImage = equipmentImages[`${selectedEquipment}_group${selectedGroup}`];
     
     return (
       <div className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden">
@@ -601,79 +675,80 @@ const InstructorInterface = () => {
           <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
         </svg>
         
-        {/* Table (behind equipment) */}
-        {settings.showTable && (
-          <div 
-            className="absolute"
+        {/* Room Elements */}
+        {wallElements.map(([elementId, element]) => (
+          <div
+            key={elementId}
+            className={`absolute cursor-pointer transition-all duration-200 ${
+              selectedElement === elementId ? 'ring-2 ring-blue-500' : ''
+            }`}
             style={{
               left: '50%',
-              bottom: `${100 + settings.yOffset}px`,
-              transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
-              zIndex: Math.max(1, settings.zIndex - 1)
+              bottom: `${120 + element.settings.yOffset}px`,
+              transform: `translateX(-50%) translateX(${element.settings.xOffset}px)`,
+              zIndex: element.settings.zIndex
             }}
+            onClick={() => setSelectedElement(elementId)}
           >
-            {tableImage ? (
+            {element.image ? (
               <img
-                src={tableImage.data}
-                alt="Table"
-                className="object-contain"
+                src={element.image.processed}
+                alt={element.name}
+                className="object-contain transition-all duration-300"
                 style={{
-                  maxWidth: '160px',
-                  maxHeight: '80px',
-                  filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))'
+                  maxWidth: `${200 * (element.settings.size / 100)}px`,
+                  maxHeight: `${200 * (element.settings.size / 100)}px`,
+                  filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
                 }}
               />
             ) : (
-              <div 
-                className={`w-40 h-20 rounded-lg shadow-xl border-2 border-gray-600 ${
-                  settings.tableType === 'stainless' 
-                    ? 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400'
-                    : settings.tableType === 'wooden'
-                    ? 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600'
-                    : 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500'
-                }`}
+              <div
+                className="bg-gray-300 border-2 border-gray-500 rounded-lg flex items-center justify-center"
                 style={{
-                  boxShadow: '0 12px 24px rgba(0,0,0,0.4)'
+                  width: `${100 * (element.settings.size / 100)}px`,
+                  height: `${100 * (element.settings.size / 100)}px`
                 }}
-              />
+              >
+                <div className="text-gray-600 text-center">
+                  <div className="text-2xl mb-1">📦</div>
+                  <div className="text-xs">{element.name}</div>
+                </div>
+              </div>
             )}
+            
+            {/* Element label */}
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow">
+              {element.name}
+            </div>
           </div>
-        )}
+        ))}
         
-        {/* Equipment Image */}
-        {currentImage && (
+        {/* Selected Equipment (if any) */}
+        {selectedEquipmentImage && (
           <div 
-            className="absolute"
+            className="absolute border-2 border-green-500 rounded"
             style={{
               left: '50%',
-              bottom: `${120 + settings.yOffset}px`,
-              transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
-              zIndex: settings.zIndex
+              bottom: '120px',
+              transform: 'translateX(-50%)',
+              zIndex: 10
             }}
           >
             <img
-              src={currentImage.processed}
-              alt="Equipment preview"
+              src={selectedEquipmentImage.processed}
+              alt="Selected equipment"
               className="object-contain transition-all duration-300"
               style={{
-                maxWidth: `${200 * (settings.size / 100)}px`,
-                maxHeight: `${200 * (settings.size / 100)}px`,
+                maxWidth: '150px',
+                maxHeight: '150px',
                 filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
               }}
             />
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded shadow">
+              {selectedEquipment}
+            </div>
           </div>
         )}
-        
-        {/* Equipment position indicator */}
-        <div 
-          className="absolute w-4 h-4 border-2 border-red-400 rounded-full bg-red-100 opacity-60"
-          style={{
-            left: '50%',
-            bottom: `${120 + settings.yOffset}px`,
-            transform: `translateX(-50%) translateX(${settings.xOffset}px)`,
-            zIndex: settings.zIndex + 1
-          }}
-        />
         
         {/* Grid overlay for reference */}
         <div className="absolute inset-0 pointer-events-none">
@@ -697,7 +772,7 @@ const InstructorInterface = () => {
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">🧪 Microbiology Lab</h1>
             <h2 className="text-xl font-semibold text-gray-600 mb-2">Instructor Portal</h2>
-            <p className="text-gray-600">Enhanced Lab Management System</p>
+            <p className="text-gray-600">Enhanced Room Builder System</p>
           </div>
           <div className="space-y-4">
             <input
@@ -729,7 +804,7 @@ const InstructorInterface = () => {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800">🧪 Microbiology Lab - Instructor Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-800">🧪 Microbiology Lab - Room Builder</h1>
             <div className="flex items-center space-x-4">
               <button
                 onClick={saveAllSettings}
@@ -760,8 +835,8 @@ const InstructorInterface = () => {
             {[
               { id: 'dashboard', name: 'Student Progress', icon: '📊' },
               { id: 'equipment', name: 'Lab Equipment', icon: '🔬' },
-              { id: 'equipment-images', name: 'Realistic Images', icon: '📸' },
-              { id: 'image-sizing', name: 'Image Layout', icon: '📐' },
+              { id: 'equipment-images', name: 'Equipment Images', icon: '📸' },
+              { id: 'room-builder', name: 'Room Builder', icon: '🏗️' },
               { id: 'word-settings', name: 'Word Scramble', icon: '🧩' },
               { id: 'data-management', name: 'Data Management', icon: '🗂️' }
             ].map(tab => (
@@ -1086,7 +1161,7 @@ const InstructorInterface = () => {
         {activeTab === 'equipment-images' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">📸 Realistic Equipment & Background Images</h2>
+              <h2 className="text-xl font-bold text-gray-800">📸 Equipment Images & Backgrounds</h2>
             </div>
             
             {/* Equipment Images Section */}
@@ -1294,355 +1369,482 @@ const InstructorInterface = () => {
           </div>
         )}
 
-        {/* Image Layout Tab */}
-        {activeTab === 'image-sizing' && (
+        {/* NEW: Room Builder Tab */}
+        {activeTab === 'room-builder' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">📐 Image Layout Controls</h2>
+              <h2 className="text-xl font-bold text-gray-800">🏗️ Room Builder</h2>
+              <button
+                onClick={() => setShowAddElementModal(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                + Add Room Element
+              </button>
             </div>
             
-            {/* Equipment Selection */}
-            <div className="mb-6 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Equipment to Configure Layout</h3>
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
-                  <select
-                    value={selectedEquipment}
-                    onChange={(e) => setSelectedEquipment(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {equipmentTypes.map(equipment => (
-                      <option key={equipment} value={equipment}>
-                        {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group for Preview</label>
-                  <select
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {[...Array(15)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>Group {i + 1}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            {/* Room Elements List */}
+            <div className="mb-8 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Elements</h3>
               
-              <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
-                <p className="text-yellow-800 text-sm">
-                  <strong>Note:</strong> Layout settings apply to all groups for this equipment type. 
-                  The group selection above is only for preview purposes.
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(roomElements).map(([elementId, element]) => (
+                  <div key={elementId} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-gray-800">{element.name}</h4>
+                      <button
+                        onClick={() => deleteRoomElement(elementId)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      <div>Type: {elementTypes[element.type]}</div>
+                      <div>Wall: {element.wall}</div>
+                      <div>Interactive: {element.hasQuestion ? 'Yes' : 'No'}</div>
+                    </div>
+                    
+                    {element.image ? (
+                      <img
+                        src={element.image.processed}
+                        alt={element.name}
+                        className="w-full h-20 object-contain bg-gray-100 rounded mb-2"
+                      />
+                    ) : (
+                      <div className="w-full h-20 bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-500">
+                        No Image
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedElement(elementId)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                      >
+                        Edit
+                      </button>
+                      <label className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 cursor-pointer">
+                        Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleElementImageUpload(e, elementId)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
+            
+            {/* Element Editor */}
+            {selectedElement && roomElements[selectedElement] && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Controls Panel */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                    Edit: {roomElements[selectedElement].name}
+                  </h3>
+                  
+                  <div className="space-y-6">
+                    {/* Basic Settings */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Element Name</label>
+                      <input
+                        type="text"
+                        value={roomElements[selectedElement].name}
+                        onChange={(e) => setRoomElements(prev => ({
+                          ...prev,
+                          [selectedElement]: {
+                            ...prev[selectedElement],
+                            name: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
 
-            {(() => {
-              const imageKey = `${selectedEquipment}_group${selectedGroup}`;
-              const currentImage = equipmentImages[imageKey];
-              const currentSettings = getEquipmentSettings(selectedEquipment);
-              
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Controls Panel */}
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                      Layout Controls for {selectedEquipment.charAt(0).toUpperCase() + selectedEquipment.slice(1)}
-                    </h3>
-                    
-                    <div className="space-y-6">
-                      {/* Size Control */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Equipment Size: {currentSettings.size}%
-                        </label>
-                        <input
-                          type="range"
-                          min="25"
-                          max="200"
-                          value={currentSettings.size}
-                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                            size: parseInt(e.target.value)
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>25% (Small)</span>
-                          <span>100% (Normal)</span>
-                          <span>200% (Large)</span>
-                        </div>
-                      </div>
+                    {/* Wall Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Wall</label>
+                      <select
+                        value={roomElements[selectedElement].wall}
+                        onChange={(e) => setRoomElements(prev => ({
+                          ...prev,
+                          [selectedElement]: {
+                            ...prev[selectedElement],
+                            wall: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {wallOptions.map(wall => (
+                          <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                      {/* X Offset */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Horizontal Position: {currentSettings.xOffset}px
-                        </label>
-                        <input
-                          type="range"
-                          min="-200"
-                          max="200"
-                          value={currentSettings.xOffset}
-                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                            xOffset: parseInt(e.target.value)
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>-200px (Left)</span>
-                          <span>0px (Center)</span>
-                          <span>200px (Right)</span>
-                        </div>
-                      </div>
+                    {/* Size Control */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Size: {roomElements[selectedElement].settings.size}%
+                      </label>
+                      <input
+                        type="range"
+                        min="25"
+                        max="200"
+                        value={roomElements[selectedElement].settings.size}
+                        onChange={(e) => updateElementSettings(selectedElement, {
+                          size: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
 
-                      {/* Y Offset */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Vertical Position: {currentSettings.yOffset}px
-                        </label>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          value={currentSettings.yOffset}
-                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                            yOffset: parseInt(e.target.value)
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>-100px (Up)</span>
-                          <span>0px (Center)</span>
-                          <span>100px (Down)</span>
-                        </div>
-                      </div>
+                    {/* Position Controls */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Horizontal Position: {roomElements[selectedElement].settings.xOffset}px
+                      </label>
+                      <input
+                        type="range"
+                        min="-200"
+                        max="200"
+                        value={roomElements[selectedElement].settings.xOffset}
+                        onChange={(e) => updateElementSettings(selectedElement, {
+                          xOffset: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
 
-                      {/* Z-Index with context */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Layer Order (Z-Index): {currentSettings.zIndex}
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="20"
-                          value={currentSettings.zIndex}
-                          onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                            zIndex: parseInt(e.target.value)
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>1 (Behind)</span>
-                          <span>10 (Normal)</span>
-                          <span>20 (Front)</span>
-                        </div>
-                        
-                        {/* Z-Index Context */}
-                        <div className="mt-2 bg-gray-50 rounded p-3">
-                          <h4 className="text-xs font-semibold text-gray-700 mb-2">Layer Reference:</h4>
-                          <div className="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto">
-                            {Object.entries(zIndexLayers).map(([index, description]) => (
-                              <div 
-                                key={index} 
-                                className={`flex justify-between ${
-                                  parseInt(index) === currentSettings.zIndex ? 'font-bold text-blue-600' : ''
-                                }`}
-                              >
-                                <span>{index}:</span>
-                                <span className="ml-2">{description}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Vertical Position: {roomElements[selectedElement].settings.yOffset}px
+                      </label>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={roomElements[selectedElement].settings.yOffset}
+                        onChange={(e) => updateElementSettings(selectedElement, {
+                          yOffset: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
 
-                      {/* Table Settings */}
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-gray-700 mb-3">Table Settings</h4>
-                        
-                        <div className="space-y-4">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={currentSettings.showTable}
-                              onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                                showTable: e.target.checked
-                              })}
-                              className="mr-2"
-                            />
-                            Show table under equipment
-                          </label>
-
-                          {currentSettings.showTable && (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Table Type
-                              </label>
-                              <select
-                                value={currentSettings.tableType}
-                                onChange={(e) => updateEquipmentSettings(selectedEquipment, {
-                                  tableType: e.target.value
-                                })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="default">Default (Gray)</option>
-                                <option value="stainless">Stainless Steel</option>
-                                <option value="wooden">Wooden</option>
-                                <option value="custom">Custom Image</option>
-                              </select>
-                              
-                              {/* Custom Table Image Upload */}
-                              {currentSettings.tableType === 'custom' && (
-                                <div className="mt-3">
-                                  {tableImages[selectedEquipment] ? (
-                                    <div className="space-y-2">
-                                      <img
-                                        src={tableImages[selectedEquipment].data}
-                                        alt="Custom table"
-                                        className="w-32 h-16 object-cover rounded border"
-                                      />
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => removeTableImage(selectedEquipment)}
-                                          className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                                        >
-                                          Remove
-                                        </button>
-                                        <label className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 cursor-pointer">
-                                          Replace
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleTableImageUpload(e, selectedEquipment)}
-                                            className="hidden"
-                                          />
-                                        </label>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <label className="block w-full">
-                                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                                        <div className="text-lg mb-1">🏷️</div>
-                                        <p className="text-xs font-medium text-gray-700">Upload Table Image</p>
-                                      </div>
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => handleTableImageUpload(e, selectedEquipment)}
-                                        className="hidden"
-                                      />
-                                    </label>
-                                  )}
-                                </div>
-                              )}
+                    {/* Z-Index with context */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Layer (Z-Index): {roomElements[selectedElement].settings.zIndex}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={roomElements[selectedElement].settings.zIndex}
+                        onChange={(e) => updateElementSettings(selectedElement, {
+                          zIndex: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      
+                      {/* Z-Index Context */}
+                      <div className="mt-2 bg-gray-50 rounded p-3">
+                        <h4 className="text-xs font-semibold text-gray-700 mb-2">Layer Reference:</h4>
+                        <div className="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto">
+                          {Object.entries(zIndexLayers).map(([index, description]) => (
+                            <div 
+                              key={index} 
+                              className={`flex justify-between ${
+                                parseInt(index) === roomElements[selectedElement].settings.zIndex ? 'font-bold text-blue-600' : ''
+                              }`}
+                            >
+                              <span>{index}:</span>
+                              <span className="ml-2">{description}</span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Reset Button */}
-                      <div className="border-t pt-4">
-                        <button
-                          onClick={() => updateEquipmentSettings(selectedEquipment, {
-                            size: 100,
-                            xOffset: 0,
-                            yOffset: 0,
-                            zIndex: 10,
-                            showTable: true,
-                            tableType: 'default'
-                          })}
-                          className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                        >
-                          🔄 Reset to Defaults
-                        </button>
-                      </div>
-
-                      {/* Settings Summary */}
-                      <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Current Settings</h4>
-                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                          <div>Size: {currentSettings.size}%</div>
-                          <div>Layer: {currentSettings.zIndex}</div>
-                          <div>X: {currentSettings.xOffset}px</div>
-                          <div>Y: {currentSettings.yOffset}px</div>
-                          <div>Table: {currentSettings.showTable ? 'Yes' : 'No'}</div>
-                          <div>Type: {currentSettings.tableType}</div>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Preview Panel with Room Context */}
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Live Room Preview</h3>
-                    
-                    {currentImage ? (
-                      renderRoomPreview(selectedEquipment)
-                    ) : (
-                      <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center text-gray-500">
-                        <div className="text-center">
-                          <div className="text-6xl mb-4">📷</div>
-                          <p className="text-lg">No image to preview</p>
-                          <p className="text-sm">Upload an equipment image in the "Realistic Images" tab to see the preview</p>
+                    {/* Interactive Question Toggle */}
+                    <div className="border-t pt-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={roomElements[selectedElement].hasQuestion}
+                          onChange={(e) => {
+                            const hasQuestion = e.target.checked;
+                            setRoomElements(prev => ({
+                              ...prev,
+                              [selectedElement]: {
+                                ...prev[selectedElement],
+                                hasQuestion,
+                                question: hasQuestion ? {
+                                  groups: {
+                                    1: [{
+                                      id: `${selectedElement}_q1`,
+                                      question: `Question about ${prev[selectedElement].name}...`,
+                                      type: 'multiple_choice',
+                                      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                                      answer: 'Option A',
+                                      hint: 'Hint for this question...',
+                                      clue: 'Clue revealed when solved...'
+                                    }]
+                                  }
+                                } : null
+                              }
+                            }));
+                          }}
+                          className="mr-2"
+                        />
+                        Make this element interactive (has question/clue)
+                      </label>
+                    </div>
+
+                    {/* Question Configuration */}
+                    {roomElements[selectedElement].hasQuestion && (
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-700">Question Configuration</h4>
+                        
+                        {/* Group Selection for Questions */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Configure for Group:</label>
+                          <select
+                            value={selectedGroup}
+                            onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {[...Array(15)].map((_, i) => (
+                              <option key={i + 1} value={i + 1}>Group {i + 1}</option>
+                            ))}
+                          </select>
                         </div>
+
+                        {(() => {
+                          const currentQuestion = roomElements[selectedElement].question?.groups?.[selectedGroup]?.[0] || {
+                            id: `${selectedElement}_q1`,
+                            question: '',
+                            type: 'multiple_choice',
+                            options: ['', '', '', ''],
+                            answer: '',
+                            hint: '',
+                            clue: ''
+                          };
+                          
+                          return (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
+                                <textarea
+                                  value={currentQuestion.question}
+                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                    ...currentQuestion, 
+                                    question: e.target.value 
+                                  })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows="3"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+                                <select
+                                  value={currentQuestion.type}
+                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                    ...currentQuestion, 
+                                    type: e.target.value 
+                                  })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="multiple_choice">Multiple Choice</option>
+                                  <option value="text">Text Input</option>
+                                </select>
+                              </div>
+
+                              {currentQuestion.type === 'multiple_choice' && (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+                                  {currentQuestion.options.map((option, index) => (
+                                    <div key={index} className="flex items-center space-x-2 mb-2">
+                                      <input
+                                        type="radio"
+                                        name={`answer-${selectedElement}-${selectedGroup}`}
+                                        checked={currentQuestion.answer === option}
+                                        onChange={() => updateElementQuestion(selectedElement, selectedGroup, { 
+                                          ...currentQuestion, 
+                                          answer: option 
+                                        })}
+                                        className="text-blue-600"
+                                      />
+                                      <input
+                                        value={option}
+                                        onChange={(e) => {
+                                          const newOptions = [...currentQuestion.options];
+                                          newOptions[index] = e.target.value;
+                                          updateElementQuestion(selectedElement, selectedGroup, { 
+                                            ...currentQuestion, 
+                                            options: newOptions 
+                                          });
+                                        }}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {currentQuestion.type === 'text' && (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+                                  <input
+                                    value={currentQuestion.answer}
+                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      answer: e.target.value 
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Hint</label>
+                                <textarea
+                                  value={currentQuestion.hint}
+                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                    ...currentQuestion, 
+                                    hint: e.target.value 
+                                  })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows="2"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Clue (revealed when solved)</label>
+                                <textarea
+                                  value={currentQuestion.clue}
+                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                    ...currentQuestion, 
+                                    clue: e.target.value 
+                                  })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows="2"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
                 </div>
-              );
-            })()}
-            
-            {/* Apply to All Equipment */}
-            <div className="mt-8 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">📋 Apply Layout to Other Equipment</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  onClick={() => {
-                    if (confirm('Apply current layout settings to all equipment types?')) {
-                      const currentSettings = getEquipmentSettings(selectedEquipment);
-                      equipmentTypes.forEach(equipment => {
-                        if (equipment !== selectedEquipment) {
-                          updateEquipmentSettings(equipment, currentSettings);
+
+                {/* Preview Panel */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Preview</h3>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Preview Wall</label>
+                    <select
+                      value={roomElements[selectedElement].wall}
+                      onChange={(e) => setRoomElements(prev => ({
+                        ...prev,
+                        [selectedElement]: {
+                          ...prev[selectedElement],
+                          wall: e.target.value
                         }
-                      });
-                      alert('Layout settings applied to all equipment!');
-                    }
-                  }}
-                  className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  📤 Apply to All Equipment
-                  <div className="text-xs mt-1 opacity-75">Copy current settings to all types</div>
-                </button>
-                
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {wallOptions.map(wall => (
+                        <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {renderRoomPreview(roomElements[selectedElement].wall)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add Element Modal */}
+        {showAddElementModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Room Element</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Element Name</label>
+                  <input
+                    type="text"
+                    value={newElementData.name}
+                    onChange={(e) => setNewElementData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Lab Table, Storage Cabinet"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Element Type</label>
+                  <select
+                    value={newElementData.type}
+                    onChange={(e) => setNewElementData(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(elementTypes).map(([key, description]) => (
+                      <option key={key} value={key}>{description}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Wall</label>
+                  <select
+                    value={newElementData.wall}
+                    onChange={(e) => setNewElementData(prev => ({ ...prev, wall: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {wallOptions.map(wall => (
+                      <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={newElementData.hasQuestion}
+                      onChange={(e) => setNewElementData(prev => ({ ...prev, hasQuestion: e.target.checked }))}
+                      className="mr-2"
+                    />
+                    Make this element interactive (clickable with question)
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => {
-                    if (confirm('Reset all equipment layout settings to defaults?')) {
-                      const defaultSettings = {
-                        size: 100,
-                        xOffset: 0,
-                        yOffset: 0,
-                        zIndex: 10,
-                        showTable: true,
-                        tableType: 'default'
-                      };
-                      
-                      equipmentTypes.forEach(equipment => {
-                        updateEquipmentSettings(equipment, defaultSettings);
-                      });
-                      alert('All layout settings reset to defaults!');
-                    }
-                  }}
-                  className="bg-gray-600 text-white px-4 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+                  onClick={addRoomElement}
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  🔄 Reset All Layouts
-                  <div className="text-xs mt-1 opacity-75">All equipment to defaults</div>
+                  Add Element
+                </button>
+                <button
+                  onClick={() => setShowAddElementModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
@@ -1793,14 +1995,14 @@ const InstructorInterface = () => {
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">📦 Import/Export Configuration</h3>
               <p className="text-gray-600 mb-6">
-                Backup and restore your entire lab configuration including images, questions, and settings.
+                Backup and restore your entire lab configuration including images, questions, and room elements.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="border border-green-200 rounded-lg p-4">
                   <h4 className="font-semibold text-green-800 mb-2">Export Complete Configuration</h4>
                   <p className="text-sm text-green-600 mb-4">
-                    Download all settings, questions, images, and configurations as a backup file.
+                    Download all settings, questions, images, and room elements as a backup file.
                   </p>
                   <button
                     onClick={() => {
@@ -1809,11 +2011,10 @@ const InstructorInterface = () => {
                         labImages,
                         equipmentImages,
                         backgroundImages,
-                        equipmentSettings,
-                        tableImages,
+                        roomElements,
                         wordSettings,
                         exportDate: new Date().toISOString(),
-                        version: '1.0'
+                        version: '2.0'
                       };
                       
                       const blob = new Blob([JSON.stringify(fullConfig, null, 2)], { 
@@ -1855,8 +2056,7 @@ const InstructorInterface = () => {
                                 if (config.labImages) setLabImages(config.labImages);
                                 if (config.equipmentImages) setEquipmentImages(config.equipmentImages);
                                 if (config.backgroundImages) setBackgroundImages(config.backgroundImages);
-                                if (config.equipmentSettings) setEquipmentSettings(config.equipmentSettings);
-                                if (config.tableImages) setTableImages(config.tableImages);
+                                if (config.roomElements) setRoomElements(config.roomElements);
                                 if (config.wordSettings) setWordSettings(config.wordSettings);
                                 
                                 alert('Configuration imported successfully!');
