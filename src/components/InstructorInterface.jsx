@@ -26,10 +26,11 @@ const InstructorInterface = () => {
     groupLetters: {}
   });
 
-  // New image management state
+  // Enhanced image management state
   const [equipmentImages, setEquipmentImages] = useState({});
   const [processingImages, setProcessingImages] = useState({});
   const [backgroundImages, setBackgroundImages] = useState({});
+  const [equipmentSettings, setEquipmentSettings] = useState({});
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
@@ -43,6 +44,7 @@ const InstructorInterface = () => {
       loadWordSettings();
       loadEquipmentImages();
       loadBackgroundImages();
+      loadEquipmentSettings();
     }
   }, [isAuthenticated]);
 
@@ -184,6 +186,17 @@ const InstructorInterface = () => {
     }
   };
 
+  const loadEquipmentSettings = () => {
+    const savedSettings = localStorage.getItem('instructor-equipment-settings');
+    if (savedSettings) {
+      try {
+        setEquipmentSettings(JSON.parse(savedSettings));
+      } catch (error) {
+        console.error('Error loading equipment settings:', error);
+      }
+    }
+  };
+
   const assignLettersToGroups = (settings, word, numGroups) => {
     if (!word || numGroups < 1) return;
     
@@ -216,6 +229,7 @@ const InstructorInterface = () => {
       localStorage.setItem('instructor-word-settings', JSON.stringify(wordSettings));
       localStorage.setItem('instructor-equipment-images', JSON.stringify(equipmentImages));
       localStorage.setItem('instructor-background-images', JSON.stringify(backgroundImages));
+      localStorage.setItem('instructor-equipment-settings', JSON.stringify(equipmentSettings));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('All settings saved successfully!');
@@ -237,6 +251,32 @@ const InstructorInterface = () => {
         }
       }
     }));
+  };
+
+  // Enhanced equipment settings management
+  const updateEquipmentSettings = (equipment, group, newSettings) => {
+    const settingsKey = `${equipment}_group${group}`;
+    setEquipmentSettings(prev => ({
+      ...prev,
+      [settingsKey]: {
+        ...prev[settingsKey],
+        ...newSettings
+      }
+    }));
+  };
+
+  const getEquipmentSettings = (equipment, group) => {
+    const settingsKey = `${equipment}_group${group}`;
+    return equipmentSettings[settingsKey] || {
+      size: 100,
+      showTable: true,
+      tableType: 'default',
+      xOffset: 0,
+      yOffset: 0,
+      zIndex: 10,
+      rotation: 0,
+      opacity: 100
+    };
   };
 
   // Image processing functions
@@ -448,7 +488,7 @@ const InstructorInterface = () => {
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">🧪 Microbiology Lab</h1>
             <h2 className="text-xl font-semibold text-gray-600 mb-2">Instructor Portal</h2>
-            <p className="text-gray-600">Enhanced with Image Upload & Background Removal</p>
+            <p className="text-gray-600">Enhanced with Image Sizing & Positioning</p>
           </div>
           <div className="space-y-4">
             <input
@@ -512,6 +552,7 @@ const InstructorInterface = () => {
               { id: 'dashboard', name: 'Student Progress', icon: '📊' },
               { id: 'equipment', name: 'Lab Equipment', icon: '🔬' },
               { id: 'equipment-images', name: 'Realistic Images', icon: '📸' },
+              { id: 'image-sizing', name: 'Image Sizing & Layout', icon: '📐' },
               { id: 'word-settings', name: 'Word Scramble', icon: '🧩' },
               { id: 'data-management', name: 'Data Management', icon: '🗂️' }
             ].map(tab => (
@@ -741,6 +782,330 @@ const InstructorInterface = () => {
                           ))}
                         </div>
                       )}
+                    
+                    {/* Settings Summary */}
+                    <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-2">Current Settings</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                        <div>Size: {currentSettings.size}%</div>
+                        <div>Opacity: {currentSettings.opacity}%</div>
+                        <div>X: {currentSettings.xOffset}px</div>
+                        <div>Y: {currentSettings.yOffset}px</div>
+                        <div>Rotation: {currentSettings.rotation}°</div>
+                        <div>Layer: {currentSettings.zIndex}</div>
+                        <div>Table: {currentSettings.showTable ? 'Yes' : 'No'}</div>
+                        <div>Type: {currentSettings.tableType}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {/* Bulk Operations */}
+            <div className="mt-8 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">📋 Bulk Operations</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => {
+                    if (confirm('Apply current settings to all groups for this equipment?')) {
+                      const currentSettings = getEquipmentSettings(selectedEquipment, selectedGroup);
+                      for (let i = 1; i <= 15; i++) {
+                        updateEquipmentSettings(selectedEquipment, i, currentSettings);
+                      }
+                      alert('Settings applied to all groups!');
+                    }
+                  }}
+                  className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  📤 Apply to All Groups
+                  <div className="text-xs mt-1 opacity-75">For {selectedEquipment}</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (confirm('Reset all equipment settings to defaults?')) {
+                      const defaultSettings = {
+                        size: 100,
+                        xOffset: 0,
+                        yOffset: 0,
+                        rotation: 0,
+                        opacity: 100,
+                        zIndex: 10,
+                        showTable: true,
+                        tableType: 'default'
+                      };
+                      
+                      equipmentTypes.forEach(equipment => {
+                        for (let i = 1; i <= 15; i++) {
+                          updateEquipmentSettings(equipment, i, defaultSettings);
+                        }
+                      });
+                      alert('All settings reset to defaults!');
+                    }
+                  }}
+                  className="bg-gray-600 text-white px-4 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  🔄 Reset All Settings
+                  <div className="text-xs mt-1 opacity-75">All equipment & groups</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const settings = JSON.stringify(equipmentSettings, null, 2);
+                    const blob = new Blob([settings], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'equipment_settings_backup.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  💾 Export Settings
+                  <div className="text-xs mt-1 opacity-75">Download JSON backup</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Word Scramble Settings */}
+        {activeTab === 'word-settings' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">🧩 Word Scramble Settings</h2>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Target Word Configuration</h3>
+              <p className="text-gray-600 mb-6">
+                Set up the target word for the class word scramble challenge. Letters will be automatically 
+                distributed randomly among the groups.
+              </p>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Word</label>
+                  <input
+                    type="text"
+                    value={wordSettings.targetWord}
+                    onChange={(e) => {
+                      const newWord = e.target.value.toUpperCase();
+                      const updatedSettings = { ...wordSettings, targetWord: newWord };
+                      if (newWord.trim()) {
+                        assignLettersToGroups(updatedSettings, newWord, wordSettings.numGroups);
+                      }
+                      setWordSettings(updatedSettings);
+                    }}
+                    placeholder="Enter the target word (e.g., MICROBIOLOGY)"
+                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Groups</label>
+                  <input
+                    type="number"
+                    value={wordSettings.numGroups}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value);
+                      if (isNaN(num) || num < 1) return;
+                      const updatedSettings = { ...wordSettings, numGroups: num };
+                      if (wordSettings.targetWord.trim()) {
+                        assignLettersToGroups(updatedSettings, wordSettings.targetWord, num);
+                      }
+                      setWordSettings(updatedSettings);
+                    }}
+                    min="1"
+                    max="50"
+                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Letter Distribution Preview */}
+            {wordSettings.targetWord && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Letter Distribution Preview</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                  {Object.entries(wordSettings.groupLetters).map(([groupNum, letter]) => (
+                    <div
+                      key={groupNum}
+                      className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg text-center border border-blue-200"
+                    >
+                      <div className="font-bold text-blue-800">Group {groupNum}</div>
+                      <div className="text-3xl font-bold text-blue-600 mt-1">{letter}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const updatedSettings = { ...wordSettings };
+                    assignLettersToGroups(updatedSettings, wordSettings.targetWord, wordSettings.numGroups);
+                    setWordSettings(updatedSettings);
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  🎲 Randomize Letter Distribution Again
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Data Management */}
+        {activeTab === 'data-management' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">🗂️ Data Management & Cleanup</h2>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">⚠️ Data Cleanup Operations</h3>
+              <p className="text-gray-600 mb-6">
+                Use these tools to clear data between class sessions or when testing.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">Clear Word Scramble Progress</h4>
+                  <p className="text-sm text-red-600 mb-4">
+                    Removes all group completion records from the word scramble.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear ALL word scramble progress?')) {
+                        localStorage.removeItem('class-letters-progress');
+                        localStorage.removeItem('word-scramble-success');
+                        alert('Word scramble progress cleared!');
+                      }
+                    }}
+                    className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                  >
+                    🗑️ Clear Word Scramble Data
+                  </button>
+                </div>
+                
+                <div className="border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Clear Student Tracking Data</h4>
+                  <p className="text-sm text-orange-600 mb-4">
+                    Removes all student progress and lab completion records.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear ALL student tracking data?')) {
+                        localStorage.removeItem('instructor-student-progress');
+                        localStorage.removeItem('instructor-student-data');
+                        alert('Student tracking data cleared!');
+                      }
+                    }}
+                    className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold"
+                  >
+                    📊 Clear Student Data
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Import/Export Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">📦 Import/Export Configuration</h3>
+              <p className="text-gray-600 mb-6">
+                Backup and restore your entire lab configuration including images, questions, and settings.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2">Export Complete Configuration</h4>
+                  <p className="text-sm text-green-600 mb-4">
+                    Download all settings, questions, images, and configurations as a backup file.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const fullConfig = {
+                        labQuestions,
+                        labImages,
+                        equipmentImages,
+                        backgroundImages,
+                        equipmentSettings,
+                        wordSettings,
+                        exportDate: new Date().toISOString(),
+                        version: '1.0'
+                      };
+                      
+                      const blob = new Blob([JSON.stringify(fullConfig, null, 2)], { 
+                        type: 'application/json' 
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `microbiology_lab_config_${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold"
+                  >
+                    💾 Export Configuration
+                  </button>
+                </div>
+                
+                <div className="border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Import Configuration</h4>
+                  <p className="text-sm text-blue-600 mb-4">
+                    Restore settings from a previously exported configuration file.
+                  </p>
+                  <label className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold cursor-pointer block text-center">
+                    📁 Import Configuration
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            try {
+                              const config = JSON.parse(event.target.result);
+                              
+                              if (confirm('This will replace all current settings. Are you sure?')) {
+                                if (config.labQuestions) setLabQuestions(config.labQuestions);
+                                if (config.labImages) setLabImages(config.labImages);
+                                if (config.equipmentImages) setEquipmentImages(config.equipmentImages);
+                                if (config.backgroundImages) setBackgroundImages(config.backgroundImages);
+                                if (config.equipmentSettings) setEquipmentSettings(config.equipmentSettings);
+                                if (config.wordSettings) setWordSettings(config.wordSettings);
+                                
+                                alert('Configuration imported successfully!');
+                              }
+                            } catch (error) {
+                              alert('Error importing configuration file. Please check the file format.');
+                            }
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+    </div>
+  );
+};
+
+export default InstructorInterface;
 
                       {/* Text Answer */}
                       {currentQuestion.type === 'text' && (
@@ -1044,153 +1409,324 @@ const InstructorInterface = () => {
           </div>
         )}
 
-        {/* Word Scramble Settings */}
-        {activeTab === 'word-settings' && (
+        {/* NEW: Image Sizing & Layout Tab */}
+        {activeTab === 'image-sizing' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">🧩 Word Scramble Settings</h2>
+              <h2 className="text-xl font-bold text-gray-800">📐 Image Sizing & Layout Controls</h2>
             </div>
             
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Target Word Configuration</h3>
-              <p className="text-gray-600 mb-6">
-                Set up the target word for the class word scramble challenge. Letters will be automatically 
-                distributed randomly among the groups.
-              </p>
-              
-              <div className="space-y-6">
+            {/* Equipment Selection for Sizing */}
+            <div className="mb-6 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Equipment & Group to Configure</h3>
+              <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Word</label>
-                  <input
-                    type="text"
-                    value={wordSettings.targetWord}
-                    onChange={(e) => {
-                      const newWord = e.target.value.toUpperCase();
-                      const updatedSettings = { ...wordSettings, targetWord: newWord };
-                      if (newWord.trim()) {
-                        assignLettersToGroups(updatedSettings, newWord, wordSettings.numGroups);
-                      }
-                      setWordSettings(updatedSettings);
-                    }}
-                    placeholder="Enter the target word (e.g., MICROBIOLOGY)"
-                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
+                  <select
+                    value={selectedEquipment}
+                    onChange={(e) => setSelectedEquipment(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {equipmentTypes.map(equipment => (
+                      <option key={equipment} value={equipment}>
+                        {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Groups</label>
-                  <input
-                    type="number"
-                    value={wordSettings.numGroups}
-                    onChange={(e) => {
-                      const num = parseInt(e.target.value);
-                      if (isNaN(num) || num < 1) return;
-                      const updatedSettings = { ...wordSettings, numGroups: num };
-                      if (wordSettings.targetWord.trim()) {
-                        assignLettersToGroups(updatedSettings, wordSettings.targetWord, num);
-                      }
-                      setWordSettings(updatedSettings);
-                    }}
-                    min="1"
-                    max="50"
-                    className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Number</label>
+                  <select
+                    value={selectedGroup}
+                    onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[...Array(15)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>Group {i + 1}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
-            
-            {/* Letter Distribution Preview */}
-            {wordSettings.targetWord && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">Letter Distribution Preview</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                  {Object.entries(wordSettings.groupLetters).map(([groupNum, letter]) => (
-                    <div
-                      key={groupNum}
-                      className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg text-center border border-blue-200"
-                    >
-                      <div className="font-bold text-blue-800">Group {groupNum}</div>
-                      <div className="text-3xl font-bold text-blue-600 mt-1">{letter}</div>
-                    </div>
-                  ))}
-                </div>
-                
-                <button
-                  onClick={() => {
-                    const updatedSettings = { ...wordSettings };
-                    assignLettersToGroups(updatedSettings, wordSettings.targetWord, wordSettings.numGroups);
-                    setWordSettings(updatedSettings);
-                  }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  🎲 Randomize Letter Distribution Again
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Data Management */}
-        {activeTab === 'data-management' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">🗂️ Data Management & Cleanup</h2>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">⚠️ Data Cleanup Operations</h3>
-              <p className="text-gray-600 mb-6">
-                Use these tools to clear data between class sessions or when testing.
-              </p>
+            {(() => {
+              const imageKey = `${selectedEquipment}_group${selectedGroup}`;
+              const currentImage = equipmentImages[imageKey];
+              const currentSettings = getEquipmentSettings(selectedEquipment, selectedGroup);
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-red-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-red-800 mb-2">Clear Word Scramble Progress</h4>
-                  <p className="text-sm text-red-600 mb-4">
-                    Removes all group completion records from the word scramble.
-                  </p>
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to clear ALL word scramble progress?')) {
-                        localStorage.removeItem('class-letters-progress');
-                        localStorage.removeItem('word-scramble-success');
-                        alert('Word scramble progress cleared!');
-                      }
-                    }}
-                    className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
-                  >
-                    🗑️ Clear Word Scramble Data
-                  </button>
-                </div>
-                
-                <div className="border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">Clear Student Tracking Data</h4>
-                  <p className="text-sm text-orange-600 mb-4">
-                    Removes all student progress and lab completion records.
-                  </p>
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to clear ALL student tracking data?')) {
-                        localStorage.removeItem('instructor-student-progress');
-                        localStorage.removeItem('instructor-student-data');
-                        alert('Student tracking data cleared!');
-                      }
-                    }}
-                    className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold"
-                  >
-                    📊 Clear Student Data
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Hidden canvas for image processing */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-    </div>
-  );
-};
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Controls Panel */}
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                      Size & Position Controls
+                    </h3>
+                    
+                    {currentImage ? (
+                      <div className="space-y-6">
+                        {/* Size Control */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Equipment Size: {currentSettings.size}%
+                          </label>
+                          <input
+                            type="range"
+                            min="25"
+                            max="200"
+                            value={currentSettings.size}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              size: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>25% (Small)</span>
+                            <span>100% (Normal)</span>
+                            <span>200% (Large)</span>
+                          </div>
+                        </div>
 
-export default InstructorInterface;
+                        {/* X Offset */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Horizontal Position: {currentSettings.xOffset}px
+                          </label>
+                          <input
+                            type="range"
+                            min="-200"
+                            max="200"
+                            value={currentSettings.xOffset}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              xOffset: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>-200px (Left)</span>
+                            <span>0px (Center)</span>
+                            <span>200px (Right)</span>
+                          </div>
+                        </div>
+
+                        {/* Y Offset */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Vertical Position: {currentSettings.yOffset}px
+                          </label>
+                          <input
+                            type="range"
+                            min="-100"
+                            max="100"
+                            value={currentSettings.yOffset}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              yOffset: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>-100px (Up)</span>
+                            <span>0px (Center)</span>
+                            <span>100px (Down)</span>
+                          </div>
+                        </div>
+
+                        {/* Rotation */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Rotation: {currentSettings.rotation}°
+                          </label>
+                          <input
+                            type="range"
+                            min="-45"
+                            max="45"
+                            value={currentSettings.rotation}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              rotation: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>-45° (Left)</span>
+                            <span>0° (Normal)</span>
+                            <span>45° (Right)</span>
+                          </div>
+                        </div>
+
+                        {/* Opacity */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Opacity: {currentSettings.opacity}%
+                          </label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            value={currentSettings.opacity}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              opacity: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>10% (Transparent)</span>
+                            <span>50% (Semi)</span>
+                            <span>100% (Solid)</span>
+                          </div>
+                        </div>
+
+                        {/* Z-Index (Layer Order) */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Layer Order (Z-Index): {currentSettings.zIndex}
+                          </label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="20"
+                            value={currentSettings.zIndex}
+                            onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              zIndex: parseInt(e.target.value)
+                            })}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>1 (Behind)</span>
+                            <span>10 (Normal)</span>
+                            <span>20 (Front)</span>
+                          </div>
+                        </div>
+
+                        {/* Table Settings */}
+                        <div className="border-t pt-4">
+                          <h4 className="font-semibold text-gray-700 mb-3">Table Settings</h4>
+                          
+                          <div className="space-y-4">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={currentSettings.showTable}
+                                onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                                  showTable: e.target.checked
+                                })}
+                                className="mr-2"
+                              />
+                              Show table under equipment
+                            </label>
+
+                            {currentSettings.showTable && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Table Type
+                                </label>
+                                <select
+                                  value={currentSettings.tableType}
+                                  onChange={(e) => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                                    tableType: e.target.value
+                                  })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="default">Default (Gray)</option>
+                                  <option value="stainless">Stainless Steel</option>
+                                  <option value="wooden">Wooden</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Reset Button */}
+                        <div className="border-t pt-4">
+                          <button
+                            onClick={() => updateEquipmentSettings(selectedEquipment, selectedGroup, {
+                              size: 100,
+                              xOffset: 0,
+                              yOffset: 0,
+                              rotation: 0,
+                              opacity: 100,
+                              zIndex: 10,
+                              showTable: true,
+                              tableType: 'default'
+                            })}
+                            className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                          >
+                            🔄 Reset to Defaults
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="text-4xl mb-4">📸</div>
+                        <p className="text-lg mb-2">No image uploaded yet</p>
+                        <p className="text-sm">Upload an image in the "Realistic Images" tab first to configure its size and position.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Preview Panel */}
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Live Preview</h3>
+                    
+                    {currentImage ? (
+                      <div className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden">
+                        {/* Preview Background */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-gray-100"></div>
+                        
+                        {/* Sample Table */}
+                        {currentSettings.showTable && (
+                          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
+                            <div 
+                              className={`w-32 h-16 rounded-lg shadow-lg border-2 border-gray-600 ${
+                                currentSettings.tableType === 'stainless' 
+                                  ? 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400'
+                                  : currentSettings.tableType === 'wooden'
+                                  ? 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600'
+                                  : 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500'
+                              }`}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Equipment Image Preview */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <img
+                            src={currentImage.processed}
+                            alt="Equipment preview"
+                            className="object-contain transition-all duration-300"
+                            style={{
+                              maxWidth: `${currentSettings.size * 0.8}px`,
+                              maxHeight: `${currentSettings.size * 0.8}px`,
+                              transform: `translate(${currentSettings.xOffset * 0.5}px, ${currentSettings.yOffset * 0.5}px) rotate(${currentSettings.rotation}deg)`,
+                              opacity: currentSettings.opacity / 100,
+                              zIndex: currentSettings.zIndex,
+                              filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
+                            }}
+                          />
+                        </div>
+                        
+                        {/* Grid overlay for reference */}
+                        <div className="absolute inset-0 pointer-events-none">
+                          <svg className="w-full h-full" viewBox="0 0 400 300">
+                            <defs>
+                              <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.5"/>
+                          </svg>
+                        </div>
+                        
+                        {/* Center crosshair */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-red-400 rounded-full bg-red-100 opacity-60"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center text-gray-500">
+                        <div className="text-center">
+                          <div className="text-6xl mb-4">📷</div>
+                          <p className="text-lg">No image to preview</p>
+                          <p className="text-sm">Upload an equipment image to see the preview</p>
+                        </div>
+                      </div>
+                    )}
