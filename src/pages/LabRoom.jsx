@@ -14,6 +14,7 @@ export default function LabRoom() {
   const [equipmentImages, setEquipmentImages] = useState({})
   const [backgroundImages, setBackgroundImages] = useState({})
   const [equipmentSettings, setEquipmentSettings] = useState({})
+  const [tableImages, setTableImages] = useState({})
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt, startRoomTimer, completeRoom } = useGame()
@@ -43,6 +44,7 @@ export default function LabRoom() {
     loadEquipmentImages()
     loadBackgroundImages()
     loadEquipmentSettings()
+    loadTableImages()
   }, [studentInfo])
 
   const loadGroupContent = () => {
@@ -90,37 +92,49 @@ export default function LabRoom() {
     }
   }
 
+  const loadTableImages = () => {
+    const savedTableImages = localStorage.getItem('instructor-table-images')
+    if (savedTableImages) {
+      try {
+        setTableImages(JSON.parse(savedTableImages))
+      } catch (error) {
+        console.error('Error loading table images:', error)
+      }
+    }
+  }
+
   const getEquipmentImage = (equipmentType, groupNumber) => {
     const imageKey = `${equipmentType}_group${groupNumber}`
     return equipmentImages[imageKey]?.processed || null
   }
 
-  const getEquipmentSettings = (equipmentType, groupNumber) => {
-    const settingsKey = `${equipmentType}_group${groupNumber}`
-    return equipmentSettings[settingsKey] || {
+  const getEquipmentSettings = (equipmentType) => {
+    return equipmentSettings[equipmentType] || {
       size: 100,
       showTable: true,
       tableType: 'default',
       xOffset: 0,
       yOffset: 0,
-      zIndex: 10,
-      rotation: 0,
-      opacity: 100
+      zIndex: 10
     }
+  }
+
+  const getTableImage = (equipmentType) => {
+    return tableImages[equipmentType]?.data || null
   }
 
   const getBackgroundImage = (wall) => {
     return backgroundImages[wall]?.data || null
   }
 
-  const handleEquipmentClick = (equipmentType, position) => {
-    // Mark equipment as discovered
+  const handleEquipmentClick = (equipmentType) => {
+    // Mark equipment as discovered and active
     setEquipmentStates(prev => ({
       ...prev,
       [equipmentType]: { ...prev[equipmentType], discovered: true, active: true }
     }))
 
-    // Load equipment-specific content
+    // Open equipment modal
     openEquipmentModal(equipmentType)
   }
 
@@ -198,8 +212,33 @@ export default function LabRoom() {
     setCurrentWall((prev) => (prev + 1) % 4) // Rotate clockwise
   }
 
-  const renderTableComponent = (settings) => {
+  const renderTableComponent = (equipmentType, settings) => {
     if (!settings.showTable) return null
+
+    const tableImage = getTableImage(equipmentType)
+    
+    if (tableImage) {
+      return (
+        <div 
+          className="absolute -bottom-12 left-1/2 transform -translate-x-1/2"
+          style={{
+            transform: `translateX(-50%) translateY(${settings.yOffset * 0.1}px)`,
+            zIndex: Math.max(1, settings.zIndex - 1)
+          }}
+        >
+          <img
+            src={tableImage}
+            alt="Table"
+            className="object-contain"
+            style={{
+              maxWidth: '160px',
+              maxHeight: '80px',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))'
+            }}
+          />
+        </div>
+      )
+    }
 
     // Default table based on type with enhanced styling
     const tableStyles = {
@@ -265,7 +304,7 @@ export default function LabRoom() {
 
   const renderEquipmentComponent = (equipmentType, state) => {
     const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
-    const settings = getEquipmentSettings(equipmentType, studentInfo?.groupNumber)
+    const settings = getEquipmentSettings(equipmentType)
     
     if (equipmentImage) {
       // Calculate responsive sizes based on settings
@@ -280,14 +319,15 @@ export default function LabRoom() {
             transform: `translate(${settings.xOffset}px, ${settings.yOffset}px)`,
             zIndex: settings.zIndex
           }}
+          onClick={() => handleEquipmentClick(equipmentType)}
         >
           {/* Table component */}
-          {renderTableComponent(settings)}
+          {renderTableComponent(equipmentType, settings)}
           
           <img
             src={equipmentImage}
             alt={equipmentType}
-            className={`object-contain transition-all duration-300 ${
+            className={`object-contain transition-all duration-300 w-full h-full ${
               state.solved 
                 ? 'filter drop-shadow-lg brightness-110 saturate-110' 
                 : state.active 
@@ -297,14 +337,11 @@ export default function LabRoom() {
             style={{
               maxWidth: `${maxWidth}px`,
               maxHeight: `${maxHeight}px`,
-              opacity: settings.opacity / 100,
-              transform: `rotate(${settings.rotation}deg)`,
               filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
                 state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
                 state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
               }`
             }}
-            onClick={() => handleEquipmentClick(equipmentType)}
           />
           
           {/* Enhanced status indicator overlay */}
@@ -363,12 +400,13 @@ export default function LabRoom() {
       <div 
         className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
         style={{
-          transform: `translate(${settings.xOffset}px, ${settings.yOffset}px) rotate(${settings.rotation}deg)`,
+          transform: `translate(${settings.xOffset}px, ${settings.yOffset}px)`,
           zIndex: settings.zIndex
         }}
+        onClick={() => handleEquipmentClick(equipmentType)}
       >
         {/* Table component */}
-        {renderTableComponent(settings)}
+        {renderTableComponent(equipmentType, settings)}
         
         <div 
           className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
@@ -383,10 +421,8 @@ export default function LabRoom() {
           style={{
             width: `${96 * (settings.size / 100)}px`,
             height: `${96 * (settings.size / 100)}px`,
-            fontSize: `${48 * (settings.size / 100)}px`,
-            opacity: settings.opacity / 100
+            fontSize: `${48 * (settings.size / 100)}px`
           }}
-          onClick={() => handleEquipmentClick(equipmentType)}
         >
           {equipmentType === 'microscope' && '🔬'}
           {equipmentType === 'incubator' && '🌡️'}
@@ -551,7 +587,7 @@ export default function LabRoom() {
         {/* Equipment Positioning with enhanced 3D perspective and custom settings */}
         <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
           {equipment.map((equipmentType, index) => {
-            const settings = getEquipmentSettings(equipmentType, studentInfo?.groupNumber)
+            const settings = getEquipmentSettings(equipmentType)
             
             // Dynamic positioning based on equipment count and settings
             const positions = equipment.length === 1 
@@ -635,7 +671,7 @@ export default function LabRoom() {
               <span className="text-green-600 mr-4">✓ {Object.keys(backgroundImages).length} Custom Backgrounds</span>
             )}
             {Object.keys(equipmentSettings).length > 0 && (
-              <span className="text-blue-600 mr-4">🎛️ {Object.keys(equipmentSettings).length} Custom Sizing Settings</span>
+              <span className="text-blue-600 mr-4">🎛️ Custom Layout Applied</span>
             )}
             {Object.keys(equipmentImages).length === 0 && Object.keys(backgroundImages).length === 0 && (
               <span className="text-amber-600">⚠ Using default graphics - upload images in instructor portal for realistic view</span>
@@ -679,7 +715,7 @@ export default function LabRoom() {
           {/* Current Wall Display */}
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">{wallNames[currentWall]}</h2>
-            <p className="text-gray-600">Look around the laboratory to find and analyze equipment</p>
+            <p className="text-gray-600">Click directly on equipment images to analyze them</p>
           </div>
 
           {/* Enhanced Navigation Controls */}
@@ -766,7 +802,7 @@ export default function LabRoom() {
           <h3 className="text-xl font-bold mb-3">🚨 Emergency Protocol</h3>
           <ul className="space-y-2 text-sm">
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
-            <li>• <strong>Investigate:</strong> Click on equipment to analyze the patient sample</li>
+            <li>• <strong>Click Equipment:</strong> Click directly on any equipment image to analyze it</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
             <li>• <strong>Save Patient:</strong> Complete all analyses to determine treatment</li>
             <li>• <strong>Time Critical:</strong> The patient's condition is deteriorating - work quickly!</li>
