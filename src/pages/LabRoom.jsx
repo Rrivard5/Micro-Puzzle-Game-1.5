@@ -6,6 +6,7 @@ import Modal from '../components/UI/Modal'
 export default function LabRoom() {
   const [discoveredClues, setDiscoveredClues] = useState({})
   const [solvedEquipment, setSolvedEquipment] = useState({})
+  const [solvedElements, setSolvedElements] = useState({})
   const [activeModal, setActiveModal] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -13,8 +14,7 @@ export default function LabRoom() {
   const [currentWall, setCurrentWall] = useState(0) // 0=North, 1=East, 2=South, 3=West
   const [equipmentImages, setEquipmentImages] = useState({})
   const [backgroundImages, setBackgroundImages] = useState({})
-  const [equipmentSettings, setEquipmentSettings] = useState({})
-  const [tableImages, setTableImages] = useState({})
+  const [roomElements, setRoomElements] = useState({})
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt, startRoomTimer, completeRoom } = useGame()
@@ -27,6 +27,9 @@ export default function LabRoom() {
     autoclave: { discovered: false, active: false, solved: false },
     centrifuge: { discovered: false, active: false, solved: false }
   })
+
+  // Element states for room elements
+  const [elementStates, setElementStates] = useState({})
 
   // Define equipment positions by wall
   const wallEquipment = {
@@ -43,8 +46,7 @@ export default function LabRoom() {
     loadGroupContent()
     loadEquipmentImages()
     loadBackgroundImages()
-    loadEquipmentSettings()
-    loadTableImages()
+    loadRoomElements()
   }, [studentInfo])
 
   const loadGroupContent = () => {
@@ -81,24 +83,25 @@ export default function LabRoom() {
     }
   }
 
-  const loadEquipmentSettings = () => {
-    const savedSettings = localStorage.getItem('instructor-equipment-settings')
-    if (savedSettings) {
+  const loadRoomElements = () => {
+    const savedElements = localStorage.getItem('instructor-room-elements')
+    if (savedElements) {
       try {
-        setEquipmentSettings(JSON.parse(savedSettings))
+        const elements = JSON.parse(savedElements)
+        setRoomElements(elements)
+        
+        // Initialize element states
+        const initialStates = {}
+        Object.keys(elements).forEach(elementId => {
+          initialStates[elementId] = {
+            discovered: false,
+            active: false,
+            solved: false
+          }
+        })
+        setElementStates(initialStates)
       } catch (error) {
-        console.error('Error loading equipment settings:', error)
-      }
-    }
-  }
-
-  const loadTableImages = () => {
-    const savedTableImages = localStorage.getItem('instructor-table-images')
-    if (savedTableImages) {
-      try {
-        setTableImages(JSON.parse(savedTableImages))
-      } catch (error) {
-        console.error('Error loading table images:', error)
+        console.error('Error loading room elements:', error)
       }
     }
   }
@@ -106,21 +109,6 @@ export default function LabRoom() {
   const getEquipmentImage = (equipmentType, groupNumber) => {
     const imageKey = `${equipmentType}_group${groupNumber}`
     return equipmentImages[imageKey]?.processed || null
-  }
-
-  const getEquipmentSettings = (equipmentType) => {
-    return equipmentSettings[equipmentType] || {
-      size: 100,
-      showTable: true,
-      tableType: 'default',
-      xOffset: 0,
-      yOffset: 0,
-      zIndex: 10
-    }
-  }
-
-  const getTableImage = (equipmentType) => {
-    return tableImages[equipmentType]?.data || null
   }
 
   const getBackgroundImage = (wall) => {
@@ -138,12 +126,38 @@ export default function LabRoom() {
     openEquipmentModal(equipmentType)
   }
 
+  const handleElementClick = (elementId) => {
+    const element = roomElements[elementId]
+    if (!element || !element.hasQuestion) return
+
+    // Mark element as discovered and active
+    setElementStates(prev => ({
+      ...prev,
+      [elementId]: { ...prev[elementId], discovered: true, active: true }
+    }))
+
+    // Open element modal
+    openElementModal(elementId)
+  }
+
   const openEquipmentModal = (equipmentType) => {
     setActiveModal(equipmentType)
     setModalContent({
       type: equipmentType,
       title: getEquipmentTitle(equipmentType),
-      description: getEquipmentDescription(equipmentType)
+      description: getEquipmentDescription(equipmentType),
+      isEquipment: true
+    })
+  }
+
+  const openElementModal = (elementId) => {
+    const element = roomElements[elementId]
+    setActiveModal(elementId)
+    setModalContent({
+      type: elementId,
+      title: `🔍 ${element.name}`,
+      description: `Examining ${element.name}...`,
+      isEquipment: false
     })
   }
 
@@ -178,12 +192,31 @@ export default function LabRoom() {
     }))
     setActiveModal(null)
     
-    // Check if all equipment is solved
-    const newSolved = { ...solvedEquipment, [equipmentType]: true }
-    const totalEquipment = Object.keys(equipmentStates).length
-    const solvedCount = Object.values(newSolved).filter(Boolean).length
+    checkLabCompletion()
+  }
+
+  const handleElementSolved = (elementId, clue) => {
+    setSolvedElements(prev => ({ ...prev, [elementId]: true }))
+    setDiscoveredClues(prev => ({ ...prev, [elementId]: clue }))
+    setElementStates(prev => ({
+      ...prev,
+      [elementId]: { ...prev[elementId], solved: true, active: false }
+    }))
+    setActiveModal(null)
     
-    if (solvedCount >= totalEquipment) {
+    checkLabCompletion()
+  }
+
+  const checkLabCompletion = () => {
+    // Check if all required equipment is solved
+    const totalEquipment = Object.keys(equipmentStates).length
+    const solvedEquipmentCount = Object.values(solvedEquipment).filter(Boolean).length
+    
+    // Check if all interactive elements are solved
+    const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+    const solvedElementsCount = Object.values(solvedElements).filter(Boolean).length
+    
+    if (solvedEquipmentCount >= totalEquipment && solvedElementsCount >= interactiveElements.length) {
       setTimeout(() => {
         setLabLocked(false)
       }, 1000)
@@ -191,8 +224,12 @@ export default function LabRoom() {
   }
 
   const handleLabExit = async () => {
-    if (Object.values(solvedEquipment).length < Object.keys(equipmentStates).length) {
-      alert('You must analyze all equipment to identify the pathogen before treating the patient!')
+    const totalEquipment = Object.keys(equipmentStates).length
+    const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+    
+    if (Object.values(solvedEquipment).length < totalEquipment || 
+        Object.values(solvedElements).length < interactiveElements.length) {
+      alert('You must analyze all equipment and interactive elements to identify the pathogen before treating the patient!')
       return
     }
     
@@ -212,118 +249,15 @@ export default function LabRoom() {
     setCurrentWall((prev) => (prev + 1) % 4) // Rotate clockwise
   }
 
-  const renderTableComponent = (equipmentType, settings) => {
-    if (!settings.showTable) return null
-
-    const tableImage = getTableImage(equipmentType)
-    
-    if (tableImage) {
-      return (
-        <div 
-          className="absolute -bottom-12 left-1/2 transform -translate-x-1/2"
-          style={{
-            transform: `translateX(-50%) translateY(${settings.yOffset * 0.1}px)`,
-            zIndex: Math.max(1, settings.zIndex - 1)
-          }}
-        >
-          <img
-            src={tableImage}
-            alt="Table"
-            className="object-contain"
-            style={{
-              maxWidth: '160px',
-              maxHeight: '80px',
-              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3))'
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Default table based on type with enhanced styling
-    const tableStyles = {
-      default: {
-        gradient: 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-500',
-        border: 'border-gray-600',
-        highlight: 'from-white via-transparent to-transparent'
-      },
-      stainless: {
-        gradient: 'bg-gradient-to-b from-gray-100 via-gray-200 to-gray-400',
-        border: 'border-gray-500',
-        highlight: 'from-white via-transparent to-transparent'
-      },
-      wooden: {
-        gradient: 'bg-gradient-to-b from-amber-200 via-amber-300 to-amber-600',
-        border: 'border-amber-700',
-        highlight: 'from-amber-100 via-transparent to-transparent'
-      }
-    }
-
-    const style = tableStyles[settings.tableType] || tableStyles.default
-
-    return (
-      <div 
-        className="absolute -bottom-12 left-1/2 transform -translate-x-1/2"
-        style={{
-          transform: `translateX(-50%) translateY(${settings.yOffset * 0.1}px)`,
-          zIndex: Math.max(1, settings.zIndex - 1)
-        }}
-      >
-        <div 
-          className={`w-40 h-20 ${style.gradient} rounded-lg shadow-xl border-2 ${style.border}`}
-          style={{
-            boxShadow: '0 12px 24px rgba(0,0,0,0.4), inset 0 3px 6px rgba(255,255,255,0.3)'
-          }}
-        >
-          {/* Table surface detail */}
-          <div className={`absolute inset-2 bg-gradient-to-br ${style.highlight} rounded-md opacity-30`}></div>
-          
-          {/* Table edge */}
-          <div className={`absolute inset-x-2 bottom-0 h-3 ${style.border.replace('border-', 'bg-')} rounded-b-md shadow-inner`}></div>
-          
-          {/* Power outlet */}
-          <div className="absolute top-2 right-2 w-5 h-4 bg-white border border-gray-500 rounded-sm shadow-inner">
-            <div className="flex justify-center items-center h-full">
-              <div className="flex gap-1">
-                <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-                <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Equipment power indicator */}
-          <div className="absolute top-2 left-2 w-2 h-2 bg-green-400 rounded-full shadow-sm opacity-80"></div>
-        </div>
-        
-        {/* Table legs with perspective */}
-        <div className="absolute -bottom-8 left-4 w-3 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform rotate-1"></div>
-        <div className="absolute -bottom-8 right-4 w-3 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform -rotate-1"></div>
-      </div>
-    )
-  }
-
   const renderEquipmentComponent = (equipmentType, state) => {
     const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
-    const settings = getEquipmentSettings(equipmentType)
     
     if (equipmentImage) {
-      // Calculate responsive sizes based on settings
-      const baseSizeMultiplier = settings.size / 100
-      const maxWidth = Math.min(300 * baseSizeMultiplier, window.innerWidth * 0.3)
-      const maxHeight = Math.min(300 * baseSizeMultiplier, window.innerHeight * 0.4)
-      
       return (
         <div 
           className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
-          style={{
-            transform: `translate(${settings.xOffset}px, ${settings.yOffset}px)`,
-            zIndex: settings.zIndex
-          }}
           onClick={() => handleEquipmentClick(equipmentType)}
         >
-          {/* Table component */}
-          {renderTableComponent(equipmentType, settings)}
-          
           <img
             src={equipmentImage}
             alt={equipmentType}
@@ -335,8 +269,8 @@ export default function LabRoom() {
                 : 'filter drop-shadow-sm hover:drop-shadow-lg'
             }`}
             style={{
-              maxWidth: `${maxWidth}px`,
-              maxHeight: `${maxHeight}px`,
+              maxWidth: '200px',
+              maxHeight: '200px',
               filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
                 state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
                 state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
@@ -345,10 +279,7 @@ export default function LabRoom() {
           />
           
           {/* Enhanced status indicator overlay */}
-          <div 
-            className="absolute top-0 right-0 transform translate-x-2 -translate-y-2"
-            style={{ zIndex: settings.zIndex + 1 }}
-          >
+          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
             <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold shadow-lg ${
               state.solved 
                 ? 'bg-green-500 text-white' 
@@ -362,14 +293,8 @@ export default function LabRoom() {
             </div>
           </div>
           
-          {/* Equipment label with dynamic positioning */}
-          <div 
-            className="absolute left-1/2 transform -translate-x-1/2 text-center"
-            style={{ 
-              bottom: `-${48 + Math.abs(settings.yOffset * 0.1)}px`,
-              zIndex: settings.zIndex + 1
-            }}
-          >
+          {/* Equipment label */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
             <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
               {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
             </div>
@@ -379,11 +304,7 @@ export default function LabRoom() {
           
           {/* Enhanced hover tooltip */}
           <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-               style={{ 
-                 top: `-${80 + Math.abs(settings.yOffset * 0.1)}px`,
-                 maxWidth: '250px',
-                 whiteSpace: 'normal'
-               }}>
+               style={{ top: '-80px', maxWidth: '250px', whiteSpace: 'normal' }}>
             {state.solved 
               ? "Equipment analysis complete - data recorded" 
               : state.active 
@@ -395,21 +316,14 @@ export default function LabRoom() {
       )
     }
     
-    // Fallback to default icon if no image (with settings applied)
+    // Fallback to default icon if no image
     return (
       <div 
         className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
-        style={{
-          transform: `translate(${settings.xOffset}px, ${settings.yOffset}px)`,
-          zIndex: settings.zIndex
-        }}
         onClick={() => handleEquipmentClick(equipmentType)}
       >
-        {/* Table component */}
-        {renderTableComponent(equipmentType, settings)}
-        
         <div 
-          className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
+          className={`w-24 h-24 rounded-lg flex items-center justify-center transition-all duration-300 ${
             state.solved 
               ? 'bg-green-100 border-2 border-green-400 shadow-lg' 
               : state.active 
@@ -418,26 +332,17 @@ export default function LabRoom() {
               ? 'bg-blue-100 border-2 border-blue-400 shadow-sm'
               : 'bg-gray-100 border-2 border-gray-300'
           }`}
-          style={{
-            width: `${96 * (settings.size / 100)}px`,
-            height: `${96 * (settings.size / 100)}px`,
-            fontSize: `${48 * (settings.size / 100)}px`
-          }}
         >
-          {equipmentType === 'microscope' && '🔬'}
-          {equipmentType === 'incubator' && '🌡️'}
-          {equipmentType === 'petriDish' && '🧫'}
-          {equipmentType === 'autoclave' && '♨️'}
-          {equipmentType === 'centrifuge' && '🌪️'}
+          <div className="text-4xl">
+            {equipmentType === 'microscope' && '🔬'}
+            {equipmentType === 'incubator' && '🌡️'}
+            {equipmentType === 'petriDish' && '🧫'}
+            {equipmentType === 'autoclave' && '♨️'}
+            {equipmentType === 'centrifuge' && '🌪️'}
+          </div>
         </div>
         
-        <div 
-          className="absolute left-1/2 transform -translate-x-1/2 text-center"
-          style={{ 
-            bottom: `-${48 + Math.abs(settings.yOffset * 0.1)}px`,
-            zIndex: settings.zIndex + 1
-          }}
-        >
+        <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
           <div className="bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-bold text-gray-700 border border-gray-200">
             {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
           </div>
@@ -446,10 +351,114 @@ export default function LabRoom() {
     )
   }
 
+  const renderRoomElement = (elementId, element) => {
+    const state = elementStates[elementId] || { discovered: false, active: false, solved: false }
+    
+    return (
+      <div
+        key={elementId}
+        className={`relative group transition-all duration-300 ${element.hasQuestion ? 'cursor-pointer hover:scale-105' : ''}`}
+        style={{
+          transform: `translate(${element.settings.xOffset}px, ${element.settings.yOffset}px)`,
+          zIndex: element.settings.zIndex
+        }}
+        onClick={() => element.hasQuestion && handleElementClick(elementId)}
+      >
+        {element.image ? (
+          <img
+            src={element.image.processed}
+            alt={element.name}
+            className={`object-contain transition-all duration-300 ${
+              state.solved 
+                ? 'filter drop-shadow-lg brightness-110 saturate-110' 
+                : state.active 
+                ? 'filter drop-shadow-md brightness-105 animate-pulse' 
+                : 'filter drop-shadow-sm hover:drop-shadow-lg'
+            }`}
+            style={{
+              maxWidth: `${200 * (element.settings.size / 100)}px`,
+              maxHeight: `${200 * (element.settings.size / 100)}px`,
+              filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
+                state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
+                state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
+              }`
+            }}
+          />
+        ) : (
+          <div
+            className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
+              state.solved 
+                ? 'bg-green-100 border-2 border-green-400 shadow-lg' 
+                : state.active 
+                ? 'bg-yellow-100 border-2 border-yellow-400 shadow-md animate-pulse' 
+                : state.discovered
+                ? 'bg-blue-100 border-2 border-blue-400 shadow-sm'
+                : 'bg-gray-100 border-2 border-gray-300'
+            }`}
+            style={{
+              width: `${100 * (element.settings.size / 100)}px`,
+              height: `${100 * (element.settings.size / 100)}px`
+            }}
+          >
+            <div className="text-gray-600 text-center">
+              <div className="text-2xl mb-1">📦</div>
+              <div className="text-xs">{element.name}</div>
+            </div>
+          </div>
+        )}
+        
+        {/* Status indicator for interactive elements */}
+        {element.hasQuestion && (
+          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
+            <div className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold shadow-lg ${
+              state.solved 
+                ? 'bg-green-500 text-white' 
+                : state.active 
+                ? 'bg-yellow-500 text-white animate-pulse' 
+                : state.discovered
+                ? 'bg-blue-500 text-white'
+                : 'bg-purple-400 text-white'
+            }`}>
+              {state.solved ? '✓' : state.active ? '⚡' : state.discovered ? '?' : '◉'}
+            </div>
+          </div>
+        )}
+        
+        {/* Element label */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-40px' }}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg text-xs font-bold text-gray-700 border border-gray-200">
+            {element.name}
+          </div>
+          {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Complete</div>}
+          {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Active</div>}
+          {element.hasQuestion && !state.discovered && <div className="text-xs text-purple-600 mt-1 font-semibold">◉ Interactive</div>}
+        </div>
+        
+        {/* Hover tooltip for interactive elements */}
+        {element.hasQuestion && (
+          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+               style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
+            {state.solved 
+              ? "Element analysis complete - data recorded" 
+              : state.active 
+              ? "Currently examining..." 
+              : `Click to examine ${element.name}`
+            }
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderWallContent = () => {
     const equipment = wallEquipment[currentWall] || []
     const wallNames = ['north', 'east', 'south', 'west']
     const backgroundImage = getBackgroundImage(wallNames[currentWall])
+    
+    // Get room elements for this wall
+    const wallElements = Object.entries(roomElements).filter(([id, element]) => 
+      element.wall === wallNames[currentWall]
+    )
     
     return (
       <div className="relative w-full h-[600px] overflow-hidden rounded-xl border-4 border-gray-600 shadow-2xl">
@@ -584,12 +593,28 @@ export default function LabRoom() {
           }}
         />
 
-        {/* Equipment Positioning with enhanced 3D perspective and custom settings */}
+        {/* Room Elements Positioning */}
+        <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
+          {wallElements.map(([elementId, element]) => (
+            <div 
+              key={elementId}
+              className="absolute"
+              style={{
+                left: '50%',
+                bottom: `${200 + element.settings.yOffset}px`,
+                transform: `translateX(-50%) translateX(${element.settings.xOffset}px)`,
+                zIndex: element.settings.zIndex
+              }}
+            >
+              {renderRoomElement(elementId, element)}
+            </div>
+          ))}
+        </div>
+
+        {/* Equipment Positioning */}
         <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
           {equipment.map((equipmentType, index) => {
-            const settings = getEquipmentSettings(equipmentType)
-            
-            // Dynamic positioning based on equipment count and settings
+            // Dynamic positioning based on equipment count
             const positions = equipment.length === 1 
               ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
               : equipment.length === 2
@@ -611,13 +636,10 @@ export default function LabRoom() {
                 className="absolute"
                 style={{
                   ...position,
-                  zIndex: settings.zIndex
+                  zIndex: 10 // Equipment always on top
                 }}
               >
-                {/* Equipment Component with all settings applied */}
-                <div>
-                  {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
-                </div>
+                {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
               </div>
             )
           })}
@@ -642,6 +664,8 @@ export default function LabRoom() {
 
   const solvedCount = Object.values(solvedEquipment).filter(Boolean).length
   const totalEquipment = Object.keys(equipmentStates).length
+  const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+  const solvedElementsCount = Object.values(solvedElements).filter(Boolean).length
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-blue-100 relative overflow-hidden">
@@ -662,7 +686,7 @@ export default function LabRoom() {
           <div className="h-1 w-48 mx-auto bg-gradient-to-r from-red-500 to-blue-500 mb-4 animate-pulse"></div>
           <p className="text-red-700 text-lg font-semibold">Group {studentInfo?.groupNumber} - Patient Sample Investigation</p>
           
-          {/* Enhanced status indicator with sizing info */}
+          {/* Enhanced status indicator */}
           <div className="mt-2 text-sm">
             {Object.keys(equipmentImages).length > 0 && (
               <span className="text-green-600 mr-4">✓ {Object.keys(equipmentImages).length} Custom Equipment Images</span>
@@ -670,42 +694,81 @@ export default function LabRoom() {
             {Object.keys(backgroundImages).length > 0 && (
               <span className="text-green-600 mr-4">✓ {Object.keys(backgroundImages).length} Custom Backgrounds</span>
             )}
-            {Object.keys(equipmentSettings).length > 0 && (
-              <span className="text-blue-600 mr-4">🎛️ Custom Layout Applied</span>
+            {Object.keys(roomElements).length > 0 && (
+              <span className="text-blue-600 mr-4">🏗️ {Object.keys(roomElements).length} Room Elements</span>
             )}
-            {Object.keys(equipmentImages).length === 0 && Object.keys(backgroundImages).length === 0 && (
-              <span className="text-amber-600">⚠ Using default graphics - upload images in instructor portal for realistic view</span>
+            {interactiveElements.length > 0 && (
+              <span className="text-purple-600 mr-4">◉ {interactiveElements.length} Interactive Elements</span>
             )}
           </div>
         </div>
 
         {/* Enhanced Progress Indicator */}
         <div className="mb-6 bg-white bg-opacity-95 rounded-xl p-4 text-center shadow-xl border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-800 mb-2">🔍 Patient Sample Analysis Progress</h3>
-          <div className="flex justify-center gap-2 mb-2">
-            {Object.entries(equipmentStates).map(([type, state]) => (
-              <div
-                key={type}
-                className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
-                  state.solved 
-                    ? 'bg-green-500 text-white border-green-600 shadow-lg scale-110' 
-                    : state.discovered
-                    ? 'bg-yellow-500 text-white border-yellow-600 shadow-lg animate-pulse'
-                    : 'bg-gray-300 text-gray-600 border-gray-400'
-                }`}
-              >
-                {state.solved ? '✓' : state.discovered ? '?' : '○'}
-              </div>
-            ))}
+          <h3 className="text-lg font-bold text-gray-800 mb-2">🔍 Investigation Progress</h3>
+          
+          {/* Equipment Progress */}
+          <div className="mb-3">
+            <div className="flex justify-center gap-2 mb-2">
+              {Object.entries(equipmentStates).map(([type, state]) => (
+                <div
+                  key={type}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
+                    state.solved 
+                      ? 'bg-green-500 text-white border-green-600 shadow-lg scale-110' 
+                      : state.discovered
+                      ? 'bg-yellow-500 text-white border-yellow-600 shadow-lg animate-pulse'
+                      : 'bg-gray-300 text-gray-600 border-gray-400'
+                  }`}
+                >
+                  {state.solved ? '✓' : state.discovered ? '?' : '○'}
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-gray-600">
+              Equipment: {solvedCount}/{totalEquipment} analyzed
+            </p>
           </div>
+
+          {/* Interactive Elements Progress */}
+          {interactiveElements.length > 0 && (
+            <div className="mb-3">
+              <div className="flex justify-center gap-2 mb-2">
+                {interactiveElements.map((element, index) => {
+                  const elementState = elementStates[element.id] || { solved: false, discovered: false }
+                  return (
+                    <div
+                      key={element.id}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 ${
+                        elementState.solved 
+                          ? 'bg-purple-500 text-white border-purple-600 shadow-lg scale-110' 
+                          : elementState.discovered
+                          ? 'bg-yellow-500 text-white border-yellow-600 shadow-lg animate-pulse'
+                          : 'bg-gray-300 text-gray-600 border-gray-400'
+                      }`}
+                    >
+                      {elementState.solved ? '✓' : elementState.discovered ? '?' : '◉'}
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-sm text-gray-600">
+                Interactive Elements: {solvedElementsCount}/{interactiveElements.length} examined
+              </p>
+            </div>
+          )}
+
+          {/* Overall Progress */}
           <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
             <div 
               className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-500"
-              style={{ width: `${(solvedCount / totalEquipment) * 100}%` }}
+              style={{ 
+                width: `${((solvedCount + solvedElementsCount) / (totalEquipment + interactiveElements.length)) * 100}%` 
+              }}
             ></div>
           </div>
           <p className="text-sm text-gray-600">
-            {solvedCount}/{totalEquipment} analyses complete - Patient diagnosis: {labLocked ? 'PENDING' : 'READY'}
+            Overall Progress: {solvedCount + solvedElementsCount}/{totalEquipment + interactiveElements.length} - Patient diagnosis: {labLocked ? 'PENDING' : 'READY'}
           </p>
         </div>
 
@@ -715,7 +778,7 @@ export default function LabRoom() {
           {/* Current Wall Display */}
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">{wallNames[currentWall]}</h2>
-            <p className="text-gray-600">Click directly on equipment images to analyze them</p>
+            <p className="text-gray-600">Click on equipment and interactive elements to analyze them</p>
           </div>
 
           {/* Enhanced Navigation Controls */}
@@ -743,7 +806,7 @@ export default function LabRoom() {
             </button>
           </div>
 
-          {/* Wall Content with custom sizing */}
+          {/* Wall Content */}
           {renderWallContent()}
 
           {/* Lab Exit */}
@@ -776,19 +839,20 @@ export default function LabRoom() {
         {/* Discovered Clues Panel */}
         {Object.keys(discoveredClues).length > 0 && (
           <div className="mt-8 bg-white bg-opacity-95 rounded-xl p-6 shadow-xl border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">📋 Patient Analysis Results</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">📋 Investigation Results</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(discoveredClues).map(([equipment, clue]) => (
-                <div key={equipment} className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-md">
+              {Object.entries(discoveredClues).map(([item, clue]) => (
+                <div key={item} className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-md">
                   <h4 className="font-bold text-blue-800 mb-2 flex items-center">
                     <span className="mr-2">
-                      {equipment === 'microscope' && '🔬'}
-                      {equipment === 'incubator' && '🌡️'}
-                      {equipment === 'petriDish' && '🧫'}
-                      {equipment === 'autoclave' && '♨️'}
-                      {equipment === 'centrifuge' && '🌪️'}
+                      {item === 'microscope' && '🔬'}
+                      {item === 'incubator' && '🌡️'}
+                      {item === 'petriDish' && '🧫'}
+                      {item === 'autoclave' && '♨️'}
+                      {item === 'centrifuge' && '🌪️'}
+                      {!['microscope', 'incubator', 'petriDish', 'autoclave', 'centrifuge'].includes(item) && '🔍'}
                     </span>
-                    {getEquipmentTitle(equipment).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
+                    {roomElements[item] ? roomElements[item].name : getEquipmentTitle(item).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
                   </h4>
                   <p className="text-blue-700 text-sm">{clue}</p>
                 </div>
@@ -802,23 +866,27 @@ export default function LabRoom() {
           <h3 className="text-xl font-bold mb-3">🚨 Emergency Protocol</h3>
           <ul className="space-y-2 text-sm">
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
-            <li>• <strong>Click Equipment:</strong> Click directly on any equipment image to analyze it</li>
+            <li>• <strong>Click Equipment:</strong> Click directly on any equipment or interactive element to analyze it</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
-            <li>• <strong>Save Patient:</strong> Complete all analyses to determine treatment</li>
+            <li>• <strong>Complete Investigation:</strong> Analyze all equipment and interactive elements</li>
+            <li>• <strong>Save Patient:</strong> Submit your diagnosis when all analyses are complete</li>
             <li>• <strong>Time Critical:</strong> The patient's condition is deteriorating - work quickly!</li>
           </ul>
         </div>
       </div>
 
-      {/* Equipment Modal */}
-      <Modal
-        isOpen={activeModal !== null}
-        onClose={() => setActiveModal(null)}
-        title={modalContent?.title}
-        equipmentType={activeModal}
-        studentGroup={studentInfo?.groupNumber}
-        onSolved={handleEquipmentSolved}
-      />
+      {/* Enhanced Modal for both Equipment and Elements */}
+      {activeModal && (
+        <Modal
+          isOpen={activeModal !== null}
+          onClose={() => setActiveModal(null)}
+          title={modalContent?.title}
+          equipmentType={modalContent?.isEquipment ? activeModal : null}
+          elementId={modalContent?.isEquipment ? null : activeModal}
+          studentGroup={studentInfo?.groupNumber}
+          onSolved={modalContent?.isEquipment ? handleEquipmentSolved : handleElementSolved}
+        />
+      )}
     </div>
   )
 }
