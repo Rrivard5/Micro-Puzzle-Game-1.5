@@ -542,7 +542,7 @@ export default function LabRoom() {
                   <ellipse cx="400" cy="500" rx="120" ry="25" fill="#fef7cd" opacity="0.2"/>
                   <ellipse cx="600" cy="500" rx="100" ry="20" fill="#fef7cd" opacity="0.2"/>
                 </svg>
-              `)}'),
+              `)}')`,
             backgroundSize: backgroundImage ? 'cover' : 'contain',
             backgroundPosition: 'center'
           }}
