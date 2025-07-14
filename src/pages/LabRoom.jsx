@@ -145,66 +145,151 @@ export default function LabRoom() {
     const equipment = wallEquipment[currentWall] || []
     
     return (
-      <div className="relative w-full h-96 bg-gradient-to-b from-slate-100 to-gray-300 rounded-xl border-4 border-gray-500 overflow-hidden shadow-2xl">
-        {/* Realistic Wall Background */}
-        <div className="absolute inset-0">
-          {/* Base wall color */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-gray-200"></div>
-          
-          {/* Wall texture */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="w-full h-full bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-          </div>
-          
-          {/* Wall panels/tiles */}
-          <div className="absolute inset-4 grid grid-cols-6 grid-rows-4 gap-1">
-            {[...Array(24)].map((_, i) => (
-              <div key={i} className="bg-slate-100 border border-gray-200 rounded-sm shadow-sm"></div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Ceiling fixtures */}
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 flex gap-8">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="w-16 h-3 bg-gradient-to-b from-yellow-200 to-yellow-100 rounded-lg shadow-md opacity-90"></div>
-          ))}
-        </div>
-        
-        {/* Floor */}
-        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-400 via-gray-300 to-transparent"></div>
-        
-        {/* Equipment on this wall */}
-        <div className="relative z-10 h-full flex items-center justify-around px-8">
-          {equipment.map((equipmentType, index) => (
-            <div key={equipmentType} className="flex flex-col items-center">
-              
-              {/* Realistic Lab Table/Counter for equipment */}
-              <div className="relative">
-                {/* Table Surface */}
-                <div className="w-40 h-20 bg-gradient-to-b from-gray-200 to-gray-400 rounded-lg shadow-2xl border-2 border-gray-500 mb-4">
-                  {/* Table surface detail */}
-                  <div className="absolute inset-2 bg-gradient-to-b from-gray-100 to-gray-300 rounded-md"></div>
-                  {/* Table edge */}
-                  <div className="absolute inset-x-2 bottom-0 h-2 bg-gray-500 rounded-b-md"></div>
-                  
-                  {/* Electrical outlet */}
-                  <div className="absolute top-2 right-2 w-4 h-3 bg-white border border-gray-400 rounded-sm">
-                    <div className="flex justify-center items-center h-full">
-                      <div className="flex gap-1">
-                        <div className="w-1 h-1 bg-gray-600 rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-600 rounded-full"></div>
+      <div className="relative w-full h-[500px] overflow-hidden rounded-xl border-4 border-gray-600 shadow-2xl">
+        {/* 3D Perspective Lab Background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `linear-gradient(rgba(240,242,247,0.85), rgba(240,242,247,0.85)), url('data:image/svg+xml,${encodeURIComponent(`
+              <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                <!-- Floor with perspective -->
+                <defs>
+                  <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#e8eaed"/>
+                    <stop offset="100%" stop-color="#d1d5db"/>
+                  </linearGradient>
+                  <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f8fafc"/>
+                    <stop offset="100%" stop-color="#e2e8f0"/>
+                  </linearGradient>
+                  <pattern id="floorTiles" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <rect width="40" height="40" fill="#f1f5f9"/>
+                    <rect width="38" height="38" x="1" y="1" fill="#e2e8f0" stroke="#cbd5e0" stroke-width="0.5"/>
+                  </pattern>
+                  <pattern id="wallTiles" x="0" y="0" width="50" height="30" patternUnits="userSpaceOnUse">
+                    <rect width="50" height="30" fill="#f8fafc"/>
+                    <rect width="48" height="28" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="0.5"/>
+                  </pattern>
+                </defs>
+                
+                <!-- Back wall -->
+                <polygon points="100,50 700,50 750,150 50,150" fill="url(#wallTiles)" stroke="#cbd5e0"/>
+                
+                <!-- Left wall -->
+                <polygon points="50,150 100,50 100,350 50,450" fill="url(#wallGrad)" stroke="#cbd5e0"/>
+                
+                <!-- Right wall -->
+                <polygon points="700,50 750,150 750,450 700,350" fill="url(#wallGrad)" stroke="#cbd5e0"/>
+                
+                <!-- Floor -->
+                <polygon points="50,150 750,150 750,450 50,450" fill="url(#floorTiles)" stroke="#9ca3af"/>
+                
+                <!-- Ceiling -->
+                <polygon points="50,150 100,50 700,50 750,150" fill="#f1f5f9" stroke="#d1d5db"/>
+                
+                <!-- Ceiling lights -->
+                <rect x="200" y="60" width="80" height="15" fill="#fbbf24" opacity="0.8" rx="7"/>
+                <rect x="350" y="70" width="80" height="15" fill="#fbbf24" opacity="0.8" rx="7"/>
+                <rect x="500" y="65" width="80" height="15" fill="#fbbf24" opacity="0.8" rx="7"/>
+                
+                <!-- Wall features based on current wall -->
+                ${currentWall === 0 ? `
+                  <!-- Window on north wall -->
+                  <rect x="300" y="80" width="120" height="80" fill="#bfdbfe" stroke="#3b82f6" stroke-width="2" rx="5"/>
+                  <line x1="360" y1="80" x2="360" y2="160" stroke="#3b82f6" stroke-width="2"/>
+                  <line x1="300" y1="120" x2="420" y2="120" stroke="#3b82f6" stroke-width="2"/>
+                ` : ''}
+                
+                ${currentWall === 1 ? `
+                  <!-- Emergency shower on east wall -->
+                  <rect x="650" y="90" width="40" height="80" fill="#fbbf24" stroke="#d97706" stroke-width="2" rx="3"/>
+                  <circle cx="670" cy="95" r="8" fill="#9ca3af"/>
+                  <rect x="665" y="105" width="10" height="30" fill="#dc2626"/>
+                  <text x="670" y="175" text-anchor="middle" font-size="8" fill="#dc2626">EMERGENCY</text>
+                ` : ''}
+                
+                ${currentWall === 2 ? `
+                  <!-- Exit door on south wall -->
+                  <rect x="350" y="400" width="80" height="50" fill="#92400e" stroke="#451a03" stroke-width="2" rx="3"/>
+                  <circle cx="415" cy="425" r="3" fill="#fbbf24"/>
+                  <rect x="370" y="320" width="40" height="15" fill="#22c55e" rx="3"/>
+                  <text x="390" y="332" text-anchor="middle" font-size="8" fill="white">EXIT</text>
+                ` : ''}
+                
+                ${currentWall === 3 ? `
+                  <!-- Lab sink on west wall -->
+                  <rect x="80" y="300" width="60" height="40" fill="#9ca3af" stroke="#6b7280" stroke-width="2" rx="5"/>
+                  <circle cx="110" cy="290" r="8" fill="#6b7280"/>
+                  <circle cx="100" cy="285" r="3" fill="#3b82f6"/>
+                  <circle cx="120" cy="285" r="3" fill="#ef4444"/>
+                ` : ''}
+                
+                <!-- Lab benches/counters perspective -->
+                <polygon points="150,200 650,200 680,240 120,240" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
+                <polygon points="120,240 680,240 680,260 120,260" fill="#d1d5db" stroke="#9ca3af"/>
+                
+                <!-- Electrical outlets -->
+                <rect x="200" y="220" width="12" height="8" fill="white" stroke="#6b7280" rx="1"/>
+                <rect x="400" y="220" width="12" height="8" fill="white" stroke="#6b7280" rx="1"/>
+                <rect x="600" y="220" width="12" height="8" fill="white" stroke="#6b7280" rx="1"/>
+              </svg>
+            `)}')`
+          }}
+        />
+
+        {/* Equipment Positioning with 3D perspective */}
+        <div className="absolute inset-0 flex items-end justify-around px-16 pb-32">
+          {equipment.map((equipmentType, index) => {
+            const basePositions = [
+              { left: '15%', transform: 'scale(0.8)' },
+              { left: '35%', transform: 'scale(0.9)' },
+              { left: '55%', transform: 'scale(1.0)' },
+              { right: '15%', transform: 'scale(0.8)' }
+            ]
+            
+            const position = basePositions[index] || basePositions[0]
+            
+            return (
+              <div 
+                key={equipmentType} 
+                className="absolute"
+                style={{
+                  ...position,
+                  bottom: '120px',
+                  zIndex: 10 + index
+                }}
+              >
+                {/* Lab Counter/Table Base with 3D effect */}
+                <div className="relative mb-4">
+                  <div 
+                    className="w-32 h-16 bg-gradient-to-b from-gray-300 to-gray-500 rounded-lg shadow-xl border-2 border-gray-600"
+                    style={{
+                      boxShadow: '0 8px 16px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.3)'
+                    }}
+                  >
+                    {/* Table surface detail */}
+                    <div className="absolute inset-2 bg-gradient-to-b from-gray-200 to-gray-400 rounded-md"></div>
+                    {/* Table edge highlight */}
+                    <div className="absolute inset-x-2 bottom-0 h-2 bg-gray-600 rounded-b-md"></div>
+                    
+                    {/* Power outlet */}
+                    <div className="absolute top-2 right-2 w-4 h-3 bg-white border border-gray-500 rounded-sm">
+                      <div className="flex justify-center items-center h-full">
+                        <div className="flex gap-1">
+                          <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                          <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Table legs with perspective */}
+                  <div className="absolute -bottom-8 left-3 w-2 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform rotate-1"></div>
+                  <div className="absolute -bottom-8 right-3 w-2 h-8 bg-gradient-to-b from-gray-500 to-gray-700 rounded-b-lg shadow-lg transform -rotate-1"></div>
                 </div>
-                
-                {/* Table legs */}
-                <div className="absolute -bottom-12 left-4 w-3 h-12 bg-gradient-to-b from-gray-400 to-gray-600 rounded-b-lg shadow-lg"></div>
-                <div className="absolute -bottom-12 right-4 w-3 h-12 bg-gradient-to-b from-gray-400 to-gray-600 rounded-b-lg shadow-lg"></div>
-                
-                {/* Equipment on table */}
-                <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
+
+                {/* Equipment Component on table */}
+                <div className="absolute -top-20 left-1/2 transform -translate-x-1/2">
                   {equipmentType === 'microscope' && (
                     <Microscope
                       isDiscovered={equipmentStates.microscope.discovered}
@@ -252,72 +337,22 @@ export default function LabRoom() {
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* Wall-specific realistic features */}
-        {currentWall === 0 && ( // North wall - window with blinds
-          <div className="absolute top-8 right-8 w-32 h-20 bg-blue-100 border-4 border-gray-500 rounded shadow-2xl">
-            {/* Window frame */}
-            <div className="absolute inset-1 bg-gradient-to-b from-blue-50 to-blue-200 rounded">
-              {/* Window panes */}
-              <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1 p-1">
-                <div className="bg-blue-50 border border-gray-300 rounded-sm"></div>
-                <div className="bg-blue-50 border border-gray-300 rounded-sm"></div>
-                <div className="bg-blue-50 border border-gray-300 rounded-sm"></div>
-                <div className="bg-blue-50 border border-gray-300 rounded-sm"></div>
-              </div>
-              {/* Window frame cross */}
-              <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-400 transform -translate-y-1/2"></div>
-              <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-gray-400 transform -translate-x-1/2"></div>
-            </div>
-            {/* Window sill */}
-            <div className="absolute -bottom-2 -left-1 -right-1 h-2 bg-gray-400 rounded-b-lg shadow-lg"></div>
-          </div>
-        )}
-
-        {currentWall === 1 && ( // East wall - emergency shower
-          <div className="absolute top-4 left-8 w-12 h-24 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded border-2 border-yellow-700 shadow-lg">
-            {/* Shower head */}
-            <div className="absolute top-2 left-1/2 transform -translate-x-1/2 w-8 h-4 bg-gray-400 rounded-full border border-gray-600"></div>
-            {/* Pull chain */}
-            <div className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 h-8 bg-gray-600 rounded"></div>
-            <div className="absolute top-14 left-1/2 transform -translate-x-1/2 w-3 h-2 bg-red-500 rounded"></div>
-            {/* Emergency sign */}
-            <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs font-bold text-red-700">EMERGENCY</div>
-          </div>
-        )}
-
-        {currentWall === 2 && ( // South wall - exit door
-          <div className="absolute bottom-4 right-12 w-20 h-40 bg-gradient-to-b from-amber-600 to-amber-800 rounded-t border-4 border-amber-900 shadow-2xl">
-            {/* Door panels */}
-            <div className="absolute inset-2 bg-gradient-to-b from-amber-500 to-amber-700 rounded-t">
-              <div className="absolute top-4 left-2 right-2 h-12 border-2 border-amber-800 rounded"></div>
-              <div className="absolute bottom-16 left-2 right-2 h-12 border-2 border-amber-800 rounded"></div>
-            </div>
-            {/* Door handle */}
-            <div className="absolute top-20 right-1 w-3 h-4 bg-yellow-400 rounded border border-yellow-600 shadow-lg"></div>
-            {/* Exit sign */}
-            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">
-              EXIT
-            </div>
-          </div>
-        )}
-
-        {currentWall === 3 && ( // West wall - lab sink
-          <div className="absolute bottom-8 left-8 w-24 h-16 bg-gradient-to-b from-gray-100 to-gray-300 rounded border-2 border-gray-400 shadow-lg">
-            {/* Sink basin */}
-            <div className="absolute inset-2 bg-gradient-to-b from-gray-200 to-gray-400 rounded"></div>
-            {/* Faucet */}
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-6 bg-gray-500 rounded-b-lg border border-gray-600"></div>
-            {/* Handles */}
-            <div className="absolute -top-2 left-4 w-2 h-2 bg-blue-500 rounded-full"></div>
-            <div className="absolute -top-2 right-4 w-2 h-2 bg-red-500 rounded-full"></div>
-            {/* Drain */}
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-700 rounded-full"></div>
-          </div>
-        )}
+        {/* Lab atmosphere effects */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Soft lighting gradient */}
+          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-yellow-100 via-transparent to-transparent opacity-20"></div>
+          
+          {/* Ambient lighting spots */}
+          <div className="absolute top-8 left-1/4 w-24 h-24 bg-yellow-200 rounded-full blur-xl opacity-10"></div>
+          <div className="absolute top-12 right-1/4 w-32 h-32 bg-yellow-100 rounded-full blur-xl opacity-15"></div>
+          
+          {/* Floor reflection effect */}
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-20"></div>
+        </div>
       </div>
     )
   }
