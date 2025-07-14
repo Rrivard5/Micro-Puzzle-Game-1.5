@@ -64,10 +64,10 @@ export default function StudentInfo() {
       // Set in context
       setStudentInfo(studentInfo);
       
-      // Navigate to Lab
+      // Navigate to PPE Room first
       setTimeout(() => {
         setIsSubmitting(false);
-        navigate('/lab');
+        navigate('/ppe-room');
       }, 500);
     }
   };
