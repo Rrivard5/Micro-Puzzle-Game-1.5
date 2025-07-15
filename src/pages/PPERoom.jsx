@@ -269,12 +269,6 @@ export default function PPERoom() {
                         {lockerOpen ? '🔓' : '🔒'}
                       </div>
                     </div>
-                    {/* Lock interaction hint */}
-                    {!lockerOpen && (
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 bg-white px-2 py-1 rounded shadow">
-                        Click to unlock
-                      </div>
-                    )}
                   </div>
                   
                   {/* Locker Number Plate */}
