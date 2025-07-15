@@ -252,100 +252,69 @@ export default function LabRoom() {
   const renderEquipmentComponent = (equipmentType, state) => {
     const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
     
-    if (equipmentImage) {
-      return (
-        <div 
-          className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
-          onClick={() => handleEquipmentClick(equipmentType)}
-        >
-          <img
-            src={equipmentImage}
-            alt={equipmentType}
-            className={`object-contain transition-all duration-300 w-full h-full ${
-              state.solved 
-                ? 'filter drop-shadow-lg brightness-110 saturate-110' 
-                : state.active 
-                ? 'filter drop-shadow-md brightness-105 animate-pulse' 
-                : 'filter drop-shadow-sm hover:drop-shadow-lg'
-            }`}
-            style={{
-              maxWidth: '200px',
-              maxHeight: '200px',
-              filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
-                state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
-                state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
-              }`
-            }}
-          />
-          
-          {/* Enhanced status indicator overlay */}
-          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
-            <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold shadow-lg ${
-              state.solved 
-                ? 'bg-green-500 text-white' 
-                : state.active 
-                ? 'bg-yellow-500 text-white animate-pulse' 
-                : state.discovered
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-400 text-gray-600'
-            }`}>
-              {state.solved ? '✓' : state.active ? '⚡' : state.discovered ? '?' : '○'}
-            </div>
-          </div>
-          
-          {/* Equipment label */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
-            <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
-              {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
-            </div>
-            {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Analysis Complete</div>}
-            {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Analyzing...</div>}
-          </div>
-          
-          {/* Enhanced hover tooltip */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-               style={{ top: '-80px', maxWidth: '250px', whiteSpace: 'normal' }}>
-            {state.solved 
-              ? "Equipment analysis complete - data recorded" 
-              : state.active 
-              ? "Currently analyzing patient sample..." 
-              : `Click to analyze ${equipmentType} for pathogen identification`
-            }
-          </div>
-        </div>
-      )
+    // Only render if we have an image - this prevents the grey dots issue
+    if (!equipmentImage) {
+      return null
     }
     
-    // Fallback to default icon if no image
     return (
       <div 
         className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
         onClick={() => handleEquipmentClick(equipmentType)}
       >
-        <div 
-          className={`w-24 h-24 rounded-lg flex items-center justify-center transition-all duration-300 ${
+        <img
+          src={equipmentImage}
+          alt={equipmentType}
+          className={`object-contain transition-all duration-300 w-full h-full ${
             state.solved 
-              ? 'bg-green-100 border-2 border-green-400 shadow-lg' 
+              ? 'filter drop-shadow-lg brightness-110 saturate-110' 
               : state.active 
-              ? 'bg-yellow-100 border-2 border-yellow-400 shadow-md animate-pulse' 
-              : state.discovered
-              ? 'bg-blue-100 border-2 border-blue-400 shadow-sm'
-              : 'bg-gray-100 border-2 border-gray-300'
+              ? 'filter drop-shadow-md brightness-105 animate-pulse' 
+              : 'filter drop-shadow-sm hover:drop-shadow-lg'
           }`}
-        >
-          <div className="text-4xl">
-            {equipmentType === 'microscope' && '🔬'}
-            {equipmentType === 'incubator' && '🌡️'}
-            {equipmentType === 'petriDish' && '🧫'}
-            {equipmentType === 'autoclave' && '♨️'}
-            {equipmentType === 'centrifuge' && '🌪️'}
+          style={{
+            maxWidth: '200px',
+            maxHeight: '200px',
+            filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
+              state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
+              state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
+            }`
+          }}
+        />
+        
+        {/* Enhanced status indicator overlay */}
+        <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
+          <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold shadow-lg ${
+            state.solved 
+              ? 'bg-green-500 text-white' 
+              : state.active 
+              ? 'bg-yellow-500 text-white animate-pulse' 
+              : state.discovered
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-400 text-gray-600'
+          }`}>
+            {state.solved ? '✓' : state.active ? '⚡' : state.discovered ? '?' : '○'}
           </div>
         </div>
         
+        {/* Equipment label */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
-          <div className="bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-bold text-gray-700 border border-gray-200">
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
             {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
           </div>
+          {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Analysis Complete</div>}
+          {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Analyzing...</div>}
+        </div>
+        
+        {/* Enhanced hover tooltip */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+             style={{ top: '-80px', maxWidth: '250px', whiteSpace: 'normal' }}>
+          {state.solved 
+            ? "Equipment analysis complete - data recorded" 
+            : state.active 
+            ? "Currently analyzing patient sample..." 
+            : `Click to analyze ${equipmentType} for pathogen identification`
+          }
         </div>
       </div>
     )
@@ -459,6 +428,12 @@ export default function LabRoom() {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => 
       element.wall === wallNames[currentWall]
     )
+    
+    // Filter equipment to only show those with images
+    const visibleEquipment = equipment.filter(equipmentType => {
+      const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
+      return equipmentImage !== null
+    })
     
     return (
       <div className="relative w-full h-[600px] overflow-hidden rounded-xl border-4 border-gray-600 shadow-2xl">
@@ -611,39 +586,56 @@ export default function LabRoom() {
           ))}
         </div>
 
-        {/* Equipment Positioning */}
-        <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
-          {equipment.map((equipmentType, index) => {
-            // Dynamic positioning based on equipment count
-            const positions = equipment.length === 1 
-              ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
-              : equipment.length === 2
-              ? [
-                  { left: '30%', transform: 'translateX(-50%)', bottom: '200px' },
-                  { left: '70%', transform: 'translateX(-50%)', bottom: '200px' }
-                ]
-              : [
-                  { left: '20%', transform: 'translateX(-50%)', bottom: '200px' },
-                  { left: '50%', transform: 'translateX(-50%)', bottom: '200px' },
-                  { left: '80%', transform: 'translateX(-50%)', bottom: '200px' }
-                ]
-            
-            const position = positions[index] || positions[0]
-            
-            return (
-              <div 
-                key={equipmentType} 
-                className="absolute"
-                style={{
-                  ...position,
-                  zIndex: 10 // Equipment always on top
-                }}
-              >
-                {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
-              </div>
-            )
-          })}
-        </div>
+        {/* Equipment Positioning - Only show equipment with images */}
+        {visibleEquipment.length > 0 && (
+          <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
+            {visibleEquipment.map((equipmentType, index) => {
+              // Dynamic positioning based on equipment count
+              const positions = visibleEquipment.length === 1 
+                ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
+                : visibleEquipment.length === 2
+                ? [
+                    { left: '30%', transform: 'translateX(-50%)', bottom: '200px' },
+                    { left: '70%', transform: 'translateX(-50%)', bottom: '200px' }
+                  ]
+                : [
+                    { left: '20%', transform: 'translateX(-50%)', bottom: '200px' },
+                    { left: '50%', transform: 'translateX(-50%)', bottom: '200px' },
+                    { left: '80%', transform: 'translateX(-50%)', bottom: '200px' }
+                  ]
+              
+              const position = positions[index] || positions[0]
+              
+              return (
+                <div 
+                  key={equipmentType} 
+                  className="absolute"
+                  style={{
+                    ...position,
+                    zIndex: 10 // Equipment always on top
+                  }}
+                >
+                  {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Message when no equipment is visible */}
+        {visibleEquipment.length === 0 && wallElements.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-white bg-opacity-90 rounded-lg p-6 text-center shadow-lg">
+              <div className="text-4xl mb-4">🔬</div>
+              <h3 className="text-lg font-bold text-gray-700 mb-2">
+                No equipment available on this wall
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Try rotating to other walls or ask your instructor to add equipment images
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Enhanced atmospheric effects */}
         <div className="absolute inset-0 pointer-events-none">
