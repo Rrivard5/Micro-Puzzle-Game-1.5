@@ -31,6 +31,12 @@ const InstructorInterface = () => {
   const [processingImages, setProcessingImages] = useState({});
   const [backgroundImages, setBackgroundImages] = useState({});
   
+  // NEW: Image cropping state
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageData, setCropImageData] = useState(null);
+  const [cropSelection, setCropSelection] = useState({ x: 0, y: 0, width: 100, height: 100 });
+  const [currentCropContext, setCurrentCropContext] = useState(null);
+  
   // NEW: Room Elements System
   const [roomElements, setRoomElements] = useState({});
   const [selectedElement, setSelectedElement] = useState(null);
@@ -44,6 +50,8 @@ const InstructorInterface = () => {
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
+  const cropCanvasRef = useRef(null);
+  const cropImageRef = useRef(null);
 
   const equipmentTypes = ['microscope', 'incubator', 'petriDish', 'autoclave', 'centrifuge'];
   const wallOptions = ['north', 'east', 'south', 'west'];
@@ -295,6 +303,106 @@ const InstructorInterface = () => {
     }));
   };
 
+  // NEW: Image cropping functions
+  const openCropModal = (imageData, context) => {
+    setCropImageData(imageData);
+    setCurrentCropContext(context);
+    setCropSelection({ x: 0, y: 0, width: 100, height: 100 });
+    setShowCropModal(true);
+  };
+
+  const handleCropSelectionChange = (field, value) => {
+    setCropSelection(prev => ({
+      ...prev,
+      [field]: Math.max(0, Math.min(100, parseInt(value) || 0))
+    }));
+  };
+
+  const applyCrop = () => {
+    if (!cropImageData || !currentCropContext) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const cropCanvas = cropCanvasRef.current;
+      const cropCtx = cropCanvas.getContext('2d');
+      
+      // Calculate crop dimensions
+      const cropX = (cropSelection.x / 100) * img.width;
+      const cropY = (cropSelection.y / 100) * img.height;
+      const cropWidth = (cropSelection.width / 100) * img.width;
+      const cropHeight = (cropSelection.height / 100) * img.height;
+      
+      // Set canvas size to crop size
+      cropCanvas.width = cropWidth;
+      cropCanvas.height = cropHeight;
+      
+      // Draw cropped image
+      cropCtx.drawImage(
+        img,
+        cropX, cropY, cropWidth, cropHeight,
+        0, 0, cropWidth, cropHeight
+      );
+      
+      // Remove white background from cropped image
+      const imageData = cropCtx.getImageData(0, 0, cropWidth, cropHeight);
+      const processedDataURL = removeWhiteBackground(imageData, cropCanvas, cropCtx);
+      
+      // Apply the cropped image based on context
+      if (currentCropContext.type === 'equipment') {
+        const { equipment, group } = currentCropContext;
+        const imageKey = `${equipment}_group${group}`;
+        setEquipmentImages(prev => ({
+          ...prev,
+          [imageKey]: {
+            ...prev[imageKey],
+            processed: processedDataURL
+          }
+        }));
+      } else if (currentCropContext.type === 'element') {
+        const { elementId } = currentCropContext;
+        setRoomElements(prev => ({
+          ...prev,
+          [elementId]: {
+            ...prev[elementId],
+            image: {
+              ...prev[elementId].image,
+              processed: processedDataURL
+            }
+          }
+        }));
+      }
+      
+      setShowCropModal(false);
+      setCropImageData(null);
+      setCurrentCropContext(null);
+    };
+    img.src = cropImageData;
+  };
+
+  const renderCropPreview = () => {
+    if (!cropImageData) return null;
+
+    return (
+      <div className="relative">
+        <img
+          ref={cropImageRef}
+          src={cropImageData}
+          alt="Crop preview"
+          className="max-w-full max-h-96 border border-gray-300"
+        />
+        <div 
+          className="absolute border-2 border-red-500 bg-red-200 bg-opacity-30"
+          style={{
+            left: `${cropSelection.x}%`,
+            top: `${cropSelection.y}%`,
+            width: `${cropSelection.width}%`,
+            height: `${cropSelection.height}%`
+          }}
+        />
+      </div>
+    );
+  };
+
   // NEW: Room Elements Management
   const addRoomElement = () => {
     if (!newElementData.name.trim()) {
@@ -391,6 +499,7 @@ const InstructorInterface = () => {
     setProcessingImages(prev => ({ ...prev, [elementId]: true }));
 
     try {
+      const originalDataURL = URL.createObjectURL(file);
       const processedImageData = await processImage(file);
       
       setRoomElements(prev => ({
@@ -398,7 +507,7 @@ const InstructorInterface = () => {
         [elementId]: {
           ...prev[elementId],
           image: {
-            original: URL.createObjectURL(file),
+            original: originalDataURL,
             processed: processedImageData,
             name: file.name,
             size: file.size,
@@ -488,13 +597,14 @@ const InstructorInterface = () => {
     setProcessingImages(prev => ({ ...prev, [uploadKey]: true }));
 
     try {
+      const originalDataURL = URL.createObjectURL(file);
       const processedImageData = await processImage(file);
       
       const imageKey = `${equipment}_group${group}`;
       setEquipmentImages(prev => ({
         ...prev,
         [imageKey]: {
-          original: URL.createObjectURL(file),
+          original: originalDataURL,
           processed: processedImageData,
           name: file.name,
           size: file.size,
@@ -1252,6 +1362,17 @@ const InstructorInterface = () => {
                         🗑️ Remove Image
                       </button>
                       
+                      <button
+                        onClick={() => openCropModal(currentImage.original, { 
+                          type: 'equipment', 
+                          equipment: selectedEquipment, 
+                          group: selectedGroup 
+                        })}
+                        className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+                      >
+                        ✂️ Crop Image
+                      </button>
+                      
                       <label className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer">
                         🔄 Replace Image
                         <input
@@ -1369,7 +1490,7 @@ const InstructorInterface = () => {
           </div>
         )}
 
-        {/* NEW: Room Builder Tab */}
+        {/* Room Builder Tab */}
         {activeTab === 'room-builder' && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -1433,6 +1554,17 @@ const InstructorInterface = () => {
                           className="hidden"
                         />
                       </label>
+                      {element.image && (
+                        <button
+                          onClick={() => openCropModal(element.image.original, { 
+                            type: 'element', 
+                            elementId: elementId 
+                          })}
+                          className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
+                        >
+                          ✂️
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2078,8 +2210,121 @@ const InstructorInterface = () => {
         )}
       </div>
       
+      {/* Image Cropping Modal */}
+      {showCropModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">✂️ Crop Image</h3>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Crop Preview */}
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Select Crop Area</h4>
+                <div className="border border-gray-300 rounded-lg p-4">
+                  {renderCropPreview()}
+                </div>
+              </div>
+              
+              {/* Crop Controls */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-700 mb-2">Crop Settings (%)</h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      X Position: {cropSelection.x}%
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={cropSelection.x}
+                      onChange={(e) => handleCropSelectionChange('x', e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Y Position: {cropSelection.y}%
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={cropSelection.y}
+                      onChange={(e) => handleCropSelectionChange('y', e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Width: {cropSelection.width}%
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={cropSelection.width}
+                      onChange={(e) => handleCropSelectionChange('width', e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Height: {cropSelection.height}%
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={cropSelection.height}
+                      onChange={(e) => handleCropSelectionChange('height', e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-sm text-gray-600">
+                    <strong>Tips:</strong>
+                  </p>
+                  <ul className="text-xs text-gray-500 mt-1 space-y-1">
+                    <li>• Adjust the red selection box to crop the desired area</li>
+                    <li>• White background will be automatically removed</li>
+                    <li>• Crop tightly around the equipment for best results</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={applyCrop}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
+              >
+                ✂️ Apply Crop
+              </button>
+              <button
+                onClick={() => {
+                  setShowCropModal(false);
+                  setCropImageData(null);
+                  setCurrentCropContext(null);
+                }}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Hidden canvas for image processing */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <canvas ref={cropCanvasRef} style={{ display: 'none' }} />
     </div>
   );
 };
