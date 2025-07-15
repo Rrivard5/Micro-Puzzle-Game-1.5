@@ -45,6 +45,18 @@ const InstructorInterface = () => {
     interactionType: 'none',
     revealedElementId: null
   });
+
+  // Game completion settings
+  const [completionMode, setCompletionMode] = useState('all');
+  const [finalElementId, setFinalElementId] = useState('');
+
+  // Equipment positioning - NEW
+  const [equipmentPositions, setEquipmentPositions] = useState({
+    north: [],
+    east: [],
+    south: [],
+    west: []
+  });
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
@@ -99,6 +111,8 @@ const InstructorInterface = () => {
       loadEquipmentImages();
       loadBackgroundImages();
       loadRoomElements();
+      loadGameSettings();
+      loadEquipmentPositions(); // NEW
     }
   }, [isAuthenticated]);
 
@@ -108,6 +122,109 @@ const InstructorInterface = () => {
       setPassword('');
     } else {
       alert('Incorrect password');
+    }
+  };
+
+  // NEW: Load equipment positions
+  const loadEquipmentPositions = () => {
+    const savedPositions = localStorage.getItem('instructor-equipment-positions');
+    if (savedPositions) {
+      try {
+        setEquipmentPositions(JSON.parse(savedPositions));
+      } catch (error) {
+        console.error('Error loading equipment positions:', error);
+        // Initialize default positions
+        initializeDefaultEquipmentPositions();
+      }
+    } else {
+      initializeDefaultEquipmentPositions();
+    }
+  };
+
+  // NEW: Initialize default equipment positions
+  const initializeDefaultEquipmentPositions = () => {
+    const defaultPositions = {
+      north: [
+        { equipmentType: 'microscope', x: 50, y: 70, size: 100, zIndex: 10 }
+      ],
+      east: [
+        { equipmentType: 'incubator', x: 30, y: 70, size: 100, zIndex: 10 },
+        { equipmentType: 'autoclave', x: 70, y: 70, size: 100, zIndex: 10 }
+      ],
+      south: [
+        { equipmentType: 'centrifuge', x: 50, y: 70, size: 100, zIndex: 10 }
+      ],
+      west: [
+        { equipmentType: 'petriDish', x: 50, y: 70, size: 100, zIndex: 10 }
+      ]
+    };
+    setEquipmentPositions(defaultPositions);
+  };
+
+  // NEW: Update equipment position
+  const updateEquipmentPosition = (equipmentType, newSettings) => {
+    setEquipmentPositions(prev => {
+      const updated = { ...prev };
+      
+      // Find and update the equipment across all walls
+      Object.keys(updated).forEach(wall => {
+        const equipmentIndex = updated[wall].findIndex(eq => eq.equipmentType === equipmentType);
+        if (equipmentIndex !== -1) {
+          updated[wall][equipmentIndex] = {
+            ...updated[wall][equipmentIndex],
+            ...newSettings
+          };
+        }
+      });
+      
+      return updated;
+    });
+  };
+
+  // NEW: Move equipment to different wall
+  const moveEquipmentToWall = (equipmentType, targetWall) => {
+    setEquipmentPositions(prev => {
+      const updated = { ...prev };
+      let equipmentData = null;
+      
+      // Remove equipment from current wall
+      Object.keys(updated).forEach(wall => {
+        const equipmentIndex = updated[wall].findIndex(eq => eq.equipmentType === equipmentType);
+        if (equipmentIndex !== -1) {
+          equipmentData = updated[wall][equipmentIndex];
+          updated[wall].splice(equipmentIndex, 1);
+        }
+      });
+      
+      // Add equipment to target wall
+      if (equipmentData) {
+        updated[targetWall].push({
+          ...equipmentData,
+          x: 50, // Reset position to center
+          y: 70
+        });
+      }
+      
+      return updated;
+    });
+  };
+
+  // NEW: Get equipment on specific wall
+  const getEquipmentOnWall = (wall) => {
+    return equipmentPositions[wall] || [];
+  };
+
+  // Load game settings
+  const loadGameSettings = () => {
+    const savedSettings = localStorage.getItem('instructor-game-settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        setCompletionMode(settings.completionMode || 'all');
+        setFinalElementId(settings.finalElementId || '');
+      } catch (error) {
+        console.error('Error loading game settings:', error);
+      }
     }
   };
 
@@ -358,6 +475,14 @@ const InstructorInterface = () => {
       localStorage.setItem('instructor-equipment-images', JSON.stringify(equipmentImages));
       localStorage.setItem('instructor-background-images', JSON.stringify(backgroundImages));
       localStorage.setItem('instructor-room-elements', JSON.stringify(roomElements));
+      localStorage.setItem('instructor-equipment-positions', JSON.stringify(equipmentPositions)); // NEW
+      
+      // Save game settings
+      const gameSettings = {
+        completionMode,
+        finalElementId
+      };
+      localStorage.setItem('instructor-game-settings', JSON.stringify(gameSettings));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('All settings saved successfully!');
@@ -540,6 +665,10 @@ const InstructorInterface = () => {
       }
       if (selectedElementId === elementId) {
         setSelectedElementId(null);
+      }
+      // Clear final element if it's being deleted
+      if (finalElementId === elementId) {
+        setFinalElementId('');
       }
     }
   };
@@ -767,17 +896,26 @@ const InstructorInterface = () => {
     const x = ((e.clientX - previewRect.left - dragOffset.x) / previewRect.width) * 100;
     const y = ((e.clientY - previewRect.top - dragOffset.y) / previewRect.height) * 100;
     
-    setRoomElements(prev => ({
-      ...prev,
-      [draggedElement]: {
-        ...prev[draggedElement],
-        settings: {
-          ...prev[draggedElement].settings,
-          x: Math.max(0, Math.min(100, x)),
-          y: Math.max(0, Math.min(100, y))
+    // Check if it's a room element or equipment
+    if (roomElements[draggedElement]) {
+      setRoomElements(prev => ({
+        ...prev,
+        [draggedElement]: {
+          ...prev[draggedElement],
+          settings: {
+            ...prev[draggedElement].settings,
+            x: Math.max(0, Math.min(100, x)),
+            y: Math.max(0, Math.min(100, y))
+          }
         }
-      }
-    }));
+      }));
+    } else {
+      // It's equipment
+      updateEquipmentPosition(draggedElement, {
+        x: Math.max(0, Math.min(100, x)),
+        y: Math.max(0, Math.min(100, y))
+      });
+    }
   };
 
   const handleMouseUp = () => {
@@ -785,9 +923,21 @@ const InstructorInterface = () => {
     setDragOffset({ x: 0, y: 0 });
   };
 
+  // Equipment drag handlers - NEW
+  const handleEquipmentMouseDown = (e, equipmentType) => {
+    e.preventDefault();
+    setDraggedElement(equipmentType);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
   // Room preview component with correct scaling and background
   const renderRoomPreview = () => {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
+    const wallEquipment = getEquipmentOnWall(selectedWall);
     const backgroundImage = backgroundImages[selectedWall];
     
     return (
@@ -843,7 +993,9 @@ const InstructorInterface = () => {
             key={elementId}
             className={`absolute cursor-move transition-all duration-200 ${
               selectedElement === elementId ? 'ring-2 ring-blue-500' : ''
-            } ${draggedElement === elementId ? 'z-50' : ''}`}
+            } ${draggedElement === elementId ? 'z-50' : ''} ${
+              finalElementId === elementId ? 'ring-4 ring-yellow-400' : ''
+            }`}
             style={{
               left: `${element.settings.x}%`,
               top: `${element.settings.y}%`,
@@ -881,9 +1033,48 @@ const InstructorInterface = () => {
             
             <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
               {element.name}
+              {finalElementId === elementId && <span className="text-yellow-600 ml-1">⭐</span>}
             </div>
           </div>
         ))}
+
+        {/* Equipment - NEW */}
+        {wallEquipment.map((equipment) => {
+          const equipmentImage = equipmentImages[equipment.equipmentType];
+          if (!equipmentImage) return null;
+          
+          return (
+            <div
+              key={equipment.equipmentType}
+              className={`absolute cursor-move transition-all duration-200 ${
+                selectedElement === equipment.equipmentType ? 'ring-2 ring-green-500' : ''
+              } ${draggedElement === equipment.equipmentType ? 'z-50' : ''}`}
+              style={{
+                left: `${equipment.x}%`,
+                top: `${equipment.y}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: equipment.zIndex
+              }}
+              onClick={() => setSelectedElement(equipment.equipmentType)}
+              onMouseDown={(e) => handleEquipmentMouseDown(e, equipment.equipmentType)}
+            >
+              <img
+                src={equipmentImage.processed}
+                alt={equipment.equipmentType}
+                className="object-contain transition-all duration-300 pointer-events-none"
+                style={{
+                  width: `${100 * (equipment.size / 100)}px`,
+                  height: `${100 * (equipment.size / 100)}px`,
+                  filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
+                }}
+              />
+              
+              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-green-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
+                {equipment.equipmentType}
+              </div>
+            </div>
+          );
+        })}
         
         {/* Grid overlay for reference */}
         <div className="absolute inset-0 pointer-events-none">
@@ -1108,6 +1299,7 @@ const InstructorInterface = () => {
                         }`}
                       >
                         {element.interactionType === 'none' ? '📦' : '🔍'} {element.name}
+                        {finalElementId === elementId && <span className="text-yellow-300 ml-1">⭐</span>}
                         <div className="text-xs opacity-75">
                           {interactionTypes[element.interactionType]}
                         </div>
@@ -1162,6 +1354,7 @@ const InstructorInterface = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">
                   Configure {roomElements[selectedElementId] ? roomElements[selectedElementId].name : selectedElementId?.charAt(0).toUpperCase() + selectedElementId?.slice(1)} - Group {selectedGroup}
+                  {finalElementId === selectedElementId && <span className="text-yellow-600 ml-2">⭐ FINAL ELEMENT</span>}
                 </h3>
                 
                 {/* Equipment Configuration */}
@@ -1770,6 +1963,58 @@ const InstructorInterface = () => {
               </button>
             </div>
             
+            {/* Game Completion Settings */}
+            <div className="mb-6 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">🎯 Game Completion Settings</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Completion Mode
+                  </label>
+                  <select
+                    value={completionMode}
+                    onChange={(e) => setCompletionMode(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Complete All Equipment + All Interactive Elements</option>
+                    <option value="final-element">Complete Final Element Only</option>
+                    <option value="equipment-only">Complete All Equipment Only</option>
+                  </select>
+                </div>
+
+                {completionMode === 'final-element' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Final Element
+                    </label>
+                    <select
+                      value={finalElementId}
+                      onChange={(e) => setFinalElementId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Choose final element...</option>
+                      {Object.entries(roomElements)
+                        .filter(([id, element]) => ['info', 'question', 'element', 'question_element'].includes(element.interactionType))
+                        .map(([id, element]) => (
+                          <option key={id} value={id}>{element.name}</option>
+                        ))}
+                    </select>
+                    
+                    {finalElementId && (
+                      <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded p-3">
+                        <p className="text-yellow-800 text-sm">
+                          <strong>Final Element:</strong> {roomElements[finalElementId]?.name}
+                          <br />
+                          Students will be able to exit the lab immediately after successfully completing this element.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            
             {/* Wall Selection */}
             <div className="mb-6 bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Wall to Edit</h3>
@@ -1801,12 +2046,19 @@ const InstructorInterface = () => {
                   <div key={elementId} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-gray-800">{element.name}</h4>
-                      <button
-                        onClick={() => deleteRoomElement(elementId)}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex gap-2">
+                        {finalElementId === elementId && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                            FINAL
+                          </span>
+                        )}
+                        <button
+                          onClick={() => deleteRoomElement(elementId)}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="text-sm text-gray-600 mb-2">
@@ -1827,7 +2079,7 @@ const InstructorInterface = () => {
                       </div>
                     )}
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => setSelectedElement(elementId)}
                         className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
@@ -1843,9 +2095,98 @@ const InstructorInterface = () => {
                           className="hidden"
                         />
                       </label>
+                      {['info', 'question', 'element', 'question_element'].includes(element.interactionType) && (
+                        <button
+                          onClick={() => setFinalElementId(finalElementId === elementId ? '' : elementId)}
+                          className={`px-3 py-1 rounded text-sm transition-colors ${
+                            finalElementId === elementId
+                              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                              : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                          }`}
+                        >
+                          {finalElementId === elementId ? 'Remove Final' : 'Set Final'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Equipment List - NEW */}
+            <div className="mb-8 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Equipment - {selectedWall.charAt(0).toUpperCase() + selectedWall.slice(1)} Wall</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {getEquipmentOnWall(selectedWall).map((equipment) => (
+                  <div key={equipment.equipmentType} className="border border-green-200 rounded-lg p-4 hover:border-green-300 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-gray-800">{equipment.equipmentType}</h4>
+                      <button
+                        onClick={() => moveEquipmentToWall(equipment.equipmentType, selectedWall === 'north' ? 'east' : selectedWall === 'east' ? 'south' : selectedWall === 'south' ? 'west' : 'north')}
+                        className="text-blue-500 hover:text-blue-700 text-sm"
+                      >
+                        Move
+                      </button>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      <div>Size: {equipment.size}%</div>
+                      <div>Position: {Math.round(equipment.x)}%, {Math.round(equipment.y)}%</div>
+                      <div>Z-Index: {equipment.zIndex}</div>
+                    </div>
+                    
+                    {equipmentImages[equipment.equipmentType] ? (
+                      <img
+                        src={equipmentImages[equipment.equipmentType].processed}
+                        alt={equipment.equipmentType}
+                        className="w-full h-20 object-contain bg-gray-100 rounded mb-2"
+                      />
+                    ) : (
+                      <div className="w-full h-20 bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-500">
+                        No Image
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedElement(equipment.equipmentType)}
+                        className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Equipment to Wall */}
+              <div className="mt-4 border-t pt-4">
+                <h4 className="font-medium text-gray-700 mb-2">Add Equipment to This Wall</h4>
+                <div className="flex gap-2 flex-wrap">
+                  {equipmentTypes.map((equipmentType) => {
+                    const isOnThisWall = getEquipmentOnWall(selectedWall).some(eq => eq.equipmentType === equipmentType);
+                    const isOnOtherWall = Object.entries(equipmentPositions).some(([wall, equipment]) => 
+                      wall !== selectedWall && equipment.some(eq => eq.equipmentType === equipmentType)
+                    );
+                    
+                    if (isOnThisWall) return null;
+                    
+                    return (
+                      <button
+                        key={equipmentType}
+                        onClick={() => moveEquipmentToWall(equipmentType, selectedWall)}
+                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                          isOnOtherWall
+                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                        }`}
+                      >
+                        {isOnOtherWall ? 'Move' : 'Add'} {equipmentType}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             
@@ -1854,11 +2195,12 @@ const InstructorInterface = () => {
               {/* Controls Panel */}
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  {selectedElement && roomElements[selectedElement] 
-                    ? `Edit: ${roomElements[selectedElement].name}` 
-                    : 'Select an element to edit'}
+                  {selectedElement && (roomElements[selectedElement] || getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement))
+                    ? `Edit: ${roomElements[selectedElement]?.name || selectedElement}` 
+                    : 'Select an element or equipment to edit'}
                 </h3>
                 
+                {/* Room Element Controls */}
                 {selectedElement && roomElements[selectedElement] && (
                   <div className="space-y-6">
                     {/* Basic Settings */}
@@ -2005,6 +2347,66 @@ const InstructorInterface = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Equipment Controls - NEW */}
+                {selectedElement && getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement) && (
+                  <div className="space-y-6">
+                    <div className="bg-green-50 border border-green-200 rounded p-4">
+                      <h4 className="font-medium text-green-800 mb-2">🔬 Equipment Settings</h4>
+                      <p className="text-green-700 text-sm">
+                        You're editing {selectedElement}. Configure questions for this equipment in the "Questions & Info" tab.
+                      </p>
+                    </div>
+
+                    {/* Equipment Size Control */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Size: {getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size}%
+                      </label>
+                      <input
+                        type="range"
+                        min="25"
+                        max="200"
+                        value={getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size || 100}
+                        onChange={(e) => updateEquipmentPosition(selectedElement, {
+                          size: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Equipment Z-Index */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Layer (Z-Index): {getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.zIndex}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.zIndex || 10}
+                        onChange={(e) => updateEquipmentPosition(selectedElement, {
+                          zIndex: parseInt(e.target.value)
+                        })}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Move Equipment to Other Wall */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Move to Wall</label>
+                      <select
+                        value={selectedWall}
+                        onChange={(e) => moveEquipmentToWall(selectedElement, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {wallOptions.map(wall => (
+                          <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Preview Panel */}
@@ -2012,14 +2414,16 @@ const InstructorInterface = () => {
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Preview - {selectedWall.charAt(0).toUpperCase() + selectedWall.slice(1)} Wall</h3>
                 
                 <div className="mb-4 text-sm text-gray-600">
-                  <p>• Click and drag elements to reposition them</p>
-                  <p>• Use the controls on the left to resize and configure elements</p>
+                  <p>• Click and drag elements and equipment to reposition them</p>
+                  <p>• Use the controls on the left to resize and configure items</p>
+                  <p>• Equipment appears with green labels, elements with blue labels</p>
                 </div>
                 
                 {renderRoomPreview()}
                 
                 <div className="mt-4 text-xs text-gray-500">
-                  Elements on this wall: {Object.values(roomElements).filter(el => el.wall === selectedWall).length}
+                  Elements: {Object.values(roomElements).filter(el => el.wall === selectedWall).length} | 
+                  Equipment: {getEquipmentOnWall(selectedWall).length}
                 </div>
               </div>
             </div>
@@ -2264,8 +2668,11 @@ const InstructorInterface = () => {
                         backgroundImages,
                         roomElements,
                         wordSettings,
+                        equipmentPositions,
+                        completionMode,
+                        finalElementId,
                         exportDate: new Date().toISOString(),
-                        version: '2.0'
+                        version: '2.1'
                       };
                       
                       const blob = new Blob([JSON.stringify(fullConfig, null, 2)], { 
@@ -2309,6 +2716,9 @@ const InstructorInterface = () => {
                                 if (config.backgroundImages) setBackgroundImages(config.backgroundImages);
                                 if (config.roomElements) setRoomElements(config.roomElements);
                                 if (config.wordSettings) setWordSettings(config.wordSettings);
+                                if (config.equipmentPositions) setEquipmentPositions(config.equipmentPositions);
+                                if (config.completionMode) setCompletionMode(config.completionMode);
+                                if (config.finalElementId) setFinalElementId(config.finalElementId);
                                 
                                 alert('Configuration imported successfully!');
                               }
