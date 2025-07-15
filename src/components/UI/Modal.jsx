@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGame } from '../../context/GameStateContext'
 
-export default function Modal({ isOpen, onClose, title, equipmentType, studentGroup, onSolved }) {
+export default function Modal({ isOpen, onClose, title, equipmentType, elementId, studentGroup, onSolved }) {
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [userAnswer, setUserAnswer] = useState('')
   const [feedback, setFeedback] = useState(null)
@@ -9,43 +9,89 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
   const [isLoading, setIsLoading] = useState(true)
   const [showHint, setShowHint] = useState(false)
   const [equipmentImage, setEquipmentImage] = useState(null)
+  const [elementContent, setElementContent] = useState(null)
+  const [isElement, setIsElement] = useState(false)
   
   const { trackAttempt, studentInfo } = useGame()
 
   useEffect(() => {
-    if (isOpen && equipmentType) {
-      loadEquipmentContent()
+    if (isOpen && (equipmentType || elementId)) {
+      loadContent()
     }
-  }, [isOpen, equipmentType, studentGroup])
+  }, [isOpen, equipmentType, elementId, studentGroup])
 
-  const loadEquipmentContent = async () => {
+  const loadContent = async () => {
     setIsLoading(true)
+    setIsElement(!!elementId)
     
-    // Load question for this equipment and group
-    const question = await getEquipmentQuestion(equipmentType, studentGroup)
-    setCurrentQuestion(question)
-    
-    // Load equipment image if available
-    const image = await getEquipmentImage(equipmentType, studentGroup)
-    setEquipmentImage(image)
+    if (equipmentType) {
+      // Load equipment content
+      const question = await getEquipmentQuestion(equipmentType, studentGroup)
+      setCurrentQuestion(question)
+      
+      const image = await getEquipmentImage(equipmentType, studentGroup)
+      setEquipmentImage(image)
+    } else if (elementId) {
+      // Load room element content
+      const element = await getRoomElement(elementId)
+      setElementContent(element)
+      
+      if (element && ['question', 'question_element'].includes(element.interactionType)) {
+        const question = await getElementQuestion(elementId, studentGroup)
+        setCurrentQuestion(question)
+      }
+    }
     
     setIsLoading(false)
   }
 
   const getEquipmentQuestion = async (equipment, group) => {
-    // Load from instructor settings or use defaults
     const savedQuestions = localStorage.getItem('instructor-lab-questions')
     
     if (savedQuestions) {
       const questions = JSON.parse(savedQuestions)
       const groupQuestions = questions[equipment]?.groups?.[group] || questions[equipment]?.groups?.[1]
       if (groupQuestions && groupQuestions.length > 0) {
-        return groupQuestions[0] // For now, use first question
+        return groupQuestions[0]
       }
     }
     
-    // Default questions for each equipment type
     return getDefaultQuestion(equipment)
+  }
+
+  const getRoomElement = async (elementId) => {
+    const savedElements = localStorage.getItem('instructor-room-elements')
+    
+    if (savedElements) {
+      try {
+        const elements = JSON.parse(savedElements)
+        return elements[elementId] || null
+      } catch (error) {
+        console.error('Error loading room element:', error)
+      }
+    }
+    
+    return null
+  }
+
+  const getElementQuestion = async (elementId, group) => {
+    const element = await getRoomElement(elementId)
+    
+    if (element && element.content?.question) {
+      const groupQuestions = element.content.question.groups?.[group] || element.content.question.groups?.[1]
+      if (groupQuestions && groupQuestions.length > 0) {
+        return groupQuestions[0]
+      }
+    }
+    
+    return {
+      id: `${elementId}_default`,
+      question: `What do you observe about ${element?.name || 'this element'}?`,
+      type: 'text',
+      answer: 'observed',
+      hint: 'Look carefully at the details.',
+      clue: 'Observation recorded successfully.'
+    }
   }
 
   const getDefaultQuestion = (equipment) => {
@@ -57,7 +103,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
         options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
         answer: 'Bacilli (rod-shaped)',
         hint: 'Look carefully at the elongated shape of the individual cells.',
-        clue: 'Rod-shaped bacteria detected - likely Escherichia coli'
+        clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
+        randomizeAnswers: false
       },
       incubator: {
         id: 'inc1',
@@ -66,7 +113,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
         options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
         answer: 'Mesophiles',
         hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
-        clue: 'Mesophilic conditions set - optimal for human pathogens'
+        clue: 'Mesophilic conditions set - optimal for human pathogens',
+        randomizeAnswers: false
       },
       petriDish: {
         id: 'pet1',
@@ -75,7 +123,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
         options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
         answer: 'Beta hemolysis',
         hint: 'Clear zones indicate complete breakdown of red blood cells.',
-        clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely'
+        clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
+        randomizeAnswers: false
       },
       autoclave: {
         id: 'auto1',
@@ -84,7 +133,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
         options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
         answer: '121°C, 15 psi, 15 minutes',
         hint: 'Standard sterilization parameters for most laboratory equipment.',
-        clue: 'Sterilization protocol confirmed - equipment properly decontaminated'
+        clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
+        randomizeAnswers: false
       },
       centrifuge: {
         id: 'cent1',
@@ -93,7 +143,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
         options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
         answer: 'Density differences',
         hint: 'Think about what causes particles to separate when spun at high speed.',
-        clue: 'Density separation principle confirmed - sample fractionation successful'
+        clue: 'Density separation principle confirmed - sample fractionation successful',
+        randomizeAnswers: false
       }
     }
     
@@ -117,6 +168,48 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
     return null
   }
 
+  const shuffleArray = (array) => {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+  }
+
+  const getDisplayOptions = (question) => {
+    if (question.type !== 'multiple_choice' || !question.randomizeAnswers) {
+      return question.options
+    }
+    
+    // Create a consistent seed based on student and question
+    const seed = `${studentInfo?.sessionId || 'default'}_${question.id}`
+    const random = seedRandom(seed)
+    
+    const shuffled = [...question.options]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    
+    return shuffled
+  }
+
+  // Simple seeded random number generator
+  const seedRandom = (seed) => {
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32-bit integer
+    }
+    
+    return () => {
+      hash = (hash * 1103515245 + 12345) & 0x7fffffff
+      return hash / 0x7fffffff
+    }
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     
@@ -129,17 +222,19 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
     setAttempts(prev => prev + 1)
     
     // Track the attempt
-    trackAttempt('lab', `${equipmentType}_${currentQuestion.id}`, userAnswer, isCorrect)
+    const trackingId = equipmentType ? `${equipmentType}_${currentQuestion.id}` : `${elementId}_${currentQuestion.id}`
+    trackAttempt('lab', trackingId, userAnswer, isCorrect)
     
     if (isCorrect) {
       setFeedback({ 
         type: 'success', 
-        message: '🎉 Correct! Equipment analysis complete.' 
+        message: '🎉 Correct! Analysis complete.' 
       })
       
       // Delay before solving to show feedback
       setTimeout(() => {
-        onSolved(equipmentType, currentQuestion.clue)
+        const clueText = currentQuestion.clue || (isElement ? elementContent?.content?.info || 'Information discovered!' : 'Equipment analyzed successfully!')
+        onSolved(equipmentType || elementId, clueText)
       }, 2000)
     } else {
       setFeedback({ 
@@ -153,7 +248,6 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
     if (question.type === 'multiple_choice') {
       return question.answer === answer.trim()
     } else {
-      // Text questions - case insensitive
       return question.answer.toLowerCase() === answer.trim().toLowerCase()
     }
   }
@@ -163,15 +257,21 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
       "Not quite right. Review the specimen carefully and try again.",
       "Incorrect. Consider the laboratory conditions and protocols.",
       "That's not the answer. Think about the microbiology principles involved.",
-      "Try again. Look for visual clues in the equipment setup."
+      "Try again. Look for visual clues in the setup."
     ]
     return feedbackMessages[attempts % feedbackMessages.length]
   }
 
   const handleHint = () => {
     setShowHint(true)
-    // Track hint usage
-    trackAttempt('lab', `${equipmentType}_hint`, 'hint_requested', false)
+    const trackingId = equipmentType ? `${equipmentType}_hint` : `${elementId}_hint`
+    trackAttempt('lab', trackingId, 'hint_requested', false)
+  }
+
+  const handleInfoOnly = () => {
+    // For info-only elements, just show the information and close
+    const infoText = elementContent?.content?.info || 'Information discovered!'
+    onSolved(elementId, infoText)
   }
 
   if (!isOpen) return null
@@ -191,7 +291,10 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
               ×
             </button>
           </div>
-          <p className="text-blue-100 mt-2">Group {studentGroup} - Equipment Analysis</p>
+          <p className="text-blue-100 mt-2">
+            {studentGroup ? `Group ${studentGroup} - ` : ''}
+            {isElement ? 'Element Interaction' : 'Equipment Analysis'}
+          </p>
         </div>
 
         {/* Content */}
@@ -199,12 +302,12 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading equipment data...</p>
+              <p className="text-gray-600">Loading content...</p>
             </div>
           ) : (
             <div className="space-y-6">
               
-              {/* Equipment Image */}
+              {/* Equipment/Element Image */}
               {equipmentImage && (
                 <div className="text-center">
                   <img 
@@ -214,14 +317,48 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
                   />
                 </div>
               )}
+              
+              {/* Element Image */}
+              {elementContent?.image && (
+                <div className="text-center">
+                  <img 
+                    src={elementContent.image.processed} 
+                    alt={elementContent.name}
+                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                  />
+                </div>
+              )}
 
-              {/* Equipment Description */}
+              {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-bold text-blue-800 mb-2">🔬 Equipment Analysis</h3>
-                <p className="text-blue-700">{getEquipmentDescription(equipmentType)}</p>
+                <h3 className="font-bold text-blue-800 mb-2">
+                  {isElement ? '🔍 Element Examination' : '🔬 Equipment Analysis'}
+                </h3>
+                <p className="text-blue-700">
+                  {isElement 
+                    ? `You examine the ${elementContent?.name || 'element'} and notice interesting details that might be relevant to your investigation.`
+                    : getEquipmentDescription(equipmentType)
+                  }
+                </p>
               </div>
 
-              {/* Question */}
+              {/* Info-only elements */}
+              {isElement && elementContent?.interactionType === 'info' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                  <h3 className="font-bold text-green-800 mb-4">📋 Information Discovered</h3>
+                  <p className="text-green-700 mb-4">
+                    {elementContent.content?.info || 'You have discovered important information about this element!'}
+                  </p>
+                  <button
+                    onClick={handleInfoOnly}
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
+                  >
+                    ✅ Record Information
+                  </button>
+                </div>
+              )}
+
+              {/* Question Section */}
               {currentQuestion && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <h3 className="font-bold text-gray-800 mb-4 text-lg">{currentQuestion.question}</h3>
@@ -229,7 +366,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {currentQuestion.type === 'multiple_choice' ? (
                       <div className="space-y-2">
-                        {currentQuestion.options.map((option, index) => (
+                        {getDisplayOptions(currentQuestion).map((option, index) => (
                           <label 
                             key={index}
                             className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border-2 ${
@@ -312,7 +449,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, studentGr
                   <p className="font-medium">{feedback.message}</p>
                   {feedback.type === 'success' && (
                     <p className="text-sm mt-2 text-green-600">
-                      Equipment data has been added to your research findings.
+                      {isElement ? 'Information' : 'Equipment data'} has been added to your research findings.
                     </p>
                   )}
                 </div>
