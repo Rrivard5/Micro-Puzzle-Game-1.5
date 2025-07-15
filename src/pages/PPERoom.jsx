@@ -17,6 +17,7 @@ export default function PPERoom() {
     handwear: null
   })
   const [allPpeCorrect, setAllPpeCorrect] = useState(false)
+  const [showQuestion, setShowQuestion] = useState(false)
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt } = useGame()
@@ -139,6 +140,7 @@ export default function PPERoom() {
     if (isCorrect) {
       setFeedback({ type: 'success', message: '🎉 Correct! Your locker is now open.' })
       setLockerOpen(true)
+      setShowQuestion(false)
     } else {
       setFeedback({ type: 'error', message: 'Incorrect. Review laboratory safety protocols and try again.' })
     }
@@ -175,6 +177,12 @@ export default function PPERoom() {
       category,
       item: clothingOptions[category].options[selectedItem].name
     }))
+  }
+
+  const handleLockClick = () => {
+    if (!lockerOpen) {
+      setShowQuestion(true)
+    }
   }
 
   return (
@@ -249,13 +257,24 @@ export default function PPERoom() {
                     <div className="w-4 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg shadow-lg"></div>
                   </div>
                   
-                  {/* Lock */}
+                  {/* Clickable Lock */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-8">
-                    <div className={`w-12 h-12 rounded-full ${lockerOpen ? 'bg-green-500' : 'bg-red-500'} shadow-lg border-4 border-gray-300`}>
+                    <div 
+                      className={`w-12 h-12 rounded-full ${lockerOpen ? 'bg-green-500' : 'bg-red-500'} shadow-lg border-4 border-gray-300 cursor-pointer transition-all duration-300 hover:scale-110 ${
+                        !lockerOpen ? 'hover:bg-red-600' : ''
+                      }`}
+                      onClick={handleLockClick}
+                    >
                       <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
                         {lockerOpen ? '🔓' : '🔒'}
                       </div>
                     </div>
+                    {/* Lock interaction hint */}
+                    {!lockerOpen && (
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 bg-white px-2 py-1 rounded shadow">
+                        Click to unlock
+                      </div>
+                    )}
                   </div>
                   
                   {/* Locker Number Plate */}
@@ -321,7 +340,7 @@ export default function PPERoom() {
                 {lockerOpen ? (
                   <div className="text-sm text-green-600">✓ Access Granted</div>
                 ) : (
-                  <div className="text-sm text-red-600">🔒 Locked - Answer Required</div>
+                  <div className="text-sm text-red-600">🔒 Locked - Click lock to answer question</div>
                 )}
               </div>
             </div>
@@ -348,9 +367,17 @@ export default function PPERoom() {
         </div>
 
         {/* Safety Question Panel */}
-        {!lockerOpen && currentQuestion && (
+        {showQuestion && !lockerOpen && currentQuestion && (
           <div className="mt-8 bg-white rounded-xl shadow-xl p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">🔒 Locker Security Question</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">🔒 Locker Security Question</h3>
+              <button
+                onClick={() => setShowQuestion(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
             <p className="text-gray-600 mb-6">Answer this safety question to access your PPE locker:</p>
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
