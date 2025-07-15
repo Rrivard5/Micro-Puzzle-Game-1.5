@@ -1,200 +1,79 @@
 import { useState, useEffect } from 'react'
-import { useGame } from '../../context/GameStateContext'
+import { useNavigate } from 'react-router-dom'
+import { useGame } from '../context/GameStateContext'
 
-export default function Modal({ isOpen, onClose, title, equipmentType, elementId, studentGroup, onSolved }) {
+export default function PPERoom() {
+  const [lockerOpen, setLockerOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [userAnswer, setUserAnswer] = useState('')
-  const [feedback, setFeedback] = useState(null)
-  const [attempts, setAttempts] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
   const [showHint, setShowHint] = useState(false)
-  const [equipmentImage, setEquipmentImage] = useState(null)
-  const [elementContent, setElementContent] = useState(null)
-  const [isElement, setIsElement] = useState(false)
-  const [showInfoOnly, setShowInfoOnly] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [feedback, setFeedback] = useState(null)
+  const [selectedItems, setSelectedItems] = useState({
+    footwear: null,
+    pants: null,
+    shirt: null,
+    eyewear: null,
+    handwear: null
+  })
+  const [allPpeCorrect, setAllPpeCorrect] = useState(false)
+  const [showQuestion, setShowQuestion] = useState(false)
+  const [shuffledOptions, setShuffledOptions] = useState({})
   
-  const { trackAttempt, studentInfo } = useGame()
+  const navigate = useNavigate()
+  const { studentInfo, trackAttempt } = useGame()
 
-  useEffect(() => {
-    if (isOpen && (equipmentType || elementId)) {
-      loadContent()
-    }
-  }, [isOpen, equipmentType, elementId, studentGroup])
-
-  const loadContent = async () => {
-    setIsLoading(true)
-    setIsElement(!!elementId)
-    setShowInfoOnly(false)
-    
-    if (equipmentType) {
-      // Load equipment content
-      const question = await getEquipmentQuestion(equipmentType, studentGroup)
-      setCurrentQuestion(question)
-      
-      // Check if this is info-only equipment
-      if (question && question.interactionType === 'info') {
-        setShowInfoOnly(true)
+  // Define clothing options with correct/incorrect choices
+  const clothingOptions = {
+    footwear: {
+      correct: ['closedShoes', 'labBoots'],
+      options: {
+        closedShoes: { emoji: '👟', name: 'Closed-toe Shoes', correct: true },
+        labBoots: { emoji: '🥾', name: 'Lab Boots', correct: true },
+        sandals: { emoji: '👡', name: 'Sandals', correct: false },
+        flipFlops: { emoji: '🩴', name: 'Flip Flops', correct: false },
+        heels: { emoji: '👠', name: 'High Heels', correct: false }
       }
-      
-      const image = await getEquipmentImage(equipmentType, studentGroup)
-      setEquipmentImage(image)
-    } else if (elementId) {
-      // Load room element content
-      const element = await getRoomElement(elementId)
-      setElementContent(element)
-      
-      if (element && ['question', 'question_element'].includes(element.interactionType)) {
-        const question = await getElementQuestion(elementId, studentGroup)
-        setCurrentQuestion(question)
-      } else if (element && element.interactionType === 'info') {
-        setShowInfoOnly(true)
+    },
+    pants: {
+      correct: ['longPants', 'labPants'],
+      options: {
+        longPants: { emoji: '👖', name: 'Long Pants', correct: true },
+        labPants: { emoji: '🦺', name: 'Lab Pants', correct: true },
+        shorts: { emoji: '🩳', name: 'Shorts', correct: false },
+        skirt: { emoji: '👗', name: 'Short Skirt', correct: false }
       }
-    }
-    
-    setIsLoading(false)
-  }
-
-  const getEquipmentQuestion = async (equipment, group) => {
-    const savedQuestions = localStorage.getItem('instructor-lab-questions')
-    
-    if (savedQuestions) {
-      const questions = JSON.parse(savedQuestions)
-      const groupQuestions = questions[equipment]?.groups?.[group] || questions[equipment]?.groups?.[1]
-      if (groupQuestions && groupQuestions.length > 0) {
-        return groupQuestions[0]
+    },
+    shirt: {
+      correct: ['labCoat'],
+      options: {
+        labCoat: { emoji: '🥼', name: 'Lab Coat', correct: true },
+        tShirt: { emoji: '👕', name: 'T-Shirt', correct: false },
+        tankTop: { emoji: '🎽', name: 'Tank Top', correct: false },
+        hoodie: { emoji: '🧥', name: 'Hoodie', correct: false }
       }
-    }
-    
-    return getDefaultQuestion(equipment)
-  }
-
-  const getRoomElement = async (elementId) => {
-    const savedElements = localStorage.getItem('instructor-room-elements')
-    
-    if (savedElements) {
-      try {
-        const elements = JSON.parse(savedElements)
-        return elements[elementId] || null
-      } catch (error) {
-        console.error('Error loading room element:', error)
+    },
+    eyewear: {
+      correct: ['safetyGoggles'],
+      options: {
+        safetyGoggles: { emoji: '🥽', name: 'Safety Goggles', correct: true },
+        sunglasses: { emoji: '🕶️', name: 'Sunglasses', correct: false },
+        glasses: { emoji: '👓', name: 'Regular Glasses', correct: false },
+        none: { emoji: '👁️', name: 'No Eyewear', correct: false }
       }
-    }
-    
-    return null
-  }
-
-  const getElementQuestion = async (elementId, group) => {
-    const element = await getRoomElement(elementId)
-    
-    if (element && element.content?.question) {
-      const groupQuestions = element.content.question.groups?.[group] || element.content.question.groups?.[1]
-      if (groupQuestions && groupQuestions.length > 0) {
-        return groupQuestions[0]
+    },
+    handwear: {
+      correct: ['latexGloves', 'nitrileGloves'],
+      options: {
+        latexGloves: { emoji: '🧤', name: 'Latex Gloves', correct: true },
+        nitrileGloves: { emoji: '🫱', name: 'Nitrile Gloves', correct: true },
+        winterGloves: { emoji: '🧤', name: 'Winter Gloves', correct: false },
+        none: { emoji: '✋', name: 'No Gloves', correct: false }
       }
-    }
-    
-    return {
-      id: `${elementId}_default`,
-      question: `What do you observe about ${element?.name || 'this element'}?`,
-      type: 'text',
-      answer: 'observed',
-      hint: 'Look carefully at the details.',
-      clue: 'Observation recorded successfully.'
     }
   }
 
-  const getDefaultQuestion = (equipment) => {
-    const defaultQuestions = {
-      microscope: {
-        id: 'mic1',
-        interactionType: 'question',
-        question: 'Looking at the bacterial specimen under 1000x magnification, what is the most likely shape classification of these cells?',
-        type: 'multiple_choice',
-        options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
-        answer: 'Bacilli (rod-shaped)',
-        hint: 'Look carefully at the elongated shape of the individual cells.',
-        clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
-        randomizeAnswers: false,
-        info: 'Rod-shaped bacteria detected - likely Escherichia coli',
-        infoImage: null
-      },
-      incubator: {
-        id: 'inc1',
-        interactionType: 'question',
-        question: 'The incubator display shows 37°C and 5% CO2. This environment is optimal for growing which type of microorganisms?',
-        type: 'multiple_choice',
-        options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
-        answer: 'Mesophiles',
-        hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
-        clue: 'Mesophilic conditions set - optimal for human pathogens',
-        randomizeAnswers: false,
-        info: 'Mesophilic conditions set - optimal for human pathogens',
-        infoImage: null
-      },
-      petriDish: {
-        id: 'pet1',
-        interactionType: 'question',
-        question: 'On the blood agar plate, you observe clear zones around some bacterial colonies. This indicates:',
-        type: 'multiple_choice',
-        options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
-        answer: 'Beta hemolysis',
-        hint: 'Clear zones indicate complete breakdown of red blood cells.',
-        clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-        randomizeAnswers: false,
-        info: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-        infoImage: null
-      },
-      autoclave: {
-        id: 'auto1',
-        interactionType: 'question',
-        question: 'For proper sterilization, the autoclave must reach what temperature and pressure for how long?',
-        type: 'multiple_choice',
-        options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
-        answer: '121°C, 15 psi, 15 minutes',
-        hint: 'Standard sterilization parameters for most laboratory equipment.',
-        clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
-        randomizeAnswers: false,
-        info: 'Sterilization protocol confirmed - equipment properly decontaminated',
-        infoImage: null
-      },
-      centrifuge: {
-        id: 'cent1',
-        interactionType: 'question',
-        question: 'When centrifuging blood samples, the heavier red blood cells settle at the bottom while the lighter plasma rises to the top. This separation is based on:',
-        type: 'multiple_choice',
-        options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
-        answer: 'Density differences',
-        hint: 'Think about what causes particles to separate when spun at high speed.',
-        clue: 'Density separation principle confirmed - sample fractionation successful',
-        randomizeAnswers: false,
-        info: 'Density separation principle confirmed - sample fractionation successful',
-        infoImage: null
-      }
-    }
-    
-    return defaultQuestions[equipment] || {
-      id: 'default',
-      interactionType: 'question',
-      question: 'What is the primary function of this laboratory equipment?',
-      type: 'text',
-      answer: 'analysis',
-      hint: 'Think about how this equipment is used in microbiology research.',
-      clue: 'Equipment function understood',
-      info: 'Equipment function understood',
-      infoImage: null
-    }
-  }
-
-  const getEquipmentImage = async (equipment, group) => {
-    const savedImages = localStorage.getItem('instructor-lab-images')
-    if (savedImages) {
-      const images = JSON.parse(savedImages)
-      const imageKey = `${equipment}_group${group}`
-      return images[imageKey] || null
-    }
-    return null
-  }
-
+  // Function to shuffle array
   const shuffleArray = (array) => {
     const shuffled = [...array]
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -204,44 +83,72 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
     return shuffled
   }
 
-  const getDisplayOptions = (question) => {
-    if (question.type !== 'multiple_choice' || !question.randomizeAnswers) {
-      return question.options
+  // Shuffle options when component mounts
+  useEffect(() => {
+    const shuffled = {}
+    Object.keys(clothingOptions).forEach(category => {
+      const optionKeys = Object.keys(clothingOptions[category].options)
+      shuffled[category] = shuffleArray(optionKeys)
+    })
+    setShuffledOptions(shuffled)
+  }, [])
+
+  useEffect(() => {
+    loadPPEQuestion()
+  }, [studentInfo])
+
+  useEffect(() => {
+    // Check if all PPE selections are correct
+    const allCorrect = Object.entries(selectedItems).every(([category, selectedItem]) => {
+      if (!selectedItem) return false
+      return clothingOptions[category].options[selectedItem].correct
+    })
+    setAllPpeCorrect(allCorrect && Object.values(selectedItems).every(item => item !== null))
+  }, [selectedItems])
+
+  const loadPPEQuestion = () => {
+    // Load PPE question from instructor settings or use default
+    const savedQuestions = localStorage.getItem('instructor-ppe-questions')
+    let question = null
+    
+    if (savedQuestions) {
+      try {
+        const questions = JSON.parse(savedQuestions)
+        const groupQuestions = questions.groups?.[studentInfo?.groupNumber] || questions.groups?.[1]
+        if (groupQuestions && groupQuestions.length > 0) {
+          question = groupQuestions[0]
+        }
+      } catch (error) {
+        console.error('Error loading PPE questions:', error)
+      }
     }
     
-    // Create a consistent seed based on student and question
-    const seed = `${studentInfo?.sessionId || 'default'}_${question.id}`
-    const random = seedRandom(seed)
-    
-    const shuffled = [...question.options]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    // Default PPE safety question
+    if (!question) {
+      question = {
+        id: 'ppe1',
+        question: 'Which of the following is the MOST important reason for wearing gloves when handling patient samples in a microbiology lab?',
+        type: 'multiple_choice',
+        options: [
+          'To keep your hands warm',
+          'To prevent contamination of samples and protect against pathogens',
+          'To look professional',
+          'To avoid getting your hands dirty'
+        ],
+        answer: 'To prevent contamination of samples and protect against pathogens',
+        hint: 'Think about the dual purpose of gloves in a medical laboratory setting.',
+        clue: 'Proper PPE protocols understood - locker access granted'
+      }
     }
     
-    return shuffled
+    setCurrentQuestion(question)
   }
 
-  // Simple seeded random number generator
-  const seedRandom = (seed) => {
-    let hash = 0
-    for (let i = 0; i < seed.length; i++) {
-      const char = seed.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32-bit integer
-    }
-    
-    return () => {
-      hash = (hash * 1103515245 + 12345) & 0x7fffffff
-      return hash / 0x7fffffff
-    }
-  }
-
-  const handleSubmit = (e) => {
+  const handleLockerSubmit = (e) => {
     e.preventDefault()
     
     if (!userAnswer.trim()) {
-      setFeedback({ type: 'warning', message: 'Please provide an answer before submitting.' })
+      setFeedback({ type: 'warning', message: 'Please select an answer before submitting.' })
       return
     }
 
@@ -249,25 +156,14 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
     setAttempts(prev => prev + 1)
     
     // Track the attempt
-    const trackingId = equipmentType ? `${equipmentType}_${currentQuestion.id}` : `${elementId}_${currentQuestion.id}`
-    trackAttempt('lab', trackingId, userAnswer, isCorrect)
+    trackAttempt('ppe-room', currentQuestion.id, userAnswer, isCorrect)
     
     if (isCorrect) {
-      setFeedback({ 
-        type: 'success', 
-        message: '🎉 Correct! Analysis complete.' 
-      })
-      
-      // Delay before solving to show feedback
-      setTimeout(() => {
-        const clueText = currentQuestion.info || currentQuestion.clue || (isElement ? elementContent?.content?.info || 'Information discovered!' : 'Equipment analyzed successfully!')
-        onSolved(equipmentType || elementId, clueText)
-      }, 2000)
+      setFeedback({ type: 'success', message: '🎉 Correct! Your locker is now open.' })
+      setLockerOpen(true)
+      setShowQuestion(false)
     } else {
-      setFeedback({ 
-        type: 'error', 
-        message: getWrongAnswerFeedback() 
-      })
+      setFeedback({ type: 'error', message: 'Incorrect. Review laboratory safety protocols and try again.' })
     }
   }
 
@@ -279,235 +175,294 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
     }
   }
 
-  const getWrongAnswerFeedback = () => {
-    const feedbackMessages = [
-      "Not quite right. Review the specimen carefully and try again.",
-      "Incorrect. Consider the laboratory conditions and protocols.",
-      "That's not the answer. Think about the microbiology principles involved.",
-      "Try again. Look for visual clues in the setup."
-    ]
-    return feedbackMessages[attempts % feedbackMessages.length]
+  const selectClothing = (category, itemKey) => {
+    if (!lockerOpen) return
+    
+    setSelectedItems(prev => ({
+      ...prev,
+      [category]: itemKey
+    }))
   }
 
-  const handleHint = () => {
-    setShowHint(true)
-    const trackingId = equipmentType ? `${equipmentType}_hint` : `${elementId}_hint`
-    trackAttempt('lab', trackingId, 'hint_requested', false)
-  }
-
-  const handleInfoOnly = () => {
-    // For info-only equipment/elements, just show the information and close
-    let infoText = ''
-    if (equipmentType) {
-      infoText = currentQuestion?.info || 'Information discovered!'
-    } else if (elementContent) {
-      infoText = elementContent.content?.info || 'Information discovered!'
+  const proceedToLab = () => {
+    if (allPpeCorrect) {
+      navigate('/lab')
     }
-    onSolved(equipmentType || elementId, infoText)
   }
 
-  if (!isOpen) return null
+  const getIncorrectSelections = () => {
+    return Object.entries(selectedItems).filter(([category, selectedItem]) => {
+      if (!selectedItem) return false
+      return !clothingOptions[category].options[selectedItem].correct
+    }).map(([category, selectedItem]) => ({
+      category,
+      item: clothingOptions[category].options[selectedItem].name
+    }))
+  }
+
+  const handleLockClick = () => {
+    if (!lockerOpen) {
+      setShowQuestion(true)
+    }
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-300 text-3xl font-bold"
-              disabled={feedback?.type === 'success'}
-            >
-              ×
-            </button>
-          </div>
-          <p className="text-blue-100 mt-2">
-            {studentGroup ? `Group ${studentGroup} - ` : ''}
-            {isElement ? 'Element Interaction' : 'Equipment Analysis'}
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-200 to-blue-200 relative overflow-hidden">
+      {/* Realistic Floor */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-400 via-gray-300 to-transparent opacity-30"></div>
+      
+      {/* Ceiling Lights */}
+      <div className="absolute top-0 left-0 right-0 flex justify-around py-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="w-16 h-4 bg-gradient-to-b from-yellow-200 to-yellow-100 rounded-lg shadow-lg opacity-80"></div>
+        ))}
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto p-6">
+        
+        {/* Room Title */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-green-600 to-purple-600">
+            🥽 Personal Protective Equipment Room
+          </h1>
+          <p className="text-blue-700 text-lg">Prepare for laboratory entry - Group {studentInfo?.groupNumber}</p>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading content...</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              
-              {/* Equipment/Element Image */}
-              {equipmentImage && (
-                <div className="text-center">
-                  <img 
-                    src={equipmentImage.data} 
-                    alt={`${equipmentType} analysis`}
-                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                  />
-                </div>
-              )}
-              
-              {/* Element Image */}
-              {elementContent?.image && (
-                <div className="text-center">
-                  <img 
-                    src={elementContent.image.processed} 
-                    alt={elementContent.name}
-                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                  />
-                </div>
-              )}
+        {/* Safety Alert */}
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-8 shadow-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-3xl mr-3">⚠️</span>
+            <h2 className="text-2xl font-bold text-red-800">LABORATORY SAFETY PROTOCOL</h2>
+          </div>
+          <p className="text-red-700 text-lg">
+            Before entering the microbiology laboratory to analyze the patient sample, you must:
+          </p>
+          <ol className="text-red-700 mt-4 space-y-2">
+            <li>1. Answer the safety question to access your personal locker</li>
+            <li>2. Select appropriate Personal Protective Equipment (PPE) from available options</li>
+            <li>3. Ensure all PPE selections meet laboratory safety standards</li>
+            <li>4. Proceed to the laboratory for urgent sample analysis</li>
+          </ol>
+        </div>
 
-              {/* Content Description */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-bold text-blue-800 mb-2">
-                  {isElement ? '🔍 Element Examination' : '🔬 Equipment Analysis'}
-                </h3>
-                <p className="text-blue-700">
-                  {isElement 
-                    ? `You examine the ${elementContent?.name || 'element'} and notice interesting details that might be relevant to your investigation.`
-                    : getEquipmentDescription(equipmentType)
-                  }
-                </p>
+        {/* Main Room Layout */}
+        <div className="relative bg-gradient-to-br from-gray-100 to-blue-50 rounded-3xl p-8 shadow-2xl border-4 border-gray-400 min-h-[700px]">
+          
+          {/* Realistic Room Background */}
+          <div className="absolute inset-4">
+            {/* Floor tiles */}
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-300 to-gray-200 rounded-b-2xl"></div>
+            {/* Wall panels */}
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-50 to-gray-100 rounded-2xl opacity-90"></div>
+            {/* Wall trim */}
+            <div className="absolute top-4 left-4 right-4 h-2 bg-gray-300 rounded"></div>
+            <div className="absolute bottom-20 left-4 right-4 h-2 bg-gray-300 rounded"></div>
+          </div>
+          
+          <div className="relative z-10 grid grid-cols-12 grid-rows-8 gap-4 h-full min-h-[600px]">
+            
+            {/* Personal Locker - Center Focus */}
+            <div className="col-span-8 row-span-8 col-start-3 flex flex-col items-center justify-center">
+              
+              {/* Realistic Locker */}
+              <div className={`relative w-80 h-96 bg-gradient-to-b from-gray-500 to-gray-700 rounded-lg shadow-2xl border-4 ${
+                lockerOpen ? 'border-green-400' : 'border-gray-600'
+              }`}>
+                
+                {/* Locker Door */}
+                <div className={`absolute inset-2 bg-gradient-to-b from-gray-400 to-gray-600 rounded-lg transition-transform duration-500 ${
+                  lockerOpen ? 'transform -translate-x-full opacity-0' : ''
+                } overflow-hidden`}>
+                  {/* Door Handle */}
+                  <div className="absolute top-1/2 right-4 transform -translate-y-1/2">
+                    <div className="w-4 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg shadow-lg"></div>
+                  </div>
+                  
+                  {/* Clickable Lock */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-8">
+                    <div 
+                      className={`w-12 h-12 rounded-full ${lockerOpen ? 'bg-green-500' : 'bg-red-500'} shadow-lg border-4 border-gray-300 cursor-pointer transition-all duration-300 hover:scale-110 ${
+                        !lockerOpen ? 'hover:bg-red-600' : ''
+                      }`}
+                      onClick={handleLockClick}
+                    >
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
+                        {lockerOpen ? '🔓' : '🔒'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Locker Number Plate */}
+                  <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-b from-white to-gray-100 rounded px-4 py-2 shadow-lg border border-gray-300">
+                    <span className="font-bold text-gray-800 text-lg">#{studentInfo?.groupNumber || '1'}</span>
+                  </div>
+                  
+                  {/* Ventilation slots */}
+                  <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 space-y-1">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="w-32 h-1 bg-gray-600 rounded"></div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Locker Contents (visible when open) */}
+                {lockerOpen && (
+                  <div className="absolute inset-2 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4 overflow-y-auto">
+                    <h3 className="text-center font-bold text-gray-800 mb-4 text-lg">Select Appropriate PPE</h3>
+                    
+                    {/* Clothing Categories */}
+                    <div className="space-y-6">
+                      {Object.entries(clothingOptions).map(([category, categoryData]) => (
+                        <div key={category} className="bg-gray-50 rounded-lg p-3">
+                          <h4 className="font-semibold text-gray-700 mb-2 capitalize">
+                            {category === 'handwear' ? 'Hand Protection' : 
+                             category === 'eyewear' ? 'Eye Protection' : 
+                             category === 'footwear' ? 'Foot Protection' : category}:
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {shuffledOptions[category] && shuffledOptions[category].map((itemKey) => {
+                              const item = categoryData.options[itemKey]
+                              return (
+                                <div
+                                  key={itemKey}
+                                  onClick={() => selectClothing(category, itemKey)}
+                                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center text-xs ${
+                                    selectedItems[category] === itemKey
+                                      ? item.correct 
+                                        ? 'border-green-400 bg-green-50' 
+                                        : 'border-red-400 bg-red-50'
+                                      : 'border-gray-300 bg-white hover:border-blue-400'
+                                  }`}
+                                >
+                                  <div className="text-xl mb-1">{item.emoji}</div>
+                                  <div className="font-semibold text-gray-700">{item.name}</div>
+                                  {selectedItems[category] === itemKey && (
+                                    <div className={`text-xs mt-1 ${item.correct ? 'text-green-600' : 'text-red-600'}`}>
+                                      {item.correct ? '✓ Appropriate' : '✗ Inappropriate'}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Info-only elements and equipment */}
-              {showInfoOnly && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                  <h3 className="font-bold text-green-800 mb-4">📋 Information Discovered</h3>
-                  
-                  {/* Text Information */}
-                  <div className="mb-4">
-                    <p className="text-green-700 mb-4">
-                      {equipmentType 
-                        ? (currentQuestion?.info || 'You have discovered important information about this equipment!')
-                        : (elementContent?.content?.info || 'You have discovered important information about this element!')
-                      }
-                    </p>
-                  </div>
+              {/* Locker Label */}
+              <div className="mt-6 text-center">
+                <div className="text-lg font-bold text-gray-700">Personal Equipment Locker</div>
+                {lockerOpen ? (
+                  <div className="text-sm text-green-600">✓ Access Granted</div>
+                ) : (
+                  <div className="text-sm text-red-600">🔒 Locked - Click lock to answer question</div>
+                )}
+              </div>
+            </div>
+          </div>
 
-                  {/* Info Image */}
-                  {equipmentType && currentQuestion?.infoImage && (
-                    <div className="mb-4">
-                      <img
-                        src={currentQuestion.infoImage.data}
-                        alt={`${equipmentType} information`}
-                        className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleInfoOnly}
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
-                  >
-                    ✅ Record Information
-                  </button>
-                </div>
+          {/* Proceed to Lab Button */}
+          <div className="absolute bottom-8 right-8">
+            <button
+              onClick={proceedToLab}
+              disabled={!allPpeCorrect}
+              className={`px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 ${
+                allPpeCorrect
+                  ? 'bg-green-500 hover:bg-green-600 text-white transform hover:scale-105'
+                  : 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+              }`}
+            >
+              {allPpeCorrect ? (
+                '🚪 Enter Laboratory'
+              ) : (
+                '🚫 Check PPE Selection'
               )}
+            </button>
+          </div>
+        </div>
 
-              {/* Question Section */}
-              {currentQuestion && !showInfoOnly && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                  <h3 className="font-bold text-gray-800 mb-4 text-lg">{currentQuestion.question}</h3>
-                  
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {currentQuestion.type === 'multiple_choice' ? (
-                      <div className="space-y-2">
-                        {getDisplayOptions(currentQuestion).map((option, index) => (
-                          <label 
-                            key={index}
-                            className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border-2 ${
-                              userAnswer === option 
-                                ? 'border-blue-500 bg-blue-50' 
-                                : 'border-gray-200 bg-white hover:border-blue-300'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="answer"
-                              value={option}
-                              checked={userAnswer === option}
-                              onChange={(e) => setUserAnswer(e.target.value)}
-                              disabled={feedback?.type === 'success'}
-                              className="mr-3 h-4 w-4 text-blue-600"
-                            />
-                            <span className="text-gray-700">{option}</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={userAnswer}
-                        onChange={(e) => setUserAnswer(e.target.value)}
-                        placeholder="Enter your answer..."
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={feedback?.type === 'success'}
-                      />
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={!userAnswer || feedback?.type === 'success'}
-                        className={`px-6 py-3 rounded-lg font-bold transition-all ${
-                          feedback?.type === 'success' 
-                            ? 'bg-green-600 text-white cursor-not-allowed' 
-                            : !userAnswer 
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+        {/* Safety Question Panel */}
+        {showQuestion && !lockerOpen && currentQuestion && (
+          <div className="mt-8 bg-white rounded-xl shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">🔒 Locker Security Question</h3>
+              <button
+                onClick={() => setShowQuestion(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">Answer this safety question to access your PPE locker:</p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h4 className="font-bold text-blue-800 mb-4 text-lg">{currentQuestion.question}</h4>
+              
+              <form onSubmit={handleLockerSubmit} className="space-y-4">
+                {currentQuestion.type === 'multiple_choice' ? (
+                  <div className="space-y-2">
+                    {currentQuestion.options.map((option, index) => (
+                      <label 
+                        key={index}
+                        className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border-2 ${
+                          userAnswer === option 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : 'border-gray-200 bg-white hover:border-blue-300'
                         }`}
                       >
-                        {feedback?.type === 'success' ? '✅ Completed' : '✅ Submit Answer'}
-                      </button>
-                      
-                      {!showHint && attempts > 0 && feedback?.type !== 'success' && (
-                        <button
-                          type="button"
-                          onClick={handleHint}
-                          className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all"
-                        >
-                          💡 Show Hint
-                        </button>
-                      )}
-                    </div>
-                  </form>
+                        <input
+                          type="radio"
+                          name="answer"
+                          value={option}
+                          checked={userAnswer === option}
+                          onChange={(e) => setUserAnswer(e.target.value)}
+                          className="mr-3 h-4 w-4 text-blue-600"
+                        />
+                        <span className="text-gray-700">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    placeholder="Enter your answer..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
 
-                  {/* Success Information Display */}
-                  {feedback?.type === 'success' && (
-                    <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-bold text-green-800 mb-3">📋 Analysis Results</h4>
-                      
-                      {/* Text Information */}
-                      <div className="mb-4">
-                        <p className="text-green-700">
-                          {currentQuestion.info || currentQuestion.clue || 'Analysis completed successfully!'}
-                        </p>
-                      </div>
-
-                      {/* Info Image */}
-                      {currentQuestion.infoImage && (
-                        <div className="mb-4">
-                          <img
-                            src={currentQuestion.infoImage.data}
-                            alt={`${equipmentType || elementId} analysis results`}
-                            className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                          />
-                        </div>
-                      )}
-                    </div>
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={!userAnswer}
+                    className={`px-6 py-3 rounded-lg font-bold transition-all ${
+                      !userAnswer 
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    🔓 Unlock Locker
+                  </button>
+                  
+                  {!showHint && attempts > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowHint(true)}
+                      className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all"
+                    >
+                      💡 Show Hint
+                    </button>
                   )}
                 </div>
-              )}
+              </form>
 
               {/* Hint Display */}
               {showHint && currentQuestion?.hint && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <h4 className="font-bold text-yellow-800 mb-2">💡 Hint</h4>
                   <p className="text-yellow-700">{currentQuestion.hint}</p>
                 </div>
@@ -515,7 +470,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
 
               {/* Feedback */}
               {feedback && (
-                <div className={`p-4 rounded-lg border-2 ${
+                <div className={`mt-4 p-4 rounded-lg border-2 ${
                   feedback.type === 'success' 
                     ? 'bg-green-50 border-green-200 text-green-800'
                     : feedback.type === 'error'
@@ -523,35 +478,84 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                     : 'bg-yellow-50 border-yellow-200 text-yellow-800'
                 }`}>
                   <p className="font-medium">{feedback.message}</p>
-                  {feedback.type === 'success' && (
-                    <p className="text-sm mt-2 text-green-600">
-                      {isElement ? 'Information' : 'Equipment data'} has been added to your research findings.
-                    </p>
-                  )}
                 </div>
               )}
 
-              {/* Attempt Counter */}
               {attempts > 0 && (
-                <div className="text-center text-sm text-gray-500">
+                <div className="mt-4 text-center text-sm text-gray-500">
                   Attempts: {attempts}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* PPE Status Panel */}
+        {lockerOpen && (
+          <div className="mt-8 bg-white rounded-xl shadow-xl p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">👷‍♀️ PPE Selection Status</h3>
+            
+            {/* Current Selections */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+              {Object.entries(selectedItems).map(([category, selectedItem]) => {
+                const item = selectedItem ? clothingOptions[category].options[selectedItem] : null
+                return (
+                  <div 
+                    key={category}
+                    className={`p-4 rounded-lg border-2 text-center ${
+                      item ? (item.correct ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50')
+                      : 'border-gray-400 bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-2xl mb-2">
+                      {item ? item.emoji : '❓'}
+                    </div>
+                    <div className="font-semibold text-gray-800 capitalize text-sm">
+                      {category === 'handwear' ? 'Hands' : 
+                       category === 'eyewear' ? 'Eyes' : 
+                       category === 'footwear' ? 'Feet' : category}
+                    </div>
+                    <div className={`text-xs ${
+                      item ? (item.correct ? 'text-green-600' : 'text-red-600') : 'text-gray-500'
+                    }`}>
+                      {item ? (item.correct ? '✓ Appropriate' : '✗ Inappropriate') : 'Not Selected'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* Status Message */}
+            {allPpeCorrect ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-green-800 font-semibold text-center">
+                  ✅ All PPE selections are appropriate! You may now enter the laboratory safely.
+                </p>
+              </div>
+            ) : Object.values(selectedItems).every(item => item !== null) ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-800 font-semibold text-center mb-2">
+                  ❌ Some PPE selections are inappropriate for laboratory work:
+                </p>
+                <ul className="text-red-700 text-sm">
+                  {getIncorrectSelections().map(({ category, item }) => (
+                    <li key={category}>• {item} is not appropriate for {category}</li>
+                  ))}
+                </ul>
+                <p className="text-red-600 text-sm mt-2 text-center">
+                  Please select appropriate laboratory-grade protective equipment.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 font-semibold text-center">
+                  ⚠️ Please select appropriate protective equipment for each category before entering the lab.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
-}
-
-function getEquipmentDescription(type) {
-  const descriptions = {
-    microscope: 'You approach the research microscope and notice a prepared slide is already mounted. The specimen appears to be a bacterial culture stained with methylene blue. Adjust the focus and examine the cellular morphology.',
-    incubator: 'The incubator door is slightly ajar, revealing several culture plates inside. The digital display shows current temperature and atmospheric conditions. A research protocol is posted on the front panel.',
-    petriDish: 'Several petri dishes are arranged on the lab bench. One contains blood agar with distinct bacterial colonies showing different hemolytic patterns. The colonies vary in size, color, and transparency.',
-    autoclave: 'The autoclave chamber contains various lab equipment that needs sterilization. A temperature log sheet is attached to the front, showing the sterilization cycle parameters.',
-    centrifuge: 'The centrifuge contains several test tubes with what appears to be blood samples. The rotor is balanced and ready for operation. Safety protocols are posted on the nearby wall.'
-  }
-  return descriptions[type] || 'Examine this equipment carefully for clues to your research.'
 }
