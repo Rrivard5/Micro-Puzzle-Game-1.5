@@ -111,6 +111,60 @@ const InstructorInterface = () => {
     }
   };
 
+  const handleInfoImageUpload = (event, equipment, groupNumber) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload only image files (JPG, PNG, etc.)');
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      const uploadKey = `${equipment}_${groupNumber}_info`;
+      setUploadingImages(prev => ({ ...prev, [uploadKey]: true }));
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const currentQuestion = labQuestions[equipment]?.groups?.[groupNumber]?.[0];
+        if (currentQuestion) {
+          const updatedQuestion = {
+            ...currentQuestion,
+            infoImage: {
+              data: e.target.result,
+              name: file.name,
+              size: file.size,
+              lastModified: new Date().toISOString()
+            }
+          };
+          updateQuestion(equipment, groupNumber, updatedQuestion);
+        }
+        setUploadingImages(prev => ({ ...prev, [uploadKey]: false }));
+      };
+      reader.onerror = () => {
+        alert('Error reading file. Please try again.');
+        setUploadingImages(prev => ({ ...prev, [uploadKey]: false }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeInfoImage = (equipment, groupNumber) => {
+    if (confirm('Are you sure you want to remove this info image?')) {
+      const currentQuestion = labQuestions[equipment]?.groups?.[groupNumber]?.[0];
+      if (currentQuestion) {
+        const updatedQuestion = {
+          ...currentQuestion,
+          infoImage: null
+        };
+        updateQuestion(equipment, groupNumber, updatedQuestion);
+      }
+    }
+  };
+
   const loadLabContent = () => {
     const savedQuestions = localStorage.getItem('instructor-lab-questions');
     if (savedQuestions) {
@@ -131,13 +185,16 @@ const InstructorInterface = () => {
         groups: {
           1: [{
             id: 'mic1',
+            interactionType: 'question',
             question: 'Looking at the bacterial specimen under 1000x magnification, what is the most likely shape classification of these cells?',
             type: 'multiple_choice',
             options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
             answer: 'Bacilli (rod-shaped)',
             hint: 'Look carefully at the elongated shape of the individual cells.',
             clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
-            randomizeAnswers: false
+            randomizeAnswers: false,
+            info: 'Rod-shaped bacteria detected - likely Escherichia coli',
+            infoImage: null
           }]
         }
       },
@@ -145,13 +202,16 @@ const InstructorInterface = () => {
         groups: {
           1: [{
             id: 'inc1',
+            interactionType: 'question',
             question: 'The incubator display shows 37°C and 5% CO2. This environment is optimal for growing which type of microorganisms?',
             type: 'multiple_choice',
             options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
             answer: 'Mesophiles',
             hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
             clue: 'Mesophilic conditions set - optimal for human pathogens',
-            randomizeAnswers: false
+            randomizeAnswers: false,
+            info: 'Mesophilic conditions set - optimal for human pathogens',
+            infoImage: null
           }]
         }
       },
@@ -159,13 +219,16 @@ const InstructorInterface = () => {
         groups: {
           1: [{
             id: 'pet1',
+            interactionType: 'question',
             question: 'On the blood agar plate, you observe clear zones around some bacterial colonies. This indicates:',
             type: 'multiple_choice',
             options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
             answer: 'Beta hemolysis',
             hint: 'Clear zones indicate complete breakdown of red blood cells.',
             clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-            randomizeAnswers: false
+            randomizeAnswers: false,
+            info: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
+            infoImage: null
           }]
         }
       },
@@ -173,13 +236,16 @@ const InstructorInterface = () => {
         groups: {
           1: [{
             id: 'auto1',
+            interactionType: 'question',
             question: 'For proper sterilization, the autoclave must reach what temperature and pressure for how long?',
             type: 'multiple_choice',
             options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
             answer: '121°C, 15 psi, 15 minutes',
             hint: 'Standard sterilization parameters for most laboratory equipment.',
             clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
-            randomizeAnswers: false
+            randomizeAnswers: false,
+            info: 'Sterilization protocol confirmed - equipment properly decontaminated',
+            infoImage: null
           }]
         }
       },
@@ -187,13 +253,16 @@ const InstructorInterface = () => {
         groups: {
           1: [{
             id: 'cent1',
+            interactionType: 'question',
             question: 'When centrifuging blood samples, the heavier red blood cells settle at the bottom while the lighter plasma rises to the top. This separation is based on:',
             type: 'multiple_choice',
             options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
             answer: 'Density differences',
             hint: 'Think about what causes particles to separate when spun at high speed.',
             clue: 'Density separation principle confirmed - sample fractionation successful',
-            randomizeAnswers: false
+            randomizeAnswers: false,
+            info: 'Density separation principle confirmed - sample fractionation successful',
+            infoImage: null
           }]
         }
       }
@@ -663,13 +732,16 @@ const InstructorInterface = () => {
     
     const defaultQuestion = {
       id: `${equipment}1`,
+      interactionType: 'question',
       question: `New ${equipment} question for group ${newGroupNumber}...`,
       type: 'multiple_choice',
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       answer: 'Option A',
       hint: 'Hint for this question...',
       clue: 'Clue revealed when solved...',
-      randomizeAnswers: false
+      randomizeAnswers: false,
+      info: 'Information revealed when solved...',
+      infoImage: null
     };
     
     updateQuestion(equipment, newGroupNumber, defaultQuestion);
@@ -1096,171 +1168,240 @@ const InstructorInterface = () => {
                 {equipmentTypes.includes(selectedElementId) && (() => {
                   const currentQuestion = labQuestions[selectedElementId]?.groups?.[selectedGroup]?.[0] || {
                     id: `${selectedElementId}1`,
+                    interactionType: 'question',
                     question: '',
                     type: 'multiple_choice',
                     options: ['', '', '', ''],
                     answer: '',
                     hint: '',
                     clue: '',
-                    randomizeAnswers: false
+                    randomizeAnswers: false,
+                    info: '',
+                    infoImage: null
                   };
                   
                   return (
                     <div className="space-y-6">
+                      {/* Interaction Type Selection */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
-                        <textarea
-                          value={currentQuestion.question}
-                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
-                            ...currentQuestion, 
-                            question: e.target.value 
-                          })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows="3"
-                          placeholder="Enter the microbiology question..."
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Interaction Type</label>
                         <select
-                          value={currentQuestion.type}
+                          value={currentQuestion.interactionType}
                           onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                             ...currentQuestion, 
-                            type: e.target.value 
+                            interactionType: e.target.value 
                           })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="multiple_choice">Multiple Choice</option>
-                          <option value="text">Text Input</option>
+                          <option value="info">Show Information Only</option>
+                          <option value="question">Require Question First → Show Information</option>
                         </select>
                       </div>
 
-                      {currentQuestion.type === 'multiple_choice' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
-                          {currentQuestion.options.map((option, index) => (
-                            <div key={index} className="flex items-center space-x-2 mb-2">
-                              <input
-                                type="radio"
-                                name={`answer-${selectedElementId}-${selectedGroup}`}
-                                checked={currentQuestion.answer === option}
-                                onChange={() => updateQuestion(selectedElementId, selectedGroup, { 
-                                  ...currentQuestion, 
-                                  answer: option 
-                                })}
-                                className="text-blue-600"
-                              />
-                              <input
-                                value={option}
-                                onChange={(e) => {
-                                  const newOptions = [...currentQuestion.options];
-                                  newOptions[index] = e.target.value;
-                                  updateQuestion(selectedElementId, selectedGroup, { 
-                                    ...currentQuestion, 
-                                    options: newOptions 
-                                  });
-                                }}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                              />
-                            </div>
-                          ))}
+                      {/* Question Configuration (only if question type) */}
+                      {currentQuestion.interactionType === 'question' && (
+                        <div className="space-y-4 border-l-4 border-blue-500 pl-4">
+                          <h4 className="font-medium text-blue-800">Question Configuration</h4>
                           
-                          <div className="mt-2">
-                            <label className="flex items-center">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
+                            <textarea
+                              value={currentQuestion.question}
+                              onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                question: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="3"
+                              placeholder="Enter the microbiology question..."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+                            <select
+                              value={currentQuestion.type}
+                              onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                type: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="multiple_choice">Multiple Choice</option>
+                              <option value="text">Text Input</option>
+                            </select>
+                          </div>
+
+                          {currentQuestion.type === 'multiple_choice' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+                              {currentQuestion.options.map((option, index) => (
+                                <div key={index} className="flex items-center space-x-2 mb-2">
+                                  <input
+                                    type="radio"
+                                    name={`answer-${selectedElementId}-${selectedGroup}`}
+                                    checked={currentQuestion.answer === option}
+                                    onChange={() => updateQuestion(selectedElementId, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      answer: option 
+                                    })}
+                                    className="text-blue-600"
+                                  />
+                                  <input
+                                    value={option}
+                                    onChange={(e) => {
+                                      const newOptions = [...currentQuestion.options];
+                                      newOptions[index] = e.target.value;
+                                      updateQuestion(selectedElementId, selectedGroup, { 
+                                        ...currentQuestion, 
+                                        options: newOptions 
+                                      });
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                  />
+                                </div>
+                              ))}
+                              
+                              <div className="mt-2">
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentQuestion.randomizeAnswers || false}
+                                    onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      randomizeAnswers: e.target.checked 
+                                    })}
+                                    className="mr-2"
+                                  />
+                                  Randomize answer order for each student
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
+                          {currentQuestion.type === 'text' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
                               <input
-                                type="checkbox"
-                                checked={currentQuestion.randomizeAnswers || false}
+                                value={currentQuestion.answer}
                                 onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                                   ...currentQuestion, 
-                                  randomizeAnswers: e.target.checked 
+                                  answer: e.target.value 
                                 })}
-                                className="mr-2"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter the correct answer"
                               />
-                              Randomize answer order for each student
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
+                            <textarea
+                              value={currentQuestion.hint}
+                              onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                hint: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                              placeholder="Provide a helpful hint for struggling students..."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Equipment Image for Question (Group {selectedGroup})
                             </label>
+                            {labImages[`${selectedElementId}_group${selectedGroup}`] ? (
+                              <div className="space-y-2">
+                                <img
+                                  src={labImages[`${selectedElementId}_group${selectedGroup}`].data}
+                                  alt={`${selectedElementId} for Group ${selectedGroup}`}
+                                  className="w-full max-w-md h-32 object-cover rounded border"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => removeImage(selectedElementId, selectedGroup)}
+                                    className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                                  >
+                                    Remove Question Image
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleImageUpload(e, selectedElementId, selectedGroup)}
+                                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                  disabled={uploadingImages[`${selectedElementId}_${selectedGroup}`]}
+                                />
+                                <p className="text-xs text-gray-500">
+                                  Upload microscopy images, bacterial cultures, or equipment photos to help students answer questions.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
 
-                      {currentQuestion.type === 'text' && (
+                      {/* Information Configuration */}
+                      <div className="space-y-4 border-l-4 border-green-500 pl-4">
+                        <h4 className="font-medium text-green-800">
+                          Information to Display {currentQuestion.interactionType === 'question' ? '(After Question is Answered)' : '(Immediately)'}
+                        </h4>
+                        
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
-                          <input
-                            value={currentQuestion.answer}
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Information Text</label>
+                          <textarea
+                            value={currentQuestion.info}
                             onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                               ...currentQuestion, 
-                              answer: e.target.value 
+                              info: e.target.value 
                             })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter the correct answer"
+                            rows="3"
+                            placeholder="Enter the information to display to students..."
                           />
                         </div>
-                      )}
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
-                        <textarea
-                          value={currentQuestion.hint}
-                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
-                            ...currentQuestion, 
-                            hint: e.target.value 
-                          })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows="2"
-                          placeholder="Provide a helpful hint for struggling students..."
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Research Clue (Revealed when solved)</label>
-                        <textarea
-                          value={currentQuestion.clue}
-                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
-                            ...currentQuestion, 
-                            clue: e.target.value 
-                          })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows="2"
-                          placeholder="What research finding is revealed when this equipment is analyzed?"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Equipment Image for Group {selectedGroup}
-                        </label>
-                        {labImages[`${selectedElementId}_group${selectedGroup}`] ? (
-                          <div className="space-y-2">
-                            <img
-                              src={labImages[`${selectedElementId}_group${selectedGroup}`].data}
-                              alt={`${selectedElementId} for Group ${selectedGroup}`}
-                              className="w-full max-w-md h-32 object-cover rounded border"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => removeImage(selectedElementId, selectedGroup)}
-                                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-                              >
-                                Remove Image
-                              </button>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Information Image (Group {selectedGroup})
+                          </label>
+                          {currentQuestion.infoImage ? (
+                            <div className="space-y-2">
+                              <img
+                                src={currentQuestion.infoImage.data}
+                                alt={`${selectedElementId} info for Group ${selectedGroup}`}
+                                className="w-full max-w-md h-32 object-cover rounded border"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => removeInfoImage(selectedElementId, selectedGroup)}
+                                  className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                                >
+                                  Remove Info Image
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, selectedElementId, selectedGroup)}
-                              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                              disabled={uploadingImages[`${selectedElementId}_${selectedGroup}`]}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Upload microscopy images, bacterial cultures, or equipment photos to help students answer questions.
-                            </p>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="space-y-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleInfoImageUpload(e, selectedElementId, selectedGroup)}
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                                disabled={uploadingImages[`${selectedElementId}_${selectedGroup}_info`]}
+                              />
+                              <p className="text-xs text-gray-500">
+                                Upload images to display with the information text (research results, analysis charts, etc.)
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
