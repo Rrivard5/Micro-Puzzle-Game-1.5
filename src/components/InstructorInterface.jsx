@@ -17,6 +17,7 @@ const InstructorInterface = () => {
   const [labImages, setLabImages] = useState({});
   const [selectedGroup, setSelectedGroup] = useState(1);
   const [selectedEquipment, setSelectedEquipment] = useState('microscope');
+  const [selectedElementId, setSelectedElementId] = useState(null);
   const [uploadingImages, setUploadingImages] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [studentProgress, setStudentProgress] = useState([]);
@@ -42,7 +43,7 @@ const InstructorInterface = () => {
     name: '',
     type: 'furniture',
     wall: 'north',
-    interactionType: 'info',
+    interactionType: 'none',
     revealedElementId: null
   });
   
@@ -60,6 +61,7 @@ const InstructorInterface = () => {
   };
 
   const interactionTypes = {
+    none: 'Not Interactive (Decoration Only)',
     info: 'Reveal Information Only',
     question: 'Show Question → Reveal Information',
     element: 'Reveal New Element',
@@ -331,12 +333,12 @@ const InstructorInterface = () => {
         xOffset: 0,
         yOffset: 0,
         zIndex: 3,
-        x: 50, // percentage position
+        x: 50,
         y: 50
       },
       image: null,
       content: {
-        info: newElementData.interactionType === 'info' || newElementData.interactionType === 'question' ? 'Information revealed when clicked...' : '',
+        info: ['info', 'question'].includes(newElementData.interactionType) ? 'Information revealed when clicked...' : '',
         question: ['question', 'question_element'].includes(newElementData.interactionType) ? {
           groups: {
             1: [{
@@ -353,7 +355,7 @@ const InstructorInterface = () => {
         } : null
       },
       isVisible: true,
-      revealedBy: null // ID of element that reveals this one
+      revealedBy: null
     };
 
     setRoomElements(prev => ({
@@ -365,7 +367,7 @@ const InstructorInterface = () => {
       name: '',
       type: 'furniture',
       wall: 'north',
-      interactionType: 'info',
+      interactionType: 'none',
       revealedElementId: null
     });
     setShowAddElementModal(false);
@@ -467,6 +469,9 @@ const InstructorInterface = () => {
       });
       if (selectedElement === elementId) {
         setSelectedElement(null);
+      }
+      if (selectedElementId === elementId) {
+        setSelectedElementId(null);
       }
     }
   };
@@ -709,56 +714,58 @@ const InstructorInterface = () => {
     setDragOffset({ x: 0, y: 0 });
   };
 
-  // Room preview component
+  // Room preview component with correct scaling and background
   const renderRoomPreview = () => {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
     const selectedEquipmentImage = equipmentImages[selectedEquipment];
+    const backgroundImage = backgroundImages[selectedWall];
     
     return (
       <div 
         id="room-preview"
         className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden"
+        style={{
+          backgroundImage: backgroundImage 
+            ? `linear-gradient(rgba(248,250,252,0.1), rgba(241,245,249,0.1)), url('${backgroundImage.data}')`
+            : undefined,
+          backgroundSize: backgroundImage ? 'cover' : 'auto',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Lab Room SVG Background */}
-        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f1f5f9"/>
-              <stop offset="100%" stopColor="#e2e8f0"/>
-            </linearGradient>
-            <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ffffff"/>
-              <stop offset="100%" stopColor="#f8fafc"/>
-            </linearGradient>
-            <pattern id="floorTiles" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
-              <rect width="50" height="50" fill="#f8fafc"/>
-              <rect width="48" height="48" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" strokeWidth="1"/>
-            </pattern>
-          </defs>
-          
-          {/* Floor */}
-          <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" strokeWidth="2"/>
-          
-          {/* Back wall */}
-          <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-          
-          {/* Side walls */}
-          <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-          <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-          
-          {/* Lab bench */}
-          <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" strokeWidth="2"/>
-          <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
-          <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
-          
-          {/* Ceiling lights */}
-          <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
-          <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
-          <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
-        </svg>
+        {/* Default SVG background when no custom background */}
+        {!backgroundImage && (
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#f1f5f9"/>
+                <stop offset="100%" stopColor="#e2e8f0"/>
+              </linearGradient>
+              <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ffffff"/>
+                <stop offset="100%" stopColor="#f8fafc"/>
+              </linearGradient>
+              <pattern id="floorTiles" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                <rect width="50" height="50" fill="#f8fafc"/>
+                <rect width="48" height="48" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" strokeWidth="1"/>
+              </pattern>
+            </defs>
+            
+            <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" strokeWidth="2"/>
+            <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+            <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+            <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+            <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" strokeWidth="2"/>
+            <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
+            <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
+            <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+            <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
+            <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+          </svg>
+        )}
         
         {/* Room Elements */}
         {wallElements.map(([elementId, element]) => (
@@ -782,8 +789,8 @@ const InstructorInterface = () => {
                 alt={element.name}
                 className="object-contain transition-all duration-300 pointer-events-none"
                 style={{
-                  maxWidth: `${200 * (element.settings.size / 100)}px`,
-                  maxHeight: `${200 * (element.settings.size / 100)}px`,
+                  width: `${150 * (element.settings.size / 100)}px`,
+                  height: `${150 * (element.settings.size / 100)}px`,
                   filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
                 }}
               />
@@ -802,14 +809,8 @@ const InstructorInterface = () => {
               </div>
             )}
             
-            {/* Element label */}
             <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
               {element.name}
-            </div>
-            
-            {/* Interaction type indicator */}
-            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded shadow whitespace-nowrap">
-              {interactionTypes[element.interactionType] || 'Info'}
             </div>
           </div>
         ))}
@@ -925,7 +926,7 @@ const InstructorInterface = () => {
           <div className="flex space-x-8">
             {[
               { id: 'dashboard', name: 'Student Progress', icon: '📊' },
-              { id: 'equipment', name: 'Lab Equipment', icon: '🔬' },
+              { id: 'questions', name: 'Questions & Info', icon: '❓' },
               { id: 'equipment-images', name: 'Equipment Images', icon: '📸' },
               { id: 'room-builder', name: 'Room Builder', icon: '🏗️' },
               { id: 'word-settings', name: 'Word Scramble', icon: '🧩' },
@@ -1008,43 +1009,85 @@ const InstructorInterface = () => {
           </div>
         )}
 
-        {/* Lab Equipment Management */}
-        {activeTab === 'equipment' && (
+        {/* Questions & Info Management */}
+        {activeTab === 'questions' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">🔬 Lab Equipment Management</h2>
+              <h2 className="text-xl font-bold text-gray-800">❓ Questions & Information Management</h2>
             </div>
             
-            {/* Equipment Selection */}
+            {/* Item Type Selection */}
             <div className="mb-6 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Equipment to Configure</h3>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {Object.keys(labQuestions).map(equipment => (
-                  <button
-                    key={equipment}
-                    onClick={() => setSelectedEquipment(equipment)}
-                    className={`p-4 rounded-lg font-medium transition-colors ${
-                      selectedEquipment === equipment
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {equipment === 'microscope' && '🔬'} 
-                    {equipment === 'incubator' && '🌡️'} 
-                    {equipment === 'petriDish' && '🧫'} 
-                    {equipment === 'autoclave' && '♨️'} 
-                    {equipment === 'centrifuge' && '🌪️'}
-                    <br />
-                    {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
-                  </button>
-                ))}
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Item to Configure</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Equipment */}
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Lab Equipment</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {Object.keys(labQuestions).map(equipment => (
+                      <button
+                        key={equipment}
+                        onClick={() => {
+                          setSelectedEquipment(equipment);
+                          setSelectedElementId(null);
+                        }}
+                        className={`p-3 rounded-lg font-medium transition-colors text-left ${
+                          selectedEquipment === equipment && !selectedElementId
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        {equipment === 'microscope' && '🔬'} 
+                        {equipment === 'incubator' && '🌡️'} 
+                        {equipment === 'petriDish' && '🧫'} 
+                        {equipment === 'autoclave' && '♨️'} 
+                        {equipment === 'centrifuge' && '🌪️'}
+                        {' '}
+                        {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Interactive Room Elements */}
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Interactive Room Elements</h4>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                    {Object.entries(roomElements)
+                      .filter(([id, element]) => element.interactionType !== 'none')
+                      .map(([elementId, element]) => (
+                        <button
+                          key={elementId}
+                          onClick={() => {
+                            setSelectedElementId(elementId);
+                            setSelectedEquipment(null);
+                          }}
+                          className={`p-3 rounded-lg font-medium transition-colors text-left ${
+                            selectedElementId === elementId
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          🔍 {element.name}
+                          <div className="text-xs opacity-75">
+                            {interactionTypes[element.interactionType]}
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                  {Object.entries(roomElements).filter(([id, element]) => element.interactionType !== 'none').length === 0 && (
+                    <div className="text-gray-500 text-sm italic p-3">
+                      No interactive room elements yet. Create some in the Room Builder tab.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Group Selection */}
             <div className="mb-6 bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                Configure {selectedEquipment.charAt(0).toUpperCase() + selectedEquipment.slice(1)} for Groups
+                Configure for Groups
               </h3>
               <div className="flex flex-wrap gap-2 mb-4">
                 {[...Array(15)].map((_, i) => {
@@ -1065,22 +1108,24 @@ const InstructorInterface = () => {
                 })}
               </div>
               
-              <button
-                onClick={() => addNewGroup(selectedEquipment)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                + Add New Group
-              </button>
+              {selectedEquipment && (
+                <button
+                  onClick={() => addNewGroup(selectedEquipment)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  + Add New Group
+                </button>
+              )}
             </div>
 
-            {/* Question Configuration */}
-            {selectedEquipment && selectedGroup && (
+            {/* Question/Info Configuration */}
+            {(selectedEquipment || selectedElementId) && selectedGroup && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  Question for {selectedEquipment.charAt(0).toUpperCase() + selectedEquipment.slice(1)} - Group {selectedGroup}
+                  Configure {selectedElementId ? roomElements[selectedElementId]?.name : selectedEquipment?.charAt(0).toUpperCase() + selectedEquipment?.slice(1)} - Group {selectedGroup}
                 </h3>
                 
-                {(() => {
+                {selectedEquipment && (() => {
                   const currentQuestion = labQuestions[selectedEquipment]?.groups?.[selectedGroup]?.[0] || {
                     id: `${selectedEquipment}1`,
                     question: '',
@@ -1094,7 +1139,6 @@ const InstructorInterface = () => {
                   
                   return (
                     <div className="space-y-6">
-                      {/* Question Text */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
                         <textarea
@@ -1109,7 +1153,6 @@ const InstructorInterface = () => {
                         />
                       </div>
 
-                      {/* Question Type */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
                         <select
@@ -1125,7 +1168,6 @@ const InstructorInterface = () => {
                         </select>
                       </div>
 
-                      {/* Multiple Choice Options */}
                       {currentQuestion.type === 'multiple_choice' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
@@ -1156,10 +1198,24 @@ const InstructorInterface = () => {
                               />
                             </div>
                           ))}
+                          
+                          <div className="mt-2">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={currentQuestion.randomizeAnswers || false}
+                                onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                                  ...currentQuestion, 
+                                  randomizeAnswers: e.target.checked 
+                                })}
+                                className="mr-2"
+                              />
+                              Randomize answer order for each student
+                            </label>
+                          </div>
                         </div>
                       )}
 
-                      {/* Text Answer */}
                       {currentQuestion.type === 'text' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
@@ -1175,25 +1231,6 @@ const InstructorInterface = () => {
                         </div>
                       )}
 
-                      {/* Randomize Answers Option */}
-                      {currentQuestion.type === 'multiple_choice' && (
-                        <div>
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={currentQuestion.randomizeAnswers || false}
-                              onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
-                                ...currentQuestion, 
-                                randomizeAnswers: e.target.checked 
-                              })}
-                              className="mr-2"
-                            />
-                            Randomize answer order for each student
-                          </label>
-                        </div>
-                      )}
-
-                      {/* Hint */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
                         <textarea
@@ -1208,7 +1245,6 @@ const InstructorInterface = () => {
                         />
                       </div>
 
-                      {/* Clue (Result) */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Research Clue (Revealed when solved)</label>
                         <textarea
@@ -1223,7 +1259,6 @@ const InstructorInterface = () => {
                         />
                       </div>
 
-                      {/* Image Upload */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Equipment Image for Group {selectedGroup}
@@ -1259,6 +1294,165 @@ const InstructorInterface = () => {
                           </div>
                         )}
                       </div>
+                    </div>
+                  );
+                })()}
+
+                {selectedElementId && roomElements[selectedElementId] && (() => {
+                  const element = roomElements[selectedElementId];
+                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {
+                    id: `${selectedElementId}_q1`,
+                    question: '',
+                    type: 'multiple_choice',
+                    options: ['', '', '', ''],
+                    answer: '',
+                    hint: '',
+                    clue: '',
+                    randomizeAnswers: false
+                  };
+                  
+                  return (
+                    <div className="space-y-6">
+                      {/* Information Content */}
+                      {['info', 'question'].includes(element.interactionType) && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Information to Reveal
+                          </label>
+                          <textarea
+                            value={element.content?.info || ''}
+                            onChange={(e) => updateElementContent(selectedElementId, 'info', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows="3"
+                            placeholder="Enter information to reveal when element is clicked..."
+                          />
+                        </div>
+                      )}
+
+                      {/* Question Configuration */}
+                      {['question', 'question_element'].includes(element.interactionType) && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
+                            <textarea
+                              value={currentQuestion.question}
+                              onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                question: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="3"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+                            <select
+                              value={currentQuestion.type}
+                              onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                type: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="multiple_choice">Multiple Choice</option>
+                              <option value="text">Text Input</option>
+                            </select>
+                          </div>
+
+                          {currentQuestion.type === 'multiple_choice' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+                              {currentQuestion.options.map((option, index) => (
+                                <div key={index} className="flex items-center space-x-2 mb-2">
+                                  <input
+                                    type="radio"
+                                    name={`answer-${selectedElementId}-${selectedGroup}`}
+                                    checked={currentQuestion.answer === option}
+                                    onChange={() => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      answer: option 
+                                    })}
+                                    className="text-blue-600"
+                                  />
+                                  <input
+                                    value={option}
+                                    onChange={(e) => {
+                                      const newOptions = [...currentQuestion.options];
+                                      newOptions[index] = e.target.value;
+                                      updateElementQuestion(selectedElementId, selectedGroup, { 
+                                        ...currentQuestion, 
+                                        options: newOptions 
+                                      });
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                  />
+                                </div>
+                              ))}
+                              
+                              <div className="mt-2">
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentQuestion.randomizeAnswers || false}
+                                    onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      randomizeAnswers: e.target.checked 
+                                    })}
+                                    className="mr-2"
+                                  />
+                                  Randomize answer order for each student
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
+                          {currentQuestion.type === 'text' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+                              <input
+                                value={currentQuestion.answer}
+                                onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                  ...currentQuestion, 
+                                  answer: e.target.value 
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Hint</label>
+                            <textarea
+                              value={currentQuestion.hint}
+                              onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                hint: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {element.interactionType === 'question' 
+                                ? 'Information revealed when solved' 
+                                : 'Clue revealed when solved'}
+                            </label>
+                            <textarea
+                              value={currentQuestion.clue}
+                              onChange={(e) => updateElementQuestion(selectedElementId, selectedGroup, { 
+                                ...currentQuestion, 
+                                clue: e.target.value 
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1676,211 +1870,38 @@ const InstructorInterface = () => {
                       </div>
                     </div>
 
-                    {/* Content Configuration */}
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-700 mb-4">Content Configuration</h4>
-                      
-                      {/* Information Content */}
-                      {['info', 'question'].includes(roomElements[selectedElement].interactionType) && (
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Information to Reveal
-                          </label>
-                          <textarea
-                            value={roomElements[selectedElement].content?.info || ''}
-                            onChange={(e) => updateElementContent(selectedElement, 'info', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows="3"
-                            placeholder="Enter information to reveal when element is clicked..."
-                          />
-                        </div>
-                      )}
+                    {/* Revealed Element Selection */}
+                    {['element', 'question_element'].includes(roomElements[selectedElement].interactionType) && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Element to Reveal (Optional)
+                        </label>
+                        <select
+                          value={roomElements[selectedElement].revealedElementId || ''}
+                          onChange={(e) => setRoomElements(prev => ({
+                            ...prev,
+                            [selectedElement]: {
+                              ...prev[selectedElement],
+                              revealedElementId: e.target.value || null
+                            }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select element to reveal...</option>
+                          {Object.entries(roomElements)
+                            .filter(([id]) => id !== selectedElement)
+                            .map(([id, element]) => (
+                              <option key={id} value={id}>{element.name}</option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
 
-                      {/* Question Configuration */}
-                      {['question', 'question_element'].includes(roomElements[selectedElement].interactionType) && (
-                        <div className="space-y-4">
-                          <h5 className="font-medium text-gray-700">Question Configuration</h5>
-                          
-                          {/* Group Selection for Questions */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Configure for Group:</label>
-                            <select
-                              value={selectedGroup}
-                              onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              {[...Array(15)].map((_, i) => (
-                                <option key={i + 1} value={i + 1}>Group {i + 1}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {(() => {
-                            const currentQuestion = roomElements[selectedElement].content?.question?.groups?.[selectedGroup]?.[0] || {
-                              id: `${selectedElement}_q1`,
-                              question: '',
-                              type: 'multiple_choice',
-                              options: ['', '', '', ''],
-                              answer: '',
-                              hint: '',
-                              clue: '',
-                              randomizeAnswers: false
-                            };
-                            
-                            return (
-                              <div className="space-y-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
-                                  <textarea
-                                    value={currentQuestion.question}
-                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                      ...currentQuestion, 
-                                      question: e.target.value 
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows="3"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
-                                  <select
-                                    value={currentQuestion.type}
-                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                      ...currentQuestion, 
-                                      type: e.target.value 
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    <option value="multiple_choice">Multiple Choice</option>
-                                    <option value="text">Text Input</option>
-                                  </select>
-                                </div>
-
-                                {currentQuestion.type === 'multiple_choice' && (
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
-                                    {currentQuestion.options.map((option, index) => (
-                                      <div key={index} className="flex items-center space-x-2 mb-2">
-                                        <input
-                                          type="radio"
-                                          name={`answer-${selectedElement}-${selectedGroup}`}
-                                          checked={currentQuestion.answer === option}
-                                          onChange={() => updateElementQuestion(selectedElement, selectedGroup, { 
-                                            ...currentQuestion, 
-                                            answer: option 
-                                          })}
-                                          className="text-blue-600"
-                                        />
-                                        <input
-                                          value={option}
-                                          onChange={(e) => {
-                                            const newOptions = [...currentQuestion.options];
-                                            newOptions[index] = e.target.value;
-                                            updateElementQuestion(selectedElement, selectedGroup, { 
-                                              ...currentQuestion, 
-                                              options: newOptions 
-                                            });
-                                          }}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                                        />
-                                      </div>
-                                    ))}
-                                    
-                                    {/* Randomize Answers Option */}
-                                    <div className="mt-2">
-                                      <label className="flex items-center">
-                                        <input
-                                          type="checkbox"
-                                          checked={currentQuestion.randomizeAnswers || false}
-                                          onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                            ...currentQuestion, 
-                                            randomizeAnswers: e.target.checked 
-                                          })}
-                                          className="mr-2"
-                                        />
-                                        Randomize answer order for each student
-                                      </label>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {currentQuestion.type === 'text' && (
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
-                                    <input
-                                      value={currentQuestion.answer}
-                                      onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                        ...currentQuestion, 
-                                        answer: e.target.value 
-                                      })}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                  </div>
-                                )}
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Hint</label>
-                                  <textarea
-                                    value={currentQuestion.hint}
-                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                      ...currentQuestion, 
-                                      hint: e.target.value 
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows="2"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    {roomElements[selectedElement].interactionType === 'question' 
-                                      ? 'Information revealed when solved' 
-                                      : 'Clue revealed when solved'}
-                                  </label>
-                                  <textarea
-                                    value={currentQuestion.clue}
-                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                      ...currentQuestion, 
-                                      clue: e.target.value 
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows="2"
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {/* Revealed Element Selection */}
-                      {['element', 'question_element'].includes(roomElements[selectedElement].interactionType) && (
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Element to Reveal (Optional)
-                          </label>
-                          <select
-                            value={roomElements[selectedElement].revealedElementId || ''}
-                            onChange={(e) => setRoomElements(prev => ({
-                              ...prev,
-                              [selectedElement]: {
-                                ...prev[selectedElement],
-                                revealedElementId: e.target.value || null
-                              }
-                            }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select element to reveal...</option>
-                            {Object.entries(roomElements)
-                              .filter(([id]) => id !== selectedElement)
-                              .map(([id, element]) => (
-                                <option key={id} value={id}>{element.name}</option>
-                              ))}
-                          </select>
-                        </div>
-                      )}
+                    <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                      <h4 className="font-medium text-blue-800 mb-2">💡 Note:</h4>
+                      <p className="text-blue-700 text-sm">
+                        To configure questions and information for this element, go to the "Questions & Info" tab after saving.
+                      </p>
                     </div>
                   </div>
                 )}
