@@ -16,7 +16,6 @@ const InstructorInterface = () => {
   
   const [labImages, setLabImages] = useState({});
   const [selectedGroup, setSelectedGroup] = useState(1);
-  const [selectedEquipment, setSelectedEquipment] = useState('microscope');
   const [selectedElementId, setSelectedElementId] = useState(null);
   const [uploadingImages, setUploadingImages] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -717,7 +716,6 @@ const InstructorInterface = () => {
   // Room preview component with correct scaling and background
   const renderRoomPreview = () => {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
-    const selectedEquipmentImage = equipmentImages[selectedEquipment];
     const backgroundImage = backgroundImages[selectedWall];
     
     return (
@@ -726,7 +724,7 @@ const InstructorInterface = () => {
         className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden"
         style={{
           backgroundImage: backgroundImage 
-            ? `linear-gradient(rgba(248,250,252,0.1), rgba(241,245,249,0.1)), url('${backgroundImage.data}')`
+            ? `url('${backgroundImage.data}')`
             : undefined,
           backgroundSize: backgroundImage ? 'cover' : 'auto',
           backgroundPosition: 'center',
@@ -789,8 +787,8 @@ const InstructorInterface = () => {
                 alt={element.name}
                 className="object-contain transition-all duration-300 pointer-events-none"
                 style={{
-                  width: `${150 * (element.settings.size / 100)}px`,
-                  height: `${150 * (element.settings.size / 100)}px`,
+                  width: `${100 * (element.settings.size / 100)}px`,
+                  height: `${100 * (element.settings.size / 100)}px`,
                   filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
                 }}
               />
@@ -798,12 +796,12 @@ const InstructorInterface = () => {
               <div
                 className="bg-gray-300 border-2 border-gray-500 rounded-lg flex items-center justify-center"
                 style={{
-                  width: `${100 * (element.settings.size / 100)}px`,
-                  height: `${100 * (element.settings.size / 100)}px`
+                  width: `${60 * (element.settings.size / 100)}px`,
+                  height: `${60 * (element.settings.size / 100)}px`
                 }}
               >
                 <div className="text-gray-600 text-center">
-                  <div className="text-2xl mb-1">📦</div>
+                  <div className="text-xl mb-1">📦</div>
                   <div className="text-xs">{element.name}</div>
                 </div>
               </div>
@@ -814,33 +812,6 @@ const InstructorInterface = () => {
             </div>
           </div>
         ))}
-        
-        {/* Selected Equipment (if any) */}
-        {selectedEquipmentImage && (
-          <div 
-            className="absolute border-2 border-green-500 rounded"
-            style={{
-              left: '50%',
-              bottom: '120px',
-              transform: 'translateX(-50%)',
-              zIndex: 10
-            }}
-          >
-            <img
-              src={selectedEquipmentImage.processed}
-              alt="Selected equipment"
-              className="object-contain transition-all duration-300"
-              style={{
-                maxWidth: '150px',
-                maxHeight: '150px',
-                filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
-              }}
-            />
-            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded shadow">
-              {selectedEquipment}
-            </div>
-          </div>
-        )}
         
         {/* Grid overlay for reference */}
         <div className="absolute inset-0 pointer-events-none">
@@ -1028,11 +999,10 @@ const InstructorInterface = () => {
                       <button
                         key={equipment}
                         onClick={() => {
-                          setSelectedEquipment(equipment);
-                          setSelectedElementId(null);
+                          setSelectedElementId(equipment);
                         }}
                         className={`p-3 rounded-lg font-medium transition-colors text-left ${
-                          selectedEquipment === equipment && !selectedElementId
+                          selectedElementId === equipment
                             ? 'bg-blue-600 text-white'
                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
@@ -1051,33 +1021,30 @@ const InstructorInterface = () => {
 
                 {/* Interactive Room Elements */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Interactive Room Elements</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">Room Elements</h4>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-                    {Object.entries(roomElements)
-                      .filter(([id, element]) => element.interactionType !== 'none')
-                      .map(([elementId, element]) => (
-                        <button
-                          key={elementId}
-                          onClick={() => {
-                            setSelectedElementId(elementId);
-                            setSelectedEquipment(null);
-                          }}
-                          className={`p-3 rounded-lg font-medium transition-colors text-left ${
-                            selectedElementId === elementId
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          🔍 {element.name}
-                          <div className="text-xs opacity-75">
-                            {interactionTypes[element.interactionType]}
-                          </div>
-                        </button>
-                      ))}
+                    {Object.entries(roomElements).map(([elementId, element]) => (
+                      <button
+                        key={elementId}
+                        onClick={() => {
+                          setSelectedElementId(elementId);
+                        }}
+                        className={`p-3 rounded-lg font-medium transition-colors text-left ${
+                          selectedElementId === elementId
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        {element.interactionType === 'none' ? '📦' : '🔍'} {element.name}
+                        <div className="text-xs opacity-75">
+                          {interactionTypes[element.interactionType]}
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                  {Object.entries(roomElements).filter(([id, element]) => element.interactionType !== 'none').length === 0 && (
+                  {Object.entries(roomElements).length === 0 && (
                     <div className="text-gray-500 text-sm italic p-3">
-                      No interactive room elements yet. Create some in the Room Builder tab.
+                      No room elements yet. Create some in the Room Builder tab.
                     </div>
                   )}
                 </div>
@@ -1108,9 +1075,9 @@ const InstructorInterface = () => {
                 })}
               </div>
               
-              {selectedEquipment && (
+              {equipmentTypes.includes(selectedElementId) && (
                 <button
-                  onClick={() => addNewGroup(selectedEquipment)}
+                  onClick={() => addNewGroup(selectedElementId)}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                 >
                   + Add New Group
@@ -1119,15 +1086,16 @@ const InstructorInterface = () => {
             </div>
 
             {/* Question/Info Configuration */}
-            {(selectedEquipment || selectedElementId) && selectedGroup && (
+            {selectedElementId && selectedGroup && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  Configure {selectedElementId ? roomElements[selectedElementId]?.name : selectedEquipment?.charAt(0).toUpperCase() + selectedEquipment?.slice(1)} - Group {selectedGroup}
+                  Configure {roomElements[selectedElementId] ? roomElements[selectedElementId].name : selectedElementId?.charAt(0).toUpperCase() + selectedElementId?.slice(1)} - Group {selectedGroup}
                 </h3>
                 
-                {selectedEquipment && (() => {
-                  const currentQuestion = labQuestions[selectedEquipment]?.groups?.[selectedGroup]?.[0] || {
-                    id: `${selectedEquipment}1`,
+                {/* Equipment Configuration */}
+                {equipmentTypes.includes(selectedElementId) && (() => {
+                  const currentQuestion = labQuestions[selectedElementId]?.groups?.[selectedGroup]?.[0] || {
+                    id: `${selectedElementId}1`,
                     question: '',
                     type: 'multiple_choice',
                     options: ['', '', '', ''],
@@ -1143,7 +1111,7 @@ const InstructorInterface = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
                         <textarea
                           value={currentQuestion.question}
-                          onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                             ...currentQuestion, 
                             question: e.target.value 
                           })}
@@ -1157,7 +1125,7 @@ const InstructorInterface = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
                         <select
                           value={currentQuestion.type}
-                          onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                             ...currentQuestion, 
                             type: e.target.value 
                           })}
@@ -1175,9 +1143,9 @@ const InstructorInterface = () => {
                             <div key={index} className="flex items-center space-x-2 mb-2">
                               <input
                                 type="radio"
-                                name={`answer-${selectedEquipment}-${selectedGroup}`}
+                                name={`answer-${selectedElementId}-${selectedGroup}`}
                                 checked={currentQuestion.answer === option}
-                                onChange={() => updateQuestion(selectedEquipment, selectedGroup, { 
+                                onChange={() => updateQuestion(selectedElementId, selectedGroup, { 
                                   ...currentQuestion, 
                                   answer: option 
                                 })}
@@ -1188,7 +1156,7 @@ const InstructorInterface = () => {
                                 onChange={(e) => {
                                   const newOptions = [...currentQuestion.options];
                                   newOptions[index] = e.target.value;
-                                  updateQuestion(selectedEquipment, selectedGroup, { 
+                                  updateQuestion(selectedElementId, selectedGroup, { 
                                     ...currentQuestion, 
                                     options: newOptions 
                                   });
@@ -1204,7 +1172,7 @@ const InstructorInterface = () => {
                               <input
                                 type="checkbox"
                                 checked={currentQuestion.randomizeAnswers || false}
-                                onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                                onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                                   ...currentQuestion, 
                                   randomizeAnswers: e.target.checked 
                                 })}
@@ -1221,7 +1189,7 @@ const InstructorInterface = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
                           <input
                             value={currentQuestion.answer}
-                            onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                            onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                               ...currentQuestion, 
                               answer: e.target.value 
                             })}
@@ -1235,7 +1203,7 @@ const InstructorInterface = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
                         <textarea
                           value={currentQuestion.hint}
-                          onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                             ...currentQuestion, 
                             hint: e.target.value 
                           })}
@@ -1249,7 +1217,7 @@ const InstructorInterface = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Research Clue (Revealed when solved)</label>
                         <textarea
                           value={currentQuestion.clue}
-                          onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                          onChange={(e) => updateQuestion(selectedElementId, selectedGroup, { 
                             ...currentQuestion, 
                             clue: e.target.value 
                           })}
@@ -1263,16 +1231,16 @@ const InstructorInterface = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Equipment Image for Group {selectedGroup}
                         </label>
-                        {labImages[`${selectedEquipment}_group${selectedGroup}`] ? (
+                        {labImages[`${selectedElementId}_group${selectedGroup}`] ? (
                           <div className="space-y-2">
                             <img
-                              src={labImages[`${selectedEquipment}_group${selectedGroup}`].data}
-                              alt={`${selectedEquipment} for Group ${selectedGroup}`}
+                              src={labImages[`${selectedElementId}_group${selectedGroup}`].data}
+                              alt={`${selectedElementId} for Group ${selectedGroup}`}
                               className="w-full max-w-md h-32 object-cover rounded border"
                             />
                             <div className="flex gap-2">
                               <button
-                                onClick={() => removeImage(selectedEquipment, selectedGroup)}
+                                onClick={() => removeImage(selectedElementId, selectedGroup)}
                                 className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
                               >
                                 Remove Image
@@ -1284,9 +1252,9 @@ const InstructorInterface = () => {
                             <input
                               type="file"
                               accept="image/*"
-                              onChange={(e) => handleImageUpload(e, selectedEquipment, selectedGroup)}
+                              onChange={(e) => handleImageUpload(e, selectedElementId, selectedGroup)}
                               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                              disabled={uploadingImages[`${selectedEquipment}_${selectedGroup}`]}
+                              disabled={uploadingImages[`${selectedElementId}_${selectedGroup}`]}
                             />
                             <p className="text-xs text-gray-500">
                               Upload microscopy images, bacterial cultures, or equipment photos to help students answer questions.
@@ -1298,7 +1266,8 @@ const InstructorInterface = () => {
                   );
                 })()}
 
-                {selectedElementId && roomElements[selectedElementId] && (() => {
+                {/* Room Element Configuration */}
+                {roomElements[selectedElementId] && (() => {
                   const element = roomElements[selectedElementId];
                   const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {
                     id: `${selectedElementId}_q1`,
@@ -1313,6 +1282,17 @@ const InstructorInterface = () => {
                   
                   return (
                     <div className="space-y-6">
+                      {/* Interaction Type Display */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-700 mb-2">Element Settings</h4>
+                        <p className="text-sm text-gray-600 mb-2">
+                          <strong>Type:</strong> {interactionTypes[element.interactionType]}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <strong>Wall:</strong> {element.wall.charAt(0).toUpperCase() + element.wall.slice(1)}
+                        </p>
+                      </div>
+
                       {/* Information Content */}
                       {['info', 'question'].includes(element.interactionType) && (
                         <div>
@@ -1453,6 +1433,18 @@ const InstructorInterface = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* Non-interactive elements message */}
+                      {element.interactionType === 'none' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-medium text-blue-800 mb-2">Non-Interactive Element</h4>
+                          <p className="text-blue-700 text-sm">
+                            This element is set to "Not Interactive" and is for decoration only. 
+                            To add questions or information, edit the element in the Room Builder tab 
+                            and change its interaction type.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1472,119 +1464,96 @@ const InstructorInterface = () => {
             <div className="mb-8 bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">🔬 Equipment Images (Auto Background Removal)</h3>
               
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
-                <select
-                  value={selectedEquipment}
-                  onChange={(e) => setSelectedEquipment(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {equipmentTypes.map(equipment => (
-                    <option key={equipment} value={equipment}>
-                      {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {equipmentTypes.map(equipment => {
+                  const currentImage = equipmentImages[equipment];
+                  const uploadKey = equipment;
+                  const isUploading = uploadingImages[uploadKey];
+                  const isProcessing = processingImages[uploadKey];
+                  
+                  return (
+                    <div key={equipment} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3 capitalize">
+                        {equipment === 'microscope' && '🔬'} 
+                        {equipment === 'incubator' && '🌡️'} 
+                        {equipment === 'petriDish' && '🧫'} 
+                        {equipment === 'autoclave' && '♨️'} 
+                        {equipment === 'centrifuge' && '🌪️'}
+                        {' '}
+                        {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
+                      </h4>
+                      
+                      {currentImage ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <h5 className="font-medium text-gray-700 mb-2">Processed Image</h5>
+                              <div className="bg-gray-100 p-4 rounded border border-gray-300">
+                                <img
+                                  src={currentImage.processed}
+                                  alt={`Processed ${equipment}`}
+                                  className="w-full max-h-32 object-contain"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => removeEquipmentImage(equipment)}
+                              className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                            >
+                              🗑️ Remove
+                            </button>
+                            
+                            <label className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 cursor-pointer">
+                              🔄 Replace
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleEquipmentImageUpload(e, equipment)}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {isUploading || isProcessing ? (
+                            <div className="text-center py-8">
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                              <p className="text-gray-600">
+                                {isProcessing ? 'Processing image...' : 'Uploading image...'}
+                              </p>
+                            </div>
+                          ) : (
+                            <label className="block w-full">
+                              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                                <div className="text-4xl mb-4">📸</div>
+                                <p className="text-lg font-medium text-gray-700 mb-2">
+                                  Upload Image
+                                </p>
+                                <p className="text-sm text-gray-500 mb-4">
+                                  Click to select an image file
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  White backgrounds will be automatically removed
+                                </p>
+                              </div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleEquipmentImageUpload(e, equipment)}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-
-              {(() => {
-                const currentImage = equipmentImages[selectedEquipment];
-                const uploadKey = selectedEquipment;
-                const isUploading = uploadingImages[uploadKey];
-                const isProcessing = processingImages[uploadKey];
-                
-                return currentImage ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Original Image</h4>
-                        <img
-                          src={currentImage.original}
-                          alt={`Original ${selectedEquipment}`}
-                          className="w-full max-h-48 object-contain rounded border border-gray-300"
-                        />
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Processed (Background Removed)</h4>
-                        <div className="bg-gray-100 p-4 rounded border border-gray-300">
-                          <img
-                            src={currentImage.processed}
-                            alt={`Processed ${selectedEquipment}`}
-                            className="w-full max-h-48 object-contain"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Game Preview</h4>
-                        <div className="bg-gradient-to-b from-blue-50 to-gray-100 p-4 rounded border border-gray-300">
-                          <img
-                            src={currentImage.processed}
-                            alt={`Game preview ${selectedEquipment}`}
-                            className="w-full max-h-48 object-contain"
-                            style={{
-                              filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))',
-                              transform: 'scale(0.8)'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-4">
-                      <button
-                        onClick={() => removeEquipmentImage(selectedEquipment)}
-                        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                      >
-                        🗑️ Remove Image
-                      </button>
-                      
-                      <label className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer">
-                        🔄 Replace Image
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {isUploading || isProcessing ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">
-                          {isProcessing ? 'Processing image and removing background...' : 'Uploading image...'}
-                        </p>
-                      </div>
-                    ) : (
-                      <label className="block w-full">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                          <div className="text-4xl mb-4">📸</div>
-                          <p className="text-lg font-medium text-gray-700 mb-2">
-                            Upload {selectedEquipment.charAt(0).toUpperCase() + selectedEquipment.slice(1)} Image
-                          </p>
-                          <p className="text-sm text-gray-500 mb-4">
-                            Click to select an image file (JPG, PNG, etc.)
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            White backgrounds will be automatically removed
-                          </p>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment)}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
 
             {/* Background Images Section */}
@@ -1642,16 +1611,6 @@ const InstructorInterface = () => {
                     )}
                   </div>
                 ))}
-              </div>
-              
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded p-4">
-                <h4 className="font-medium text-blue-800 mb-2">Background Image Tips:</h4>
-                <ul className="text-blue-700 text-sm space-y-1">
-                  <li>• Use high-resolution images (1920x1080 or higher)</li>
-                  <li>• Laboratory or classroom photos work best</li>
-                  <li>• Ensure good lighting and contrast</li>
-                  <li>• Images will be overlaid with perspective effects</li>
-                </ul>
               </div>
             </div>
           </div>
