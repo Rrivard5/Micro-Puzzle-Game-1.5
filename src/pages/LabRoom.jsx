@@ -16,6 +16,17 @@ export default function LabRoom() {
   const [equipmentImages, setEquipmentImages] = useState({})
   const [backgroundImages, setBackgroundImages] = useState({})
   const [roomElements, setRoomElements] = useState({})
+  const [equipmentPositions, setEquipmentPositions] = useState({
+    north: [],
+    east: [],
+    south: [],
+    west: []
+  })
+  const [expandedElements, setExpandedElements] = useState({})
+  const [gameSettings, setGameSettings] = useState({
+    completionMode: 'all',
+    finalElementId: ''
+  })
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt, startRoomTimer, completeRoom } = useGame()
@@ -32,15 +43,8 @@ export default function LabRoom() {
   // Element states for room elements
   const [elementStates, setElementStates] = useState({})
 
-  // Define equipment positions by wall
-  const wallEquipment = {
-    0: ['microscope'], // North wall
-    1: ['incubator', 'autoclave'], // East wall  
-    2: ['centrifuge'], // South wall
-    3: ['petriDish'] // West wall
-  }
-
   const wallNames = ['North Wall', 'East Wall', 'South Wall', 'West Wall']
+  const wallKeys = ['north', 'east', 'south', 'west']
 
   useEffect(() => {
     startRoomTimer('lab')
@@ -48,6 +52,8 @@ export default function LabRoom() {
     loadEquipmentImages()
     loadBackgroundImages()
     loadRoomElements()
+    loadEquipmentPositions()
+    loadGameSettings()
   }, [studentInfo])
 
   const loadGroupContent = () => {
@@ -112,12 +118,64 @@ export default function LabRoom() {
     }
   }
 
+  const loadEquipmentPositions = () => {
+    const savedPositions = localStorage.getItem('instructor-equipment-positions')
+    if (savedPositions) {
+      try {
+        setEquipmentPositions(JSON.parse(savedPositions))
+      } catch (error) {
+        console.error('Error loading equipment positions:', error)
+        initializeDefaultEquipmentPositions()
+      }
+    } else {
+      initializeDefaultEquipmentPositions()
+    }
+  }
+
+  const initializeDefaultEquipmentPositions = () => {
+    const defaultPositions = {
+      north: [
+        { equipmentType: 'microscope', x: 50, y: 70, size: 100, zIndex: 10 }
+      ],
+      east: [
+        { equipmentType: 'incubator', x: 30, y: 70, size: 100, zIndex: 10 },
+        { equipmentType: 'autoclave', x: 70, y: 70, size: 100, zIndex: 10 }
+      ],
+      south: [
+        { equipmentType: 'centrifuge', x: 50, y: 70, size: 100, zIndex: 10 }
+      ],
+      west: [
+        { equipmentType: 'petriDish', x: 50, y: 70, size: 100, zIndex: 10 }
+      ]
+    }
+    setEquipmentPositions(defaultPositions)
+  }
+
+  const loadGameSettings = () => {
+    const savedSettings = localStorage.getItem('instructor-game-settings')
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings)
+        setGameSettings({
+          completionMode: settings.completionMode || 'all',
+          finalElementId: settings.finalElementId || ''
+        })
+      } catch (error) {
+        console.error('Error loading game settings:', error)
+      }
+    }
+  }
+
   const getEquipmentImage = (equipmentType) => {
     return equipmentImages[equipmentType]?.processed || null
   }
 
   const getBackgroundImage = (wall) => {
     return backgroundImages[wall]?.data || null
+  }
+
+  const getEquipmentOnWall = (wallKey) => {
+    return equipmentPositions[wallKey] || []
   }
 
   const handleEquipmentClick = (equipmentType) => {
@@ -131,7 +189,19 @@ export default function LabRoom() {
 
   const handleElementClick = (elementId) => {
     const element = roomElements[elementId]
-    if (!element || element.interactionType === 'none') return
+    if (!element) return
+
+    // Check if element has zoom interaction
+    if (element.interactionType === 'zoom') {
+      setExpandedElements(prev => ({
+        ...prev,
+        [elementId]: !prev[elementId]
+      }))
+      return
+    }
+
+    // Handle other interaction types
+    if (element.interactionType === 'none') return
 
     setElementStates(prev => ({
       ...prev,
@@ -217,15 +287,46 @@ export default function LabRoom() {
     }
 
     setActiveModal(null)
-    checkLabCompletion()
+    
+    // Check if this was the final element
+    if (gameSettings.completionMode === 'final-element' && gameSettings.finalElementId === elementId) {
+      setTimeout(() => {
+        setLabLocked(false)
+      }, 1000)
+    } else {
+      checkLabCompletion()
+    }
   }
 
   const checkLabCompletion = () => {
-    // Check if all required equipment is solved
+    // Check completion based on game settings
+    if (gameSettings.completionMode === 'final-element') {
+      // Only check if final element is solved
+      if (gameSettings.finalElementId && solvedElements[gameSettings.finalElementId]) {
+        setTimeout(() => {
+          setLabLocked(false)
+        }, 1000)
+      }
+      return
+    }
+
+    if (gameSettings.completionMode === 'equipment-only') {
+      // Only check equipment
+      const totalEquipment = Object.keys(equipmentStates).length
+      const solvedEquipmentCount = Object.values(solvedEquipment).filter(Boolean).length
+      
+      if (solvedEquipmentCount >= totalEquipment) {
+        setTimeout(() => {
+          setLabLocked(false)
+        }, 1000)
+      }
+      return
+    }
+
+    // Default: all equipment + all interactive elements
     const totalEquipment = Object.keys(equipmentStates).length
     const solvedEquipmentCount = Object.values(solvedEquipment).filter(Boolean).length
     
-    // Check if all interactive elements are solved
     const interactiveElements = Object.values(roomElements).filter(el => 
       ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
     )
@@ -239,15 +340,30 @@ export default function LabRoom() {
   }
 
   const handleLabExit = async () => {
-    const totalEquipment = Object.keys(equipmentStates).length
-    const interactiveElements = Object.values(roomElements).filter(el => 
-      ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
-    )
-    
-    if (Object.values(solvedEquipment).length < totalEquipment || 
-        Object.values(solvedElements).length < interactiveElements.length) {
-      alert('You must analyze all equipment and interactive elements to identify the pathogen before treating the patient!')
-      return
+    // Check completion requirements based on game settings
+    if (gameSettings.completionMode === 'final-element') {
+      if (!gameSettings.finalElementId || !solvedElements[gameSettings.finalElementId]) {
+        alert('You must complete the required investigation element before treating the patient!')
+        return
+      }
+    } else if (gameSettings.completionMode === 'equipment-only') {
+      const totalEquipment = Object.keys(equipmentStates).length
+      if (Object.values(solvedEquipment).length < totalEquipment) {
+        alert('You must analyze all equipment to identify the pathogen before treating the patient!')
+        return
+      }
+    } else {
+      // Default: all equipment + all interactive elements
+      const totalEquipment = Object.keys(equipmentStates).length
+      const interactiveElements = Object.values(roomElements).filter(el => 
+        ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
+      )
+      
+      if (Object.values(solvedEquipment).length < totalEquipment || 
+          Object.values(solvedElements).length < interactiveElements.length) {
+        alert('You must analyze all equipment and interactive elements to identify the pathogen before treating the patient!')
+        return
+      }
     }
     
     setIsSubmitting(true)
@@ -266,8 +382,9 @@ export default function LabRoom() {
     setCurrentWall((prev) => (prev + 1) % 4)
   }
 
-  const renderEquipmentComponent = (equipmentType, state) => {
-    const equipmentImage = getEquipmentImage(equipmentType)
+  const renderEquipmentComponent = (equipment, wallKey) => {
+    const equipmentImage = getEquipmentImage(equipment.equipmentType)
+    const state = equipmentStates[equipment.equipmentType]
     
     if (!equipmentImage) {
       return null
@@ -276,31 +393,22 @@ export default function LabRoom() {
     return (
       <div 
         className="relative group cursor-pointer transition-all duration-300 hover:scale-105"
-        onClick={() => handleEquipmentClick(equipmentType)}
+        onClick={() => handleEquipmentClick(equipment.equipmentType)}
       >
         <img
           src={equipmentImage}
-          alt={equipmentType}
-          className={`object-contain transition-all duration-300 w-full h-full ${
-            state.solved 
-              ? 'filter drop-shadow-lg brightness-110 saturate-110' 
-              : state.active 
-              ? 'filter drop-shadow-md brightness-105 animate-pulse' 
-              : 'filter drop-shadow-sm hover:drop-shadow-lg'
-          }`}
+          alt={equipment.equipmentType}
+          className="object-contain transition-all duration-300 w-full h-full filter drop-shadow-lg"
           style={{
-            maxWidth: '200px',
-            maxHeight: '200px',
-            filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
-              state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
-              state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
-            }`
+            width: `${100 * (equipment.size / 100)}px`,
+            height: `${100 * (equipment.size / 100)}px`,
+            filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
           }}
         />
         
-        <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
+        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-center">
           <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
-            {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
+            {getEquipmentTitle(equipment.equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
           </div>
           {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Analysis Complete</div>}
           {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Analyzing...</div>}
@@ -312,7 +420,7 @@ export default function LabRoom() {
             ? "Equipment analysis complete - data recorded" 
             : state.active 
             ? "Currently analyzing patient sample..." 
-            : `Click to analyze ${equipmentType} for pathogen identification`
+            : `Click to analyze ${equipment.equipmentType} for pathogen identification`
           }
         </div>
       </div>
@@ -322,24 +430,26 @@ export default function LabRoom() {
   const renderRoomElement = (elementId, element) => {
     const state = elementStates[elementId] || { discovered: false, active: false, solved: false }
     const isRevealed = revealedElements[elementId]
+    const isExpanded = expandedElements[elementId]
     
     if (!isRevealed) {
       return null
     }
 
-    const isInteractive = ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
+    const isInteractive = ['info', 'question', 'element', 'question_element', 'zoom'].includes(element.interactionType)
+    const isDecorative = element.interactionType === 'none'
     
     return (
       <div
         key={elementId}
-        className={`relative group transition-all duration-300 ${
+        className={`relative transition-all duration-300 ${
           isInteractive ? 'cursor-pointer hover:scale-105' : ''
-        }`}
+        } ${isExpanded ? 'z-50' : ''}`}
         style={{
           left: `${element.settings.x}%`,
           top: `${element.settings.y}%`,
-          transform: 'translate(-50%, -50%)',
-          zIndex: element.settings.zIndex
+          transform: `translate(-50%, -50%) ${isExpanded ? 'scale(2)' : 'scale(1)'}`,
+          zIndex: isExpanded ? 9999 : element.settings.zIndex
         }}
         onClick={() => isInteractive && handleElementClick(elementId)}
       >
@@ -347,33 +457,16 @@ export default function LabRoom() {
           <img
             src={element.image.processed}
             alt={element.name}
-            className={`object-contain transition-all duration-300 ${
-              state.solved 
-                ? 'filter drop-shadow-lg brightness-110 saturate-110' 
-                : state.active 
-                ? 'filter drop-shadow-md brightness-105 animate-pulse' 
-                : 'filter drop-shadow-sm hover:drop-shadow-lg'
-            }`}
+            className="object-contain transition-all duration-300 filter drop-shadow-lg"
             style={{
-              maxWidth: `${200 * (element.settings.size / 100)}px`,
-              maxHeight: `${200 * (element.settings.size / 100)}px`,
-              filter: `drop-shadow(3px 6px 12px rgba(0,0,0,0.4)) ${
-                state.solved ? 'hue-rotate(90deg) saturate(1.3)' : 
-                state.active ? 'hue-rotate(45deg) saturate(1.1)' : ''
-              }`
+              width: `${100 * (element.settings.size / 100)}px`,
+              height: `${100 * (element.settings.size / 100)}px`,
+              filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
             }}
           />
         ) : (
           <div
-            className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
-              state.solved 
-                ? 'bg-green-100 border-2 border-green-400 shadow-lg' 
-                : state.active 
-                ? 'bg-yellow-100 border-2 border-yellow-400 shadow-md animate-pulse' 
-                : state.discovered
-                ? 'bg-blue-100 border-2 border-blue-400 shadow-sm'
-                : 'bg-gray-100 border-2 border-gray-300'
-            }`}
+            className="rounded-lg flex items-center justify-center transition-all duration-300 bg-gray-100 border-2 border-gray-300"
             style={{
               width: `${100 * (element.settings.size / 100)}px`,
               height: `${100 * (element.settings.size / 100)}px`
@@ -386,18 +479,13 @@ export default function LabRoom() {
           </div>
         )}
         
-        <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-40px' }}>
-          <div className="bg-white bg-opacity-95 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg text-xs font-bold text-gray-700 border border-gray-200">
-            {element.name}
-          </div>
-          {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Complete</div>}
-          {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Active</div>}
-        </div>
-        
-        {isInteractive && (
+        {/* Only show tooltips for non-decorative elements */}
+        {isInteractive && !isDecorative && (
           <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
                style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
-            {state.solved 
+            {element.interactionType === 'zoom' 
+              ? (isExpanded ? "Click to return to normal size" : "Click to examine closely")
+              : state.solved 
               ? "Element analysis complete - data recorded" 
               : state.active 
               ? "Currently examining..." 
@@ -410,20 +498,14 @@ export default function LabRoom() {
   }
 
   const renderWallContent = () => {
-    const equipment = wallEquipment[currentWall] || []
-    const wallNames = ['north', 'east', 'south', 'west']
-    const backgroundImage = getBackgroundImage(wallNames[currentWall])
+    const wallKey = wallKeys[currentWall]
+    const wallEquipment = getEquipmentOnWall(wallKey)
+    const backgroundImage = getBackgroundImage(wallKey)
     
     // Get room elements for this wall
     const wallElements = Object.entries(roomElements).filter(([id, element]) => 
-      element.wall === wallNames[currentWall]
+      element.wall === wallKey
     )
-    
-    // Filter equipment to only show those with images
-    const visibleEquipment = equipment.filter(equipmentType => {
-      const equipmentImage = getEquipmentImage(equipmentType)
-      return equipmentImage !== null
-    })
     
     return (
       <div className="relative w-full h-[600px] overflow-hidden rounded-xl border-4 border-gray-600 shadow-2xl">
@@ -491,42 +573,30 @@ export default function LabRoom() {
         </div>
 
         {/* Equipment Positioning */}
-        {visibleEquipment.length > 0 && (
-          <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
-            {visibleEquipment.map((equipmentType, index) => {
-              const positions = visibleEquipment.length === 1 
-                ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
-                : visibleEquipment.length === 2
-                ? [
-                    { left: '30%', transform: 'translateX(-50%)', bottom: '200px' },
-                    { left: '70%', transform: 'translateX(-50%)', bottom: '200px' }
-                  ]
-                : [
-                    { left: '20%', transform: 'translateX(-50%)', bottom: '200px' },
-                    { left: '50%', transform: 'translateX(-50%)', bottom: '200px' },
-                    { left: '80%', transform: 'translateX(-50%)', bottom: '200px' }
-                  ]
-              
-              const position = positions[index] || positions[0]
-              
-              return (
-                <div 
-                  key={equipmentType} 
-                  className="absolute"
-                  style={{
-                    ...position,
-                    zIndex: 10
-                  }}
-                >
-                  {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <div className="absolute inset-0">
+          {wallEquipment.map((equipment) => {
+            const equipmentImage = getEquipmentImage(equipment.equipmentType)
+            if (!equipmentImage) return null
+            
+            return (
+              <div 
+                key={equipment.equipmentType}
+                className="absolute"
+                style={{
+                  left: `${equipment.x}%`,
+                  top: `${equipment.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: equipment.zIndex
+                }}
+              >
+                {renderEquipmentComponent(equipment, wallKey)}
+              </div>
+            )
+          })}
+        </div>
 
-        {/* Message when no equipment is visible */}
-        {visibleEquipment.length === 0 && wallElements.filter(([id]) => revealedElements[id]).length === 0 && (
+        {/* Message when no equipment or elements are visible */}
+        {wallEquipment.length === 0 && wallElements.filter(([id]) => revealedElements[id]).length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="bg-white bg-opacity-90 rounded-lg p-6 text-center shadow-lg">
               <div className="text-4xl mb-4">🔬</div>
@@ -552,6 +622,33 @@ export default function LabRoom() {
     )
   }
 
+  const getCompletionRequirements = () => {
+    if (gameSettings.completionMode === 'final-element') {
+      return {
+        required: 1,
+        completed: gameSettings.finalElementId && solvedElements[gameSettings.finalElementId] ? 1 : 0,
+        description: `Final Element: ${roomElements[gameSettings.finalElementId]?.name || 'Not set'}`
+      }
+    } else if (gameSettings.completionMode === 'equipment-only') {
+      return {
+        required: Object.keys(equipmentStates).length,
+        completed: Object.values(solvedEquipment).filter(Boolean).length,
+        description: 'Equipment Analysis'
+      }
+    } else {
+      const totalEquipment = Object.keys(equipmentStates).length
+      const interactiveElements = Object.values(roomElements).filter(el => 
+        ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
+      )
+      return {
+        required: totalEquipment + interactiveElements.length,
+        completed: Object.values(solvedEquipment).filter(Boolean).length + Object.values(solvedElements).filter(Boolean).length,
+        description: 'All Equipment + Interactive Elements'
+      }
+    }
+  }
+
+  const completionReq = getCompletionRequirements()
   const solvedCount = Object.values(solvedEquipment).filter(Boolean).length
   const totalEquipment = Object.keys(equipmentStates).length
   const interactiveElements = Object.values(roomElements).filter(el => 
@@ -594,6 +691,9 @@ export default function LabRoom() {
         {/* Enhanced Progress Indicator */}
         <div className="mb-6 bg-white bg-opacity-95 rounded-xl p-4 text-center shadow-xl border border-gray-200">
           <h3 className="text-lg font-bold text-gray-800 mb-2">🔍 Investigation Progress</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Completion Mode: {completionReq.description}
+          </p>
           
           {/* Equipment Progress */}
           <div className="mb-3">
@@ -624,6 +724,7 @@ export default function LabRoom() {
               <div className="flex justify-center gap-2 mb-2">
                 {interactiveElements.map((element, index) => {
                   const elementState = elementStates[element.id] || { solved: false, discovered: false }
+                  const isFinalElement = gameSettings.finalElementId === element.id
                   return (
                     <div
                       key={element.id}
@@ -633,15 +734,19 @@ export default function LabRoom() {
                           : elementState.discovered
                           ? 'bg-yellow-500 text-white border-yellow-600 shadow-lg animate-pulse'
                           : 'bg-gray-300 text-gray-600 border-gray-400'
-                      }`}
+                      } ${isFinalElement ? 'ring-2 ring-yellow-400' : ''}`}
                     >
                       {elementState.solved ? '✓' : elementState.discovered ? '?' : '🔍'}
+                      {isFinalElement && <div className="absolute -top-1 -right-1 text-yellow-400">⭐</div>}
                     </div>
                   )
                 })}
               </div>
               <p className="text-sm text-gray-600">
                 Interactive Elements: {solvedElementsCount}/{interactiveElements.length} examined
+                {gameSettings.finalElementId && (
+                  <span className="text-yellow-600 ml-2">⭐ Final element required</span>
+                )}
               </p>
             </div>
           )}
@@ -650,12 +755,12 @@ export default function LabRoom() {
             <div 
               className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-500"
               style={{ 
-                width: `${((solvedCount + solvedElementsCount) / (totalEquipment + interactiveElements.length)) * 100}%` 
+                width: `${(completionReq.completed / completionReq.required) * 100}%` 
               }}
             ></div>
           </div>
           <p className="text-sm text-gray-600">
-            Overall Progress: {solvedCount + solvedElementsCount}/{totalEquipment + interactiveElements.length} - Patient diagnosis: {labLocked ? 'PENDING' : 'READY'}
+            Progress: {completionReq.completed}/{completionReq.required} - Patient diagnosis: {labLocked ? 'PENDING' : 'READY'}
           </p>
         </div>
 
@@ -711,7 +816,7 @@ export default function LabRoom() {
                   Finalizing Diagnosis...
                 </span>
               ) : labLocked ? (
-                '🔒 Complete All Analyses First'
+                '🔒 Complete Required Analyses First'
               ) : (
                 '🚑 Submit Patient Diagnosis'
               )}
@@ -751,7 +856,7 @@ export default function LabRoom() {
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
             <li>• <strong>Click Equipment:</strong> Click directly on any equipment or interactive element to analyze it</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
-            <li>• <strong>Complete Investigation:</strong> Analyze all equipment and interactive elements</li>
+            <li>• <strong>Complete Investigation:</strong> Complete the required analyses based on the completion mode</li>
             <li>• <strong>Save Patient:</strong> Submit your diagnosis when all analyses are complete</li>
             <li>• <strong>Time Critical:</strong> The patient's condition is deteriorating - work quickly!</li>
           </ul>
