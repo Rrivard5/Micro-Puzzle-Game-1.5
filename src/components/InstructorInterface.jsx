@@ -72,11 +72,12 @@ const InstructorInterface = () => {
   };
 
   const interactionTypes = {
-    none: 'Not Interactive (Decoration Only)',
+    none: 'Decorative Only (No Interaction)',
     info: 'Reveal Information Only',
     question: 'Show Question → Reveal Information',
     element: 'Reveal New Element',
-    question_element: 'Show Question → Reveal New Element'
+    question_element: 'Show Question → Reveal New Element',
+    zoom: 'Zoom In/Out (Click to Enlarge)'
   };
 
   // Z-index layers for context
@@ -1030,11 +1031,6 @@ const InstructorInterface = () => {
                 </div>
               </div>
             )}
-            
-            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
-              {element.name}
-              {finalElementId === elementId && <span className="text-yellow-600 ml-1">⭐</span>}
-            </div>
           </div>
         ))}
 
@@ -1068,10 +1064,6 @@ const InstructorInterface = () => {
                   filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
                 }}
               />
-              
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-green-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
-                {equipment.equipmentType}
-              </div>
             </div>
           );
         })}
@@ -1298,7 +1290,8 @@ const InstructorInterface = () => {
                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                       >
-                        {element.interactionType === 'none' ? '📦' : '🔍'} {element.name}
+                        {element.interactionType === 'none' ? '📦' : 
+                         element.interactionType === 'zoom' ? '🔍' : '🔍'} {element.name}
                         {finalElementId === elementId && <span className="text-yellow-300 ml-1">⭐</span>}
                         <div className="text-xs opacity-75">
                           {interactionTypes[element.interactionType]}
@@ -1768,13 +1761,24 @@ const InstructorInterface = () => {
                         </div>
                       )}
 
+                      {/* Zoom-only elements message */}
+                      {element.interactionType === 'zoom' && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                          <h4 className="font-medium text-purple-800 mb-2">🔍 Zoom Element</h4>
+                          <p className="text-purple-700 text-sm">
+                            This element is set to "Zoom In/Out" interaction. Students can click on it to 
+                            enlarge it for closer examination, and click again to return to normal size.
+                          </p>
+                        </div>
+                      )}
+
                       {/* Non-interactive elements message */}
                       {element.interactionType === 'none' && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <h4 className="font-medium text-blue-800 mb-2">Non-Interactive Element</h4>
+                          <h4 className="font-medium text-blue-800 mb-2">Decorative Element</h4>
                           <p className="text-blue-700 text-sm">
-                            This element is set to "Not Interactive" and is for decoration only. 
-                            To add questions or information, edit the element in the Room Builder tab 
+                            This element is set to "Decorative Only" and has no interaction. 
+                            To add questions, information, or zoom functionality, edit the element in the Room Builder tab 
                             and change its interaction type.
                           </p>
                         </div>
