@@ -282,21 +282,6 @@ export default function LabRoom() {
           }}
         />
         
-        {/* Enhanced status indicator overlay */}
-        <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
-          <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm font-bold shadow-lg ${
-            state.solved 
-              ? 'bg-green-500 text-white' 
-              : state.active 
-              ? 'bg-yellow-500 text-white animate-pulse' 
-              : state.discovered
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-400 text-gray-600'
-          }`}>
-            {state.solved ? '✓' : state.active ? '⚡' : state.discovered ? '?' : '○'}
-          </div>
-        </div>
-        
         {/* Equipment label */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
           <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
@@ -372,23 +357,6 @@ export default function LabRoom() {
             <div className="text-gray-600 text-center">
               <div className="text-2xl mb-1">📦</div>
               <div className="text-xs">{element.name}</div>
-            </div>
-          </div>
-        )}
-        
-        {/* Status indicator for interactive elements */}
-        {element.hasQuestion && (
-          <div className="absolute top-0 right-0 transform translate-x-2 -translate-y-2">
-            <div className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold shadow-lg ${
-              state.solved 
-                ? 'bg-green-500 text-white' 
-                : state.active 
-                ? 'bg-yellow-500 text-white animate-pulse' 
-                : state.discovered
-                ? 'bg-blue-500 text-white'
-                : 'bg-purple-400 text-white'
-            }`}>
-              {state.solved ? '✓' : state.active ? '⚡' : state.discovered ? '?' : '◉'}
             </div>
           </div>
         )}
