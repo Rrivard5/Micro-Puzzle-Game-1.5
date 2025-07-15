@@ -7,6 +7,7 @@ export default function LabRoom() {
   const [discoveredClues, setDiscoveredClues] = useState({})
   const [solvedEquipment, setSolvedEquipment] = useState({})
   const [solvedElements, setSolvedElements] = useState({})
+  const [revealedElements, setRevealedElements] = useState({})
   const [activeModal, setActiveModal] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -52,12 +53,10 @@ export default function LabRoom() {
   const loadGroupContent = () => {
     if (!studentInfo?.groupNumber) return
     
-    // Load group-specific content from instructor settings
     const savedContent = localStorage.getItem('instructor-lab-content')
     if (savedContent) {
       const content = JSON.parse(savedContent)
       const groupContent = content.groups?.[studentInfo.groupNumber] || content.groups?.[1] || {}
-      // Apply group-specific settings
     }
   }
 
@@ -92,23 +91,29 @@ export default function LabRoom() {
         
         // Initialize element states
         const initialStates = {}
-        Object.keys(elements).forEach(elementId => {
+        const initialRevealed = {}
+        
+        Object.entries(elements).forEach(([elementId, element]) => {
           initialStates[elementId] = {
             discovered: false,
             active: false,
             solved: false
           }
+          
+          // Elements are initially visible unless they have a revealedBy property
+          initialRevealed[elementId] = !element.revealedBy
         })
+        
         setElementStates(initialStates)
+        setRevealedElements(initialRevealed)
       } catch (error) {
         console.error('Error loading room elements:', error)
       }
     }
   }
 
-  const getEquipmentImage = (equipmentType, groupNumber) => {
-    const imageKey = `${equipmentType}_group${groupNumber}`
-    return equipmentImages[imageKey]?.processed || null
+  const getEquipmentImage = (equipmentType) => {
+    return equipmentImages[equipmentType]?.processed || null
   }
 
   const getBackgroundImage = (wall) => {
@@ -116,27 +121,23 @@ export default function LabRoom() {
   }
 
   const handleEquipmentClick = (equipmentType) => {
-    // Mark equipment as discovered and active
     setEquipmentStates(prev => ({
       ...prev,
       [equipmentType]: { ...prev[equipmentType], discovered: true, active: true }
     }))
 
-    // Open equipment modal
     openEquipmentModal(equipmentType)
   }
 
   const handleElementClick = (elementId) => {
     const element = roomElements[elementId]
-    if (!element || !element.hasQuestion) return
+    if (!element) return
 
-    // Mark element as discovered and active
     setElementStates(prev => ({
       ...prev,
       [elementId]: { ...prev[elementId], discovered: true, active: true }
     }))
 
-    // Open element modal
     openElementModal(elementId)
   }
 
@@ -196,14 +197,26 @@ export default function LabRoom() {
   }
 
   const handleElementSolved = (elementId, clue) => {
+    const element = roomElements[elementId]
+    if (!element) return
+
+    // Mark element as solved
     setSolvedElements(prev => ({ ...prev, [elementId]: true }))
     setDiscoveredClues(prev => ({ ...prev, [elementId]: clue }))
     setElementStates(prev => ({
       ...prev,
       [elementId]: { ...prev[elementId], solved: true, active: false }
     }))
+
+    // Handle element revelation
+    if (['element', 'question_element'].includes(element.interactionType) && element.revealedElementId) {
+      setRevealedElements(prev => ({
+        ...prev,
+        [element.revealedElementId]: true
+      }))
+    }
+
     setActiveModal(null)
-    
     checkLabCompletion()
   }
 
@@ -213,7 +226,9 @@ export default function LabRoom() {
     const solvedEquipmentCount = Object.values(solvedEquipment).filter(Boolean).length
     
     // Check if all interactive elements are solved
-    const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+    const interactiveElements = Object.values(roomElements).filter(el => 
+      ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
+    )
     const solvedElementsCount = Object.values(solvedElements).filter(Boolean).length
     
     if (solvedEquipmentCount >= totalEquipment && solvedElementsCount >= interactiveElements.length) {
@@ -225,7 +240,9 @@ export default function LabRoom() {
 
   const handleLabExit = async () => {
     const totalEquipment = Object.keys(equipmentStates).length
-    const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+    const interactiveElements = Object.values(roomElements).filter(el => 
+      ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
+    )
     
     if (Object.values(solvedEquipment).length < totalEquipment || 
         Object.values(solvedElements).length < interactiveElements.length) {
@@ -242,17 +259,16 @@ export default function LabRoom() {
   }
 
   const rotateLeft = () => {
-    setCurrentWall((prev) => (prev + 3) % 4) // Rotate counter-clockwise
+    setCurrentWall((prev) => (prev + 3) % 4)
   }
 
   const rotateRight = () => {
-    setCurrentWall((prev) => (prev + 1) % 4) // Rotate clockwise
+    setCurrentWall((prev) => (prev + 1) % 4)
   }
 
   const renderEquipmentComponent = (equipmentType, state) => {
-    const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
+    const equipmentImage = getEquipmentImage(equipmentType)
     
-    // Only render if we have an image - this prevents the grey dots issue
     if (!equipmentImage) {
       return null
     }
@@ -282,7 +298,6 @@ export default function LabRoom() {
           }}
         />
         
-        {/* Equipment label */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-48px' }}>
           <div className="bg-white bg-opacity-95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-gray-700 border border-gray-200">
             {getEquipmentTitle(equipmentType).replace(/🔬|🌡️|🧫|♨️|🌪️/, '').trim()}
@@ -291,7 +306,6 @@ export default function LabRoom() {
           {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Analyzing...</div>}
         </div>
         
-        {/* Enhanced hover tooltip */}
         <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
              style={{ top: '-80px', maxWidth: '250px', whiteSpace: 'normal' }}>
           {state.solved 
@@ -307,16 +321,23 @@ export default function LabRoom() {
 
   const renderRoomElement = (elementId, element) => {
     const state = elementStates[elementId] || { discovered: false, active: false, solved: false }
+    const isRevealed = revealedElements[elementId]
+    
+    if (!isRevealed) {
+      return null
+    }
     
     return (
       <div
         key={elementId}
-        className={`relative group transition-all duration-300 ${element.hasQuestion ? 'cursor-pointer hover:scale-105' : ''}`}
+        className={`relative group transition-all duration-300 cursor-pointer hover:scale-105`}
         style={{
-          transform: `translate(${element.settings.xOffset}px, ${element.settings.yOffset}px)`,
+          left: `${element.settings.x}%`,
+          top: `${element.settings.y}%`,
+          transform: 'translate(-50%, -50%)',
           zIndex: element.settings.zIndex
         }}
-        onClick={() => element.hasQuestion && handleElementClick(elementId)}
+        onClick={() => handleElementClick(elementId)}
       >
         {element.image ? (
           <img
@@ -361,28 +382,24 @@ export default function LabRoom() {
           </div>
         )}
         
-        {/* Element label */}
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center" style={{ bottom: '-40px' }}>
           <div className="bg-white bg-opacity-95 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg text-xs font-bold text-gray-700 border border-gray-200">
             {element.name}
           </div>
           {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Complete</div>}
           {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Active</div>}
-          {element.hasQuestion && !state.discovered && <div className="text-xs text-purple-600 mt-1 font-semibold">◉ Interactive</div>}
+          {!state.discovered && <div className="text-xs text-purple-600 mt-1 font-semibold">◉ Interactive</div>}
         </div>
         
-        {/* Hover tooltip for interactive elements */}
-        {element.hasQuestion && (
-          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-               style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
-            {state.solved 
-              ? "Element analysis complete - data recorded" 
-              : state.active 
-              ? "Currently examining..." 
-              : `Click to examine ${element.name}`
-            }
-          </div>
-        )}
+        <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+             style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
+          {state.solved 
+            ? "Element analysis complete - data recorded" 
+            : state.active 
+            ? "Currently examining..." 
+            : `Click to examine ${element.name}`
+          }
+        </div>
       </div>
     )
   }
@@ -399,7 +416,7 @@ export default function LabRoom() {
     
     // Filter equipment to only show those with images
     const visibleEquipment = equipment.filter(equipmentType => {
-      const equipmentImage = getEquipmentImage(equipmentType, studentInfo?.groupNumber)
+      const equipmentImage = getEquipmentImage(equipmentType)
       return equipmentImage !== null
     })
     
@@ -436,49 +453,29 @@ export default function LabRoom() {
                     </radialGradient>
                   </defs>
                   
-                  <!-- Enhanced perspective floor -->
                   <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" stroke-width="2"/>
-                  
-                  <!-- Back wall with better perspective -->
                   <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallTiles)" stroke="#e2e8f0"/>
-                  
-                  <!-- Left wall -->
                   <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  
-                  <!-- Right wall -->
                   <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  
-                  <!-- Ceiling with lighting -->
                   <polygon points="80,180 120,60 680,60 720,180" fill="url(#lightGrad)" stroke="#f1f5f9"/>
-                  
-                  <!-- Enhanced ceiling lights -->
                   <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
                   <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
                   <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
-                  
-                  <!-- Light rays -->
                   <polygon points="220,90 280,90 320,180 180,180" fill="url(#lightGrad)" opacity="0.3"/>
                   <polygon points="370,95 430,95 470,180 330,180" fill="url(#lightGrad)" opacity="0.3"/>
                   <polygon points="520,90 580,90 620,180 480,180" fill="url(#lightGrad)" opacity="0.3"/>
-                  
-                  <!-- Lab benches with enhanced 3D perspective -->
                   <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
                   <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
                   <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
-                  
-                  <!-- Bench details -->
                   <rect x="160" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
                   <rect x="300" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
                   <rect x="500" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
                   
-                  <!-- Wall-specific features -->
                   ${currentWall === 0 ? `
-                    <!-- Large window on north wall -->
                     <rect x="280" y="80" width="160" height="100" fill="#dbeafe" stroke="#3b82f6" stroke-width="3" rx="8"/>
                     <rect x="285" y="85" width="150" height="90" fill="#f0f9ff" opacity="0.8"/>
                     <line x1="360" y1="80" x2="360" y2="180" stroke="#3b82f6" stroke-width="2"/>
                     <line x1="280" y1="130" x2="440" y2="130" stroke="#3b82f6" stroke-width="2"/>
-                    <!-- Window blinds -->
                     <g stroke="#94a3b8" stroke-width="1" opacity="0.6">
                       <line x1="285" y1="90" x2="435" y2="90"/>
                       <line x1="285" y1="100" x2="435" y2="100"/>
@@ -492,20 +489,17 @@ export default function LabRoom() {
                   ` : ''}
                   
                   ${currentWall === 1 ? `
-                    <!-- Emergency shower on east wall -->
                     <rect x="650" y="100" width="50" height="100" fill="#fbbf24" stroke="#d97706" stroke-width="3" rx="5"/>
                     <circle cx="675" cy="110" r="12" fill="#9ca3af"/>
                     <rect x="670" y="125" width="10" height="40" fill="#dc2626"/>
                     <circle cx="675" cy="175" r="8" fill="#ef4444"/>
                     <text x="675" y="210" text-anchor="middle" font-size="12" fill="#dc2626" font-weight="bold">EMERGENCY</text>
-                    <!-- Eyewash station -->
                     <rect x="620" y="160" width="25" height="30" fill="#22c55e" stroke="#16a34a" stroke-width="2" rx="3"/>
                     <circle cx="632" cy="170" r="4" fill="#ffffff"/>
                     <text x="632" y="195" text-anchor="middle" font-size="8" fill="#16a34a">EYEWASH</text>
                   ` : ''}
                   
                   ${currentWall === 2 ? `
-                    <!-- Exit door with better detail -->
                     <rect x="350" y="480" width="100" height="70" fill="#92400e" stroke="#451a03" stroke-width="3" rx="5"/>
                     <rect x="360" y="490" width="35" height="50" fill="#a16207" stroke="#451a03" stroke-width="1"/>
                     <rect x="405" y="490" width="35" height="50" fill="#a16207" stroke="#451a03" stroke-width="1"/>
@@ -515,7 +509,6 @@ export default function LabRoom() {
                   ` : ''}
                   
                   ${currentWall === 3 ? `
-                    <!-- Lab sink with faucet -->
                     <rect x="100" y="400" width="80" height="50" fill="#9ca3af" stroke="#6b7280" stroke-width="3" rx="8"/>
                     <rect x="110" y="410" width="60" height="30" fill="#e5e7eb" rx="5"/>
                     <ellipse cx="140" cy="380" rx="12" ry="8" fill="#6b7280"/>
@@ -525,7 +518,6 @@ export default function LabRoom() {
                     <circle cx="140" cy="425" r="3" fill="#374151"/>
                   ` : ''}
                   
-                  <!-- Enhanced lighting effects -->
                   <ellipse cx="200" cy="500" rx="100" ry="20" fill="#fef7cd" opacity="0.2"/>
                   <ellipse cx="400" cy="500" rx="120" ry="25" fill="#fef7cd" opacity="0.2"/>
                   <ellipse cx="600" cy="500" rx="100" ry="20" fill="#fef7cd" opacity="0.2"/>
@@ -537,28 +529,32 @@ export default function LabRoom() {
         />
 
         {/* Room Elements Positioning */}
-        <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
-          {wallElements.map(([elementId, element]) => (
-            <div 
-              key={elementId}
-              className="absolute"
-              style={{
-                left: '50%',
-                bottom: `${200 + element.settings.yOffset}px`,
-                transform: `translateX(-50%) translateX(${element.settings.xOffset}px)`,
-                zIndex: element.settings.zIndex
-              }}
-            >
-              {renderRoomElement(elementId, element)}
-            </div>
-          ))}
+        <div className="absolute inset-0">
+          {wallElements.map(([elementId, element]) => {
+            const isRevealed = revealedElements[elementId]
+            if (!isRevealed) return null
+            
+            return (
+              <div 
+                key={elementId}
+                className="absolute"
+                style={{
+                  left: `${element.settings.x}%`,
+                  top: `${element.settings.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: element.settings.zIndex
+                }}
+              >
+                {renderRoomElement(elementId, element)}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Equipment Positioning - Only show equipment with images */}
+        {/* Equipment Positioning */}
         {visibleEquipment.length > 0 && (
           <div className="absolute inset-0 flex items-end justify-around px-12 pb-48">
             {visibleEquipment.map((equipmentType, index) => {
-              // Dynamic positioning based on equipment count
               const positions = visibleEquipment.length === 1 
                 ? [{ left: '50%', transform: 'translateX(-50%)', bottom: '200px' }]
                 : visibleEquipment.length === 2
@@ -580,7 +576,7 @@ export default function LabRoom() {
                   className="absolute"
                   style={{
                     ...position,
-                    zIndex: 10 // Equipment always on top
+                    zIndex: 10
                   }}
                 >
                   {renderEquipmentComponent(equipmentType, equipmentStates[equipmentType])}
@@ -591,15 +587,15 @@ export default function LabRoom() {
         )}
 
         {/* Message when no equipment is visible */}
-        {visibleEquipment.length === 0 && wallElements.length === 0 && (
+        {visibleEquipment.length === 0 && wallElements.filter(([id]) => revealedElements[id]).length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="bg-white bg-opacity-90 rounded-lg p-6 text-center shadow-lg">
               <div className="text-4xl mb-4">🔬</div>
               <h3 className="text-lg font-bold text-gray-700 mb-2">
-                No equipment available on this wall
+                No equipment or elements available on this wall
               </h3>
               <p className="text-gray-600 text-sm">
-                Try rotating to other walls or ask your instructor to add equipment images
+                Try rotating to other walls or ask your instructor to add content
               </p>
             </div>
           </div>
@@ -607,15 +603,10 @@ export default function LabRoom() {
 
         {/* Enhanced atmospheric effects */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Volumetric lighting */}
           <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-yellow-100 via-transparent to-transparent opacity-30"></div>
-          
-          {/* Light beams */}
           <div className="absolute top-12 left-1/4 w-32 h-32 bg-yellow-200 rounded-full blur-3xl opacity-10"></div>
           <div className="absolute top-16 right-1/4 w-40 h-40 bg-yellow-100 rounded-full blur-3xl opacity-15"></div>
           <div className="absolute top-10 left-1/2 w-36 h-36 bg-yellow-150 rounded-full blur-3xl opacity-12"></div>
-          
-          {/* Floor reflection */}
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-200 via-transparent to-transparent opacity-30"></div>
         </div>
       </div>
@@ -624,15 +615,14 @@ export default function LabRoom() {
 
   const solvedCount = Object.values(solvedEquipment).filter(Boolean).length
   const totalEquipment = Object.keys(equipmentStates).length
-  const interactiveElements = Object.values(roomElements).filter(el => el.hasQuestion)
+  const interactiveElements = Object.values(roomElements).filter(el => 
+    ['info', 'question', 'element', 'question_element'].includes(el.interactionType)
+  )
   const solvedElementsCount = Object.values(solvedElements).filter(Boolean).length
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-blue-100 relative overflow-hidden">
-      {/* Enhanced room lighting */}
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-yellow-100 via-transparent to-transparent opacity-40"></div>
-      
-      {/* Floor with realistic material */}
       <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-300 via-slate-200 to-transparent"></div>
 
       <div className="relative z-10 max-w-7xl mx-auto p-6">
@@ -646,7 +636,6 @@ export default function LabRoom() {
           <div className="h-1 w-48 mx-auto bg-gradient-to-r from-red-500 to-blue-500 mb-4 animate-pulse"></div>
           <p className="text-red-700 text-lg font-semibold">Group {studentInfo?.groupNumber} - Patient Sample Investigation</p>
           
-          {/* Enhanced status indicator */}
           <div className="mt-2 text-sm">
             {Object.keys(equipmentImages).length > 0 && (
               <span className="text-green-600 mr-4">✓ {Object.keys(equipmentImages).length} Custom Equipment Images</span>
@@ -718,7 +707,6 @@ export default function LabRoom() {
             </div>
           )}
 
-          {/* Overall Progress */}
           <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
             <div 
               className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-500"
@@ -735,13 +723,11 @@ export default function LabRoom() {
         {/* Enhanced First-Person Lab View */}
         <div className="relative bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-6 shadow-2xl border-4 border-gray-400">
           
-          {/* Current Wall Display */}
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">{wallNames[currentWall]}</h2>
             <p className="text-gray-600">Click on equipment and interactive elements to analyze them</p>
           </div>
 
-          {/* Enhanced Navigation Controls */}
           <div className="flex justify-between items-center mb-6">
             <button
               onClick={rotateLeft}
@@ -766,10 +752,8 @@ export default function LabRoom() {
             </button>
           </div>
 
-          {/* Wall Content */}
           {renderWallContent()}
 
-          {/* Lab Exit */}
           <div className="mt-6 text-center">
             <button
               onClick={handleLabExit}
