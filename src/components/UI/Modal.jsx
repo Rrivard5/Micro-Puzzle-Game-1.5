@@ -11,6 +11,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
   const [equipmentImage, setEquipmentImage] = useState(null)
   const [elementContent, setElementContent] = useState(null)
   const [isElement, setIsElement] = useState(false)
+  const [showInfoOnly, setShowInfoOnly] = useState(false)
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -23,11 +24,17 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
   const loadContent = async () => {
     setIsLoading(true)
     setIsElement(!!elementId)
+    setShowInfoOnly(false)
     
     if (equipmentType) {
       // Load equipment content
       const question = await getEquipmentQuestion(equipmentType, studentGroup)
       setCurrentQuestion(question)
+      
+      // Check if this is info-only equipment
+      if (question && question.interactionType === 'info') {
+        setShowInfoOnly(true)
+      }
       
       const image = await getEquipmentImage(equipmentType, studentGroup)
       setEquipmentImage(image)
@@ -39,6 +46,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
       if (element && ['question', 'question_element'].includes(element.interactionType)) {
         const question = await getElementQuestion(elementId, studentGroup)
         setCurrentQuestion(question)
+      } else if (element && element.interactionType === 'info') {
+        setShowInfoOnly(true)
       }
     }
     
@@ -98,63 +107,81 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
     const defaultQuestions = {
       microscope: {
         id: 'mic1',
+        interactionType: 'question',
         question: 'Looking at the bacterial specimen under 1000x magnification, what is the most likely shape classification of these cells?',
         type: 'multiple_choice',
         options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
         answer: 'Bacilli (rod-shaped)',
         hint: 'Look carefully at the elongated shape of the individual cells.',
         clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
-        randomizeAnswers: false
+        randomizeAnswers: false,
+        info: 'Rod-shaped bacteria detected - likely Escherichia coli',
+        infoImage: null
       },
       incubator: {
         id: 'inc1',
+        interactionType: 'question',
         question: 'The incubator display shows 37°C and 5% CO2. This environment is optimal for growing which type of microorganisms?',
         type: 'multiple_choice',
         options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
         answer: 'Mesophiles',
         hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
         clue: 'Mesophilic conditions set - optimal for human pathogens',
-        randomizeAnswers: false
+        randomizeAnswers: false,
+        info: 'Mesophilic conditions set - optimal for human pathogens',
+        infoImage: null
       },
       petriDish: {
         id: 'pet1',
+        interactionType: 'question',
         question: 'On the blood agar plate, you observe clear zones around some bacterial colonies. This indicates:',
         type: 'multiple_choice',
         options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
         answer: 'Beta hemolysis',
         hint: 'Clear zones indicate complete breakdown of red blood cells.',
         clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-        randomizeAnswers: false
+        randomizeAnswers: false,
+        info: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
+        infoImage: null
       },
       autoclave: {
         id: 'auto1',
+        interactionType: 'question',
         question: 'For proper sterilization, the autoclave must reach what temperature and pressure for how long?',
         type: 'multiple_choice',
         options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
         answer: '121°C, 15 psi, 15 minutes',
         hint: 'Standard sterilization parameters for most laboratory equipment.',
         clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
-        randomizeAnswers: false
+        randomizeAnswers: false,
+        info: 'Sterilization protocol confirmed - equipment properly decontaminated',
+        infoImage: null
       },
       centrifuge: {
         id: 'cent1',
+        interactionType: 'question',
         question: 'When centrifuging blood samples, the heavier red blood cells settle at the bottom while the lighter plasma rises to the top. This separation is based on:',
         type: 'multiple_choice',
         options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
         answer: 'Density differences',
         hint: 'Think about what causes particles to separate when spun at high speed.',
         clue: 'Density separation principle confirmed - sample fractionation successful',
-        randomizeAnswers: false
+        randomizeAnswers: false,
+        info: 'Density separation principle confirmed - sample fractionation successful',
+        infoImage: null
       }
     }
     
     return defaultQuestions[equipment] || {
       id: 'default',
+      interactionType: 'question',
       question: 'What is the primary function of this laboratory equipment?',
       type: 'text',
       answer: 'analysis',
       hint: 'Think about how this equipment is used in microbiology research.',
-      clue: 'Equipment function understood'
+      clue: 'Equipment function understood',
+      info: 'Equipment function understood',
+      infoImage: null
     }
   }
 
@@ -233,7 +260,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
       
       // Delay before solving to show feedback
       setTimeout(() => {
-        const clueText = currentQuestion.clue || (isElement ? elementContent?.content?.info || 'Information discovered!' : 'Equipment analyzed successfully!')
+        const clueText = currentQuestion.info || currentQuestion.clue || (isElement ? elementContent?.content?.info || 'Information discovered!' : 'Equipment analyzed successfully!')
         onSolved(equipmentType || elementId, clueText)
       }, 2000)
     } else {
@@ -269,9 +296,14 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
   }
 
   const handleInfoOnly = () => {
-    // For info-only elements, just show the information and close
-    const infoText = elementContent?.content?.info || 'Information discovered!'
-    onSolved(elementId, infoText)
+    // For info-only equipment/elements, just show the information and close
+    let infoText = ''
+    if (equipmentType) {
+      infoText = currentQuestion?.info || 'Information discovered!'
+    } else if (elementContent) {
+      infoText = elementContent.content?.info || 'Information discovered!'
+    }
+    onSolved(equipmentType || elementId, infoText)
   }
 
   if (!isOpen) return null
@@ -342,13 +374,32 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                 </p>
               </div>
 
-              {/* Info-only elements */}
-              {isElement && elementContent?.interactionType === 'info' && (
+              {/* Info-only elements and equipment */}
+              {showInfoOnly && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6">
                   <h3 className="font-bold text-green-800 mb-4">📋 Information Discovered</h3>
-                  <p className="text-green-700 mb-4">
-                    {elementContent.content?.info || 'You have discovered important information about this element!'}
-                  </p>
+                  
+                  {/* Text Information */}
+                  <div className="mb-4">
+                    <p className="text-green-700 mb-4">
+                      {equipmentType 
+                        ? (currentQuestion?.info || 'You have discovered important information about this equipment!')
+                        : (elementContent?.content?.info || 'You have discovered important information about this element!')
+                      }
+                    </p>
+                  </div>
+
+                  {/* Info Image */}
+                  {equipmentType && currentQuestion?.infoImage && (
+                    <div className="mb-4">
+                      <img
+                        src={currentQuestion.infoImage.data}
+                        alt={`${equipmentType} information`}
+                        className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                      />
+                    </div>
+                  )}
+
                   <button
                     onClick={handleInfoOnly}
                     className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
@@ -359,7 +410,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
               )}
 
               {/* Question Section */}
-              {currentQuestion && (
+              {currentQuestion && !showInfoOnly && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <h3 className="font-bold text-gray-800 mb-4 text-lg">{currentQuestion.question}</h3>
                   
@@ -426,6 +477,31 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                       )}
                     </div>
                   </form>
+
+                  {/* Success Information Display */}
+                  {feedback?.type === 'success' && (
+                    <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-bold text-green-800 mb-3">📋 Analysis Results</h4>
+                      
+                      {/* Text Information */}
+                      <div className="mb-4">
+                        <p className="text-green-700">
+                          {currentQuestion.info || currentQuestion.clue || 'Analysis completed successfully!'}
+                        </p>
+                      </div>
+
+                      {/* Info Image */}
+                      {currentQuestion.infoImage && (
+                        <div className="mb-4">
+                          <img
+                            src={currentQuestion.infoImage.data}
+                            alt={`${equipmentType || elementId} analysis results`}
+                            className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
