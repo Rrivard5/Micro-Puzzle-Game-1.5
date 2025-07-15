@@ -463,7 +463,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                         }`}
                       >
-                        {feedback?.type === 'success' ? '✅ Completed' : '🔍 Analyze'}
+                        {feedback?.type === 'success' ? '✅ Completed' : '✅ Submit Answer'}
                       </button>
                       
                       {!showHint && attempts > 0 && feedback?.type !== 'success' && (
