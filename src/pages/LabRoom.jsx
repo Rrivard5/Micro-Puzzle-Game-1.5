@@ -131,7 +131,7 @@ export default function LabRoom() {
 
   const handleElementClick = (elementId) => {
     const element = roomElements[elementId]
-    if (!element) return
+    if (!element || element.interactionType === 'none') return
 
     setElementStates(prev => ({
       ...prev,
@@ -326,18 +326,22 @@ export default function LabRoom() {
     if (!isRevealed) {
       return null
     }
+
+    const isInteractive = ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
     
     return (
       <div
         key={elementId}
-        className={`relative group transition-all duration-300 cursor-pointer hover:scale-105`}
+        className={`relative group transition-all duration-300 ${
+          isInteractive ? 'cursor-pointer hover:scale-105' : ''
+        }`}
         style={{
           left: `${element.settings.x}%`,
           top: `${element.settings.y}%`,
           transform: 'translate(-50%, -50%)',
           zIndex: element.settings.zIndex
         }}
-        onClick={() => handleElementClick(elementId)}
+        onClick={() => isInteractive && handleElementClick(elementId)}
       >
         {element.image ? (
           <img
@@ -388,18 +392,19 @@ export default function LabRoom() {
           </div>
           {state.solved && <div className="text-xs text-green-600 mt-1 font-semibold">✓ Complete</div>}
           {state.active && !state.solved && <div className="text-xs text-yellow-600 mt-1 font-semibold">⚡ Active</div>}
-          {!state.discovered && <div className="text-xs text-purple-600 mt-1 font-semibold">◉ Interactive</div>}
         </div>
         
-        <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-             style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
-          {state.solved 
-            ? "Element analysis complete - data recorded" 
-            : state.active 
-            ? "Currently examining..." 
-            : `Click to examine ${element.name}`
-          }
-        </div>
+        {isInteractive && (
+          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+               style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
+            {state.solved 
+              ? "Element analysis complete - data recorded" 
+              : state.active 
+              ? "Currently examining..." 
+              : `Click to examine ${element.name}`
+            }
+          </div>
+        )}
       </div>
     )
   }
@@ -427,8 +432,8 @@ export default function LabRoom() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: backgroundImage 
-              ? `linear-gradient(rgba(248,250,252,0.1), rgba(241,245,249,0.1)), url('${backgroundImage}')`
-              : `linear-gradient(rgba(248,250,252,0.95), rgba(241,245,249,0.95)), url('data:image/svg+xml,${encodeURIComponent(`
+              ? `url('${backgroundImage}')`
+              : `url('data:image/svg+xml,${encodeURIComponent(`
                 <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -443,87 +448,21 @@ export default function LabRoom() {
                       <rect width="50" height="50" fill="#f8fafc"/>
                       <rect width="48" height="48" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
                     </pattern>
-                    <pattern id="wallTiles" x="0" y="0" width="60" height="40" patternUnits="userSpaceOnUse">
-                      <rect width="60" height="40" fill="#ffffff"/>
-                      <rect width="58" height="38" x="1" y="1" fill="#fefefe" stroke="#f1f5f9" stroke-width="0.5"/>
-                    </pattern>
-                    <radialGradient id="lightGrad" cx="50%" cy="0%" r="80%">
-                      <stop offset="0%" stop-color="#fef7cd" stop-opacity="0.4"/>
-                      <stop offset="100%" stop-color="#fef7cd" stop-opacity="0"/>
-                    </radialGradient>
                   </defs>
                   
                   <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" stroke-width="2"/>
-                  <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallTiles)" stroke="#e2e8f0"/>
+                  <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallGrad)" stroke="#e2e8f0"/>
                   <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
                   <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  <polygon points="80,180 120,60 680,60 720,180" fill="url(#lightGrad)" stroke="#f1f5f9"/>
-                  <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
-                  <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
-                  <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
-                  <polygon points="220,90 280,90 320,180 180,180" fill="url(#lightGrad)" opacity="0.3"/>
-                  <polygon points="370,95 430,95 470,180 330,180" fill="url(#lightGrad)" opacity="0.3"/>
-                  <polygon points="520,90 580,90 620,180 480,180" fill="url(#lightGrad)" opacity="0.3"/>
                   <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
                   <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
                   <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
-                  <rect x="160" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
-                  <rect x="300" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
-                  <rect x="500" y="320" width="15" height="8" fill="#ffffff" stroke="#9ca3af" rx="2"/>
-                  
-                  ${currentWall === 0 ? `
-                    <rect x="280" y="80" width="160" height="100" fill="#dbeafe" stroke="#3b82f6" stroke-width="3" rx="8"/>
-                    <rect x="285" y="85" width="150" height="90" fill="#f0f9ff" opacity="0.8"/>
-                    <line x1="360" y1="80" x2="360" y2="180" stroke="#3b82f6" stroke-width="2"/>
-                    <line x1="280" y1="130" x2="440" y2="130" stroke="#3b82f6" stroke-width="2"/>
-                    <g stroke="#94a3b8" stroke-width="1" opacity="0.6">
-                      <line x1="285" y1="90" x2="435" y2="90"/>
-                      <line x1="285" y1="100" x2="435" y2="100"/>
-                      <line x1="285" y1="110" x2="435" y2="110"/>
-                      <line x1="285" y1="120" x2="435" y2="120"/>
-                      <line x1="285" y1="140" x2="435" y2="140"/>
-                      <line x1="285" y1="150" x2="435" y2="150"/>
-                      <line x1="285" y1="160" x2="435" y2="160"/>
-                      <line x1="285" y1="170" x2="435" y2="170"/>
-                    </g>
-                  ` : ''}
-                  
-                  ${currentWall === 1 ? `
-                    <rect x="650" y="100" width="50" height="100" fill="#fbbf24" stroke="#d97706" stroke-width="3" rx="5"/>
-                    <circle cx="675" cy="110" r="12" fill="#9ca3af"/>
-                    <rect x="670" y="125" width="10" height="40" fill="#dc2626"/>
-                    <circle cx="675" cy="175" r="8" fill="#ef4444"/>
-                    <text x="675" y="210" text-anchor="middle" font-size="12" fill="#dc2626" font-weight="bold">EMERGENCY</text>
-                    <rect x="620" y="160" width="25" height="30" fill="#22c55e" stroke="#16a34a" stroke-width="2" rx="3"/>
-                    <circle cx="632" cy="170" r="4" fill="#ffffff"/>
-                    <text x="632" y="195" text-anchor="middle" font-size="8" fill="#16a34a">EYEWASH</text>
-                  ` : ''}
-                  
-                  ${currentWall === 2 ? `
-                    <rect x="350" y="480" width="100" height="70" fill="#92400e" stroke="#451a03" stroke-width="3" rx="5"/>
-                    <rect x="360" y="490" width="35" height="50" fill="#a16207" stroke="#451a03" stroke-width="1"/>
-                    <rect x="405" y="490" width="35" height="50" fill="#a16207" stroke="#451a03" stroke-width="1"/>
-                    <circle cx="430" cy="515" r="4" fill="#fbbf24"/>
-                    <rect x="380" y="350" width="40" height="20" fill="#22c55e" rx="5"/>
-                    <text x="400" y="365" text-anchor="middle" font-size="12" fill="white" font-weight="bold">EXIT</text>
-                  ` : ''}
-                  
-                  ${currentWall === 3 ? `
-                    <rect x="100" y="400" width="80" height="50" fill="#9ca3af" stroke="#6b7280" stroke-width="3" rx="8"/>
-                    <rect x="110" y="410" width="60" height="30" fill="#e5e7eb" rx="5"/>
-                    <ellipse cx="140" cy="380" rx="12" ry="8" fill="#6b7280"/>
-                    <rect x="135" y="370" width="10" height="15" fill="#6b7280" rx="2"/>
-                    <circle cx="125" cy="365" r="4" fill="#3b82f6"/>
-                    <circle cx="155" cy="365" r="4" fill="#ef4444"/>
-                    <circle cx="140" cy="425" r="3" fill="#374151"/>
-                  ` : ''}
-                  
-                  <ellipse cx="200" cy="500" rx="100" ry="20" fill="#fef7cd" opacity="0.2"/>
-                  <ellipse cx="400" cy="500" rx="120" ry="25" fill="#fef7cd" opacity="0.2"/>
-                  <ellipse cx="600" cy="500" rx="100" ry="20" fill="#fef7cd" opacity="0.2"/>
+                  <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+                  <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
+                  <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
                 </svg>
               `)}')`,
-            backgroundSize: backgroundImage ? 'cover' : 'contain',
+            backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
         />
@@ -647,7 +586,7 @@ export default function LabRoom() {
               <span className="text-blue-600 mr-4">🏗️ {Object.keys(roomElements).length} Room Elements</span>
             )}
             {interactiveElements.length > 0 && (
-              <span className="text-purple-600 mr-4">◉ {interactiveElements.length} Interactive Elements</span>
+              <span className="text-purple-600 mr-4">🔍 {interactiveElements.length} Interactive Elements</span>
             )}
           </div>
         </div>
@@ -696,7 +635,7 @@ export default function LabRoom() {
                           : 'bg-gray-300 text-gray-600 border-gray-400'
                       }`}
                     >
-                      {elementState.solved ? '✓' : elementState.discovered ? '?' : '◉'}
+                      {elementState.solved ? '✓' : elementState.discovered ? '?' : '🔍'}
                     </div>
                   )
                 })}
