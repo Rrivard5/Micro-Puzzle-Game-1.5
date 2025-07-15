@@ -31,27 +31,23 @@ const InstructorInterface = () => {
   const [processingImages, setProcessingImages] = useState({});
   const [backgroundImages, setBackgroundImages] = useState({});
   
-  // NEW: Image cropping state
-  const [showCropModal, setShowCropModal] = useState(false);
-  const [cropImageData, setCropImageData] = useState(null);
-  const [cropSelection, setCropSelection] = useState({ x: 0, y: 0, width: 100, height: 100 });
-  const [currentCropContext, setCurrentCropContext] = useState(null);
-  
-  // NEW: Room Elements System
+  // Room Elements System
   const [roomElements, setRoomElements] = useState({});
   const [selectedElement, setSelectedElement] = useState(null);
   const [showAddElementModal, setShowAddElementModal] = useState(false);
+  const [selectedWall, setSelectedWall] = useState('north');
+  const [draggedElement, setDraggedElement] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [newElementData, setNewElementData] = useState({
     name: '',
     type: 'furniture',
     wall: 'north',
-    hasQuestion: false
+    interactionType: 'info',
+    revealedElementId: null
   });
   
   // Canvas ref for image processing
   const canvasRef = useRef(null);
-  const cropCanvasRef = useRef(null);
-  const cropImageRef = useRef(null);
 
   const equipmentTypes = ['microscope', 'incubator', 'petriDish', 'autoclave', 'centrifuge'];
   const wallOptions = ['north', 'east', 'south', 'west'];
@@ -61,6 +57,13 @@ const InstructorInterface = () => {
     decoration: 'Decorative Items',
     safety: 'Safety Equipment',
     storage: 'Storage Items'
+  };
+
+  const interactionTypes = {
+    info: 'Reveal Information Only',
+    question: 'Show Question → Reveal Information',
+    element: 'Reveal New Element',
+    question_element: 'Show Question → Reveal New Element'
   };
 
   // Z-index layers for context
@@ -132,7 +135,8 @@ const InstructorInterface = () => {
             options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
             answer: 'Bacilli (rod-shaped)',
             hint: 'Look carefully at the elongated shape of the individual cells.',
-            clue: 'Rod-shaped bacteria detected - likely Escherichia coli'
+            clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
+            randomizeAnswers: false
           }]
         }
       },
@@ -145,7 +149,8 @@ const InstructorInterface = () => {
             options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
             answer: 'Mesophiles',
             hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
-            clue: 'Mesophilic conditions set - optimal for human pathogens'
+            clue: 'Mesophilic conditions set - optimal for human pathogens',
+            randomizeAnswers: false
           }]
         }
       },
@@ -158,7 +163,8 @@ const InstructorInterface = () => {
             options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
             answer: 'Beta hemolysis',
             hint: 'Clear zones indicate complete breakdown of red blood cells.',
-            clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely'
+            clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
+            randomizeAnswers: false
           }]
         }
       },
@@ -171,7 +177,8 @@ const InstructorInterface = () => {
             options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
             answer: '121°C, 15 psi, 15 minutes',
             hint: 'Standard sterilization parameters for most laboratory equipment.',
-            clue: 'Sterilization protocol confirmed - equipment properly decontaminated'
+            clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
+            randomizeAnswers: false
           }]
         }
       },
@@ -184,7 +191,8 @@ const InstructorInterface = () => {
             options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
             answer: 'Density differences',
             hint: 'Think about what causes particles to separate when spun at high speed.',
-            clue: 'Density separation principle confirmed - sample fractionation successful'
+            clue: 'Density separation principle confirmed - sample fractionation successful',
+            randomizeAnswers: false
           }]
         }
       }
@@ -303,107 +311,7 @@ const InstructorInterface = () => {
     }));
   };
 
-  // NEW: Image cropping functions
-  const openCropModal = (imageData, context) => {
-    setCropImageData(imageData);
-    setCurrentCropContext(context);
-    setCropSelection({ x: 0, y: 0, width: 100, height: 100 });
-    setShowCropModal(true);
-  };
-
-  const handleCropSelectionChange = (field, value) => {
-    setCropSelection(prev => ({
-      ...prev,
-      [field]: Math.max(0, Math.min(100, parseInt(value) || 0))
-    }));
-  };
-
-  const applyCrop = () => {
-    if (!cropImageData || !currentCropContext) return;
-
-    const img = new Image();
-    img.onload = () => {
-      const cropCanvas = cropCanvasRef.current;
-      const cropCtx = cropCanvas.getContext('2d');
-      
-      // Calculate crop dimensions
-      const cropX = (cropSelection.x / 100) * img.width;
-      const cropY = (cropSelection.y / 100) * img.height;
-      const cropWidth = (cropSelection.width / 100) * img.width;
-      const cropHeight = (cropSelection.height / 100) * img.height;
-      
-      // Set canvas size to crop size
-      cropCanvas.width = cropWidth;
-      cropCanvas.height = cropHeight;
-      
-      // Draw cropped image
-      cropCtx.drawImage(
-        img,
-        cropX, cropY, cropWidth, cropHeight,
-        0, 0, cropWidth, cropHeight
-      );
-      
-      // Remove white background from cropped image
-      const imageData = cropCtx.getImageData(0, 0, cropWidth, cropHeight);
-      const processedDataURL = removeWhiteBackground(imageData, cropCanvas, cropCtx);
-      
-      // Apply the cropped image based on context
-      if (currentCropContext.type === 'equipment') {
-        const { equipment, group } = currentCropContext;
-        const imageKey = `${equipment}_group${group}`;
-        setEquipmentImages(prev => ({
-          ...prev,
-          [imageKey]: {
-            ...prev[imageKey],
-            processed: processedDataURL
-          }
-        }));
-      } else if (currentCropContext.type === 'element') {
-        const { elementId } = currentCropContext;
-        setRoomElements(prev => ({
-          ...prev,
-          [elementId]: {
-            ...prev[elementId],
-            image: {
-              ...prev[elementId].image,
-              processed: processedDataURL
-            }
-          }
-        }));
-      }
-      
-      setShowCropModal(false);
-      setCropImageData(null);
-      setCurrentCropContext(null);
-    };
-    img.src = cropImageData;
-  };
-
-  const renderCropPreview = () => {
-    if (!cropImageData) return null;
-
-    return (
-      <div className="relative">
-        <img
-          ref={cropImageRef}
-          src={cropImageData}
-          alt="Crop preview"
-          className="max-w-full max-h-96 border border-gray-300"
-        />
-        <div 
-          className="absolute border-2 border-red-500 bg-red-200 bg-opacity-30"
-          style={{
-            left: `${cropSelection.x}%`,
-            top: `${cropSelection.y}%`,
-            width: `${cropSelection.width}%`,
-            height: `${cropSelection.height}%`
-          }}
-        />
-      </div>
-    );
-  };
-
-  // NEW: Room Elements Management
+  // Room Elements Management
   const addRoomElement = () => {
     if (!newElementData.name.trim()) {
       alert('Please enter a name for the element');
@@ -416,27 +324,36 @@ const InstructorInterface = () => {
       name: newElementData.name,
       type: newElementData.type,
       wall: newElementData.wall,
-      hasQuestion: newElementData.hasQuestion,
+      interactionType: newElementData.interactionType,
+      revealedElementId: newElementData.revealedElementId,
       settings: {
         size: 100,
         xOffset: 0,
         yOffset: 0,
-        zIndex: 3
+        zIndex: 3,
+        x: 50, // percentage position
+        y: 50
       },
       image: null,
-      question: newElementData.hasQuestion ? {
-        groups: {
-          1: [{
-            id: `${elementId}_q1`,
-            question: `Question about ${newElementData.name}...`,
-            type: 'multiple_choice',
-            options: ['Option A', 'Option B', 'Option C', 'Option D'],
-            answer: 'Option A',
-            hint: 'Hint for this question...',
-            clue: 'Clue revealed when solved...'
-          }]
-        }
-      } : null
+      content: {
+        info: newElementData.interactionType === 'info' || newElementData.interactionType === 'question' ? 'Information revealed when clicked...' : '',
+        question: ['question', 'question_element'].includes(newElementData.interactionType) ? {
+          groups: {
+            1: [{
+              id: `${elementId}_q1`,
+              question: `Question about ${newElementData.name}...`,
+              type: 'multiple_choice',
+              options: ['Option A', 'Option B', 'Option C', 'Option D'],
+              answer: 'Option A',
+              hint: 'Hint for this question...',
+              clue: 'Clue revealed when solved...',
+              randomizeAnswers: false
+            }]
+          }
+        } : null
+      },
+      isVisible: true,
+      revealedBy: null // ID of element that reveals this one
     };
 
     setRoomElements(prev => ({
@@ -448,7 +365,8 @@ const InstructorInterface = () => {
       name: '',
       type: 'furniture',
       wall: 'north',
-      hasQuestion: false
+      interactionType: 'info',
+      revealedElementId: null
     });
     setShowAddElementModal(false);
   };
@@ -466,16 +384,32 @@ const InstructorInterface = () => {
     }));
   };
 
+  const updateElementContent = (elementId, contentType, content) => {
+    setRoomElements(prev => ({
+      ...prev,
+      [elementId]: {
+        ...prev[elementId],
+        content: {
+          ...prev[elementId].content,
+          [contentType]: content
+        }
+      }
+    }));
+  };
+
   const updateElementQuestion = (elementId, groupNumber, questionData) => {
     setRoomElements(prev => ({
       ...prev,
       [elementId]: {
         ...prev[elementId],
-        question: {
-          ...prev[elementId].question,
-          groups: {
-            ...prev[elementId].question?.groups,
-            [groupNumber]: [questionData]
+        content: {
+          ...prev[elementId].content,
+          question: {
+            ...prev[elementId].content.question,
+            groups: {
+              ...prev[elementId].content.question?.groups,
+              [groupNumber]: [questionData]
+            }
           }
         }
       }
@@ -578,7 +512,7 @@ const InstructorInterface = () => {
     });
   };
 
-  const handleEquipmentImageUpload = async (event, equipment, group) => {
+  const handleEquipmentImageUpload = async (event, equipment) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -592,7 +526,7 @@ const InstructorInterface = () => {
       return;
     }
 
-    const uploadKey = `${equipment}_${group}`;
+    const uploadKey = equipment;
     setUploadingImages(prev => ({ ...prev, [uploadKey]: true }));
     setProcessingImages(prev => ({ ...prev, [uploadKey]: true }));
 
@@ -600,17 +534,15 @@ const InstructorInterface = () => {
       const originalDataURL = URL.createObjectURL(file);
       const processedImageData = await processImage(file);
       
-      const imageKey = `${equipment}_group${group}`;
       setEquipmentImages(prev => ({
         ...prev,
-        [imageKey]: {
+        [equipment]: {
           original: originalDataURL,
           processed: processedImageData,
           name: file.name,
           size: file.size,
           lastModified: new Date().toISOString(),
-          equipment,
-          group
+          equipment
         }
       }));
       
@@ -701,12 +633,11 @@ const InstructorInterface = () => {
     }
   };
 
-  const removeEquipmentImage = (equipment, group) => {
+  const removeEquipmentImage = (equipment) => {
     if (confirm('Are you sure you want to remove this equipment image?')) {
-      const imageKey = `${equipment}_group${group}`;
       setEquipmentImages(prev => {
         const updated = { ...prev };
-        delete updated[imageKey];
+        delete updated[equipment];
         return updated;
       });
     }
@@ -733,20 +664,64 @@ const InstructorInterface = () => {
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       answer: 'Option A',
       hint: 'Hint for this question...',
-      clue: 'Clue revealed when solved...'
+      clue: 'Clue revealed when solved...',
+      randomizeAnswers: false
     };
     
     updateQuestion(equipment, newGroupNumber, defaultQuestion);
     setSelectedGroup(newGroupNumber);
   };
 
+  // Drag and drop handlers
+  const handleMouseDown = (e, elementId) => {
+    e.preventDefault();
+    setDraggedElement(elementId);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!draggedElement) return;
+    
+    const previewRect = document.getElementById('room-preview').getBoundingClientRect();
+    const x = ((e.clientX - previewRect.left - dragOffset.x) / previewRect.width) * 100;
+    const y = ((e.clientY - previewRect.top - dragOffset.y) / previewRect.height) * 100;
+    
+    setRoomElements(prev => ({
+      ...prev,
+      [draggedElement]: {
+        ...prev[draggedElement],
+        settings: {
+          ...prev[draggedElement].settings,
+          x: Math.max(0, Math.min(100, x)),
+          y: Math.max(0, Math.min(100, y))
+        }
+      }
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setDraggedElement(null);
+    setDragOffset({ x: 0, y: 0 });
+  };
+
   // Room preview component
-  const renderRoomPreview = (selectedWall = 'north') => {
+  const renderRoomPreview = () => {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
-    const selectedEquipmentImage = equipmentImages[`${selectedEquipment}_group${selectedGroup}`];
+    const selectedEquipmentImage = equipmentImages[selectedEquipment];
     
     return (
-      <div className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden">
+      <div 
+        id="room-preview"
+        className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 h-96 overflow-hidden"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
         {/* Lab Room SVG Background */}
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
           <defs>
@@ -789,22 +764,23 @@ const InstructorInterface = () => {
         {wallElements.map(([elementId, element]) => (
           <div
             key={elementId}
-            className={`absolute cursor-pointer transition-all duration-200 ${
+            className={`absolute cursor-move transition-all duration-200 ${
               selectedElement === elementId ? 'ring-2 ring-blue-500' : ''
-            }`}
+            } ${draggedElement === elementId ? 'z-50' : ''}`}
             style={{
-              left: '50%',
-              bottom: `${120 + element.settings.yOffset}px`,
-              transform: `translateX(-50%) translateX(${element.settings.xOffset}px)`,
+              left: `${element.settings.x}%`,
+              top: `${element.settings.y}%`,
+              transform: 'translate(-50%, -50%)',
               zIndex: element.settings.zIndex
             }}
             onClick={() => setSelectedElement(elementId)}
+            onMouseDown={(e) => handleMouseDown(e, elementId)}
           >
             {element.image ? (
               <img
                 src={element.image.processed}
                 alt={element.name}
-                className="object-contain transition-all duration-300"
+                className="object-contain transition-all duration-300 pointer-events-none"
                 style={{
                   maxWidth: `${200 * (element.settings.size / 100)}px`,
                   maxHeight: `${200 * (element.settings.size / 100)}px`,
@@ -827,8 +803,13 @@ const InstructorInterface = () => {
             )}
             
             {/* Element label */}
-            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow">
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 bg-white px-2 py-1 rounded shadow whitespace-nowrap">
               {element.name}
+            </div>
+            
+            {/* Interaction type indicator */}
+            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded shadow whitespace-nowrap">
+              {interactionTypes[element.interactionType] || 'Info'}
             </div>
           </div>
         ))}
@@ -1107,7 +1088,8 @@ const InstructorInterface = () => {
                     options: ['', '', '', ''],
                     answer: '',
                     hint: '',
-                    clue: ''
+                    clue: '',
+                    randomizeAnswers: false
                   };
                   
                   return (
@@ -1190,6 +1172,24 @@ const InstructorInterface = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Enter the correct answer"
                           />
+                        </div>
+                      )}
+
+                      {/* Randomize Answers Option */}
+                      {currentQuestion.type === 'multiple_choice' && (
+                        <div>
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={currentQuestion.randomizeAnswers || false}
+                              onChange={(e) => updateQuestion(selectedEquipment, selectedGroup, { 
+                                ...currentQuestion, 
+                                randomizeAnswers: e.target.checked 
+                              })}
+                              className="mr-2"
+                            />
+                            Randomize answer order for each student
+                          </label>
                         </div>
                       )}
 
@@ -1278,40 +1278,24 @@ const InstructorInterface = () => {
             <div className="mb-8 bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">🔬 Equipment Images (Auto Background Removal)</h3>
               
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
-                  <select
-                    value={selectedEquipment}
-                    onChange={(e) => setSelectedEquipment(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {equipmentTypes.map(equipment => (
-                      <option key={equipment} value={equipment}>
-                        {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Number</label>
-                  <select
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {[...Array(15)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>Group {i + 1}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Type</label>
+                <select
+                  value={selectedEquipment}
+                  onChange={(e) => setSelectedEquipment(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {equipmentTypes.map(equipment => (
+                    <option key={equipment} value={equipment}>
+                      {equipment.charAt(0).toUpperCase() + equipment.slice(1).replace(/([A-Z])/g, ' $1')}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {(() => {
-                const imageKey = `${selectedEquipment}_group${selectedGroup}`;
-                const currentImage = equipmentImages[imageKey];
-                const uploadKey = `${selectedEquipment}_${selectedGroup}`;
+                const currentImage = equipmentImages[selectedEquipment];
+                const uploadKey = selectedEquipment;
                 const isUploading = uploadingImages[uploadKey];
                 const isProcessing = processingImages[uploadKey];
                 
@@ -1356,21 +1340,10 @@ const InstructorInterface = () => {
                     
                     <div className="flex gap-4">
                       <button
-                        onClick={() => removeEquipmentImage(selectedEquipment, selectedGroup)}
+                        onClick={() => removeEquipmentImage(selectedEquipment)}
                         className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                       >
                         🗑️ Remove Image
-                      </button>
-                      
-                      <button
-                        onClick={() => openCropModal(currentImage.original, { 
-                          type: 'equipment', 
-                          equipment: selectedEquipment, 
-                          group: selectedGroup 
-                        })}
-                        className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
-                      >
-                        ✂️ Crop Image
                       </button>
                       
                       <label className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer">
@@ -1378,7 +1351,7 @@ const InstructorInterface = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment, selectedGroup)}
+                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment)}
                           className="hidden"
                         />
                       </label>
@@ -1410,7 +1383,7 @@ const InstructorInterface = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment, selectedGroup)}
+                          onChange={(e) => handleEquipmentImageUpload(e, selectedEquipment)}
                           className="hidden"
                         />
                       </label>
@@ -1503,12 +1476,34 @@ const InstructorInterface = () => {
               </button>
             </div>
             
+            {/* Wall Selection */}
+            <div className="mb-6 bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Select Wall to Edit</h3>
+              <div className="grid grid-cols-4 gap-4">
+                {wallOptions.map((wall) => (
+                  <button
+                    key={wall}
+                    onClick={() => setSelectedWall(wall)}
+                    className={`p-4 rounded-lg font-medium transition-colors ${
+                      selectedWall === wall
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {wall.charAt(0).toUpperCase() + wall.slice(1)} Wall
+                  </button>
+                ))}
+              </div>
+            </div>
+            
             {/* Room Elements List */}
             <div className="mb-8 bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Elements</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Elements - {selectedWall.charAt(0).toUpperCase() + selectedWall.slice(1)} Wall</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(roomElements).map(([elementId, element]) => (
+                {Object.entries(roomElements)
+                  .filter(([id, element]) => element.wall === selectedWall)
+                  .map(([elementId, element]) => (
                   <div key={elementId} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-gray-800">{element.name}</h4>
@@ -1522,8 +1517,8 @@ const InstructorInterface = () => {
                     
                     <div className="text-sm text-gray-600 mb-2">
                       <div>Type: {elementTypes[element.type]}</div>
-                      <div>Wall: {element.wall}</div>
-                      <div>Interactive: {element.hasQuestion ? 'Yes' : 'No'}</div>
+                      <div>Interaction: {interactionTypes[element.interactionType]}</div>
+                      <div>Size: {element.settings.size}%</div>
                     </div>
                     
                     {element.image ? (
@@ -1554,32 +1549,23 @@ const InstructorInterface = () => {
                           className="hidden"
                         />
                       </label>
-                      {element.image && (
-                        <button
-                          onClick={() => openCropModal(element.image.original, { 
-                            type: 'element', 
-                            elementId: elementId 
-                          })}
-                          className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
-                        >
-                          ✂️
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
             
-            {/* Element Editor */}
-            {selectedElement && roomElements[selectedElement] && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Controls Panel */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                    Edit: {roomElements[selectedElement].name}
-                  </h3>
-                  
+            {/* Element Editor and Room Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Controls Panel */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  {selectedElement && roomElements[selectedElement] 
+                    ? `Edit: ${roomElements[selectedElement].name}` 
+                    : 'Select an element to edit'}
+                </h3>
+                
+                {selectedElement && roomElements[selectedElement] && (
                   <div className="space-y-6">
                     {/* Basic Settings */}
                     <div>
@@ -1618,6 +1604,26 @@ const InstructorInterface = () => {
                       </select>
                     </div>
 
+                    {/* Interaction Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Interaction Type</label>
+                      <select
+                        value={roomElements[selectedElement].interactionType}
+                        onChange={(e) => setRoomElements(prev => ({
+                          ...prev,
+                          [selectedElement]: {
+                            ...prev[selectedElement],
+                            interactionType: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {Object.entries(interactionTypes).map(([key, description]) => (
+                          <option key={key} value={key}>{description}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Size Control */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1630,39 +1636,6 @@ const InstructorInterface = () => {
                         value={roomElements[selectedElement].settings.size}
                         onChange={(e) => updateElementSettings(selectedElement, {
                           size: parseInt(e.target.value)
-                        })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Position Controls */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Horizontal Position: {roomElements[selectedElement].settings.xOffset}px
-                      </label>
-                      <input
-                        type="range"
-                        min="-200"
-                        max="200"
-                        value={roomElements[selectedElement].settings.xOffset}
-                        onChange={(e) => updateElementSettings(selectedElement, {
-                          xOffset: parseInt(e.target.value)
-                        })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vertical Position: {roomElements[selectedElement].settings.yOffset}px
-                      </label>
-                      <input
-                        type="range"
-                        min="-100"
-                        max="100"
-                        value={roomElements[selectedElement].settings.yOffset}
-                        onChange={(e) => updateElementSettings(selectedElement, {
-                          yOffset: parseInt(e.target.value)
                         })}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
@@ -1703,208 +1676,232 @@ const InstructorInterface = () => {
                       </div>
                     </div>
 
-                    {/* Interactive Question Toggle */}
+                    {/* Content Configuration */}
                     <div className="border-t pt-4">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={roomElements[selectedElement].hasQuestion}
-                          onChange={(e) => {
-                            const hasQuestion = e.target.checked;
-                            setRoomElements(prev => ({
+                      <h4 className="font-semibold text-gray-700 mb-4">Content Configuration</h4>
+                      
+                      {/* Information Content */}
+                      {['info', 'question'].includes(roomElements[selectedElement].interactionType) && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Information to Reveal
+                          </label>
+                          <textarea
+                            value={roomElements[selectedElement].content?.info || ''}
+                            onChange={(e) => updateElementContent(selectedElement, 'info', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows="3"
+                            placeholder="Enter information to reveal when element is clicked..."
+                          />
+                        </div>
+                      )}
+
+                      {/* Question Configuration */}
+                      {['question', 'question_element'].includes(roomElements[selectedElement].interactionType) && (
+                        <div className="space-y-4">
+                          <h5 className="font-medium text-gray-700">Question Configuration</h5>
+                          
+                          {/* Group Selection for Questions */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Configure for Group:</label>
+                            <select
+                              value={selectedGroup}
+                              onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {[...Array(15)].map((_, i) => (
+                                <option key={i + 1} value={i + 1}>Group {i + 1}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {(() => {
+                            const currentQuestion = roomElements[selectedElement].content?.question?.groups?.[selectedGroup]?.[0] || {
+                              id: `${selectedElement}_q1`,
+                              question: '',
+                              type: 'multiple_choice',
+                              options: ['', '', '', ''],
+                              answer: '',
+                              hint: '',
+                              clue: '',
+                              randomizeAnswers: false
+                            };
+                            
+                            return (
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
+                                  <textarea
+                                    value={currentQuestion.question}
+                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      question: e.target.value 
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    rows="3"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+                                  <select
+                                    value={currentQuestion.type}
+                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      type: e.target.value 
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="multiple_choice">Multiple Choice</option>
+                                    <option value="text">Text Input</option>
+                                  </select>
+                                </div>
+
+                                {currentQuestion.type === 'multiple_choice' && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+                                    {currentQuestion.options.map((option, index) => (
+                                      <div key={index} className="flex items-center space-x-2 mb-2">
+                                        <input
+                                          type="radio"
+                                          name={`answer-${selectedElement}-${selectedGroup}`}
+                                          checked={currentQuestion.answer === option}
+                                          onChange={() => updateElementQuestion(selectedElement, selectedGroup, { 
+                                            ...currentQuestion, 
+                                            answer: option 
+                                          })}
+                                          className="text-blue-600"
+                                        />
+                                        <input
+                                          value={option}
+                                          onChange={(e) => {
+                                            const newOptions = [...currentQuestion.options];
+                                            newOptions[index] = e.target.value;
+                                            updateElementQuestion(selectedElement, selectedGroup, { 
+                                              ...currentQuestion, 
+                                              options: newOptions 
+                                            });
+                                          }}
+                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                        />
+                                      </div>
+                                    ))}
+                                    
+                                    {/* Randomize Answers Option */}
+                                    <div className="mt-2">
+                                      <label className="flex items-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={currentQuestion.randomizeAnswers || false}
+                                          onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                            ...currentQuestion, 
+                                            randomizeAnswers: e.target.checked 
+                                          })}
+                                          className="mr-2"
+                                        />
+                                        Randomize answer order for each student
+                                      </label>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {currentQuestion.type === 'text' && (
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+                                    <input
+                                      value={currentQuestion.answer}
+                                      onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                        ...currentQuestion, 
+                                        answer: e.target.value 
+                                      })}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                )}
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Hint</label>
+                                  <textarea
+                                    value={currentQuestion.hint}
+                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      hint: e.target.value 
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    rows="2"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {roomElements[selectedElement].interactionType === 'question' 
+                                      ? 'Information revealed when solved' 
+                                      : 'Clue revealed when solved'}
+                                  </label>
+                                  <textarea
+                                    value={currentQuestion.clue}
+                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
+                                      ...currentQuestion, 
+                                      clue: e.target.value 
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    rows="2"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Revealed Element Selection */}
+                      {['element', 'question_element'].includes(roomElements[selectedElement].interactionType) && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Element to Reveal (Optional)
+                          </label>
+                          <select
+                            value={roomElements[selectedElement].revealedElementId || ''}
+                            onChange={(e) => setRoomElements(prev => ({
                               ...prev,
                               [selectedElement]: {
                                 ...prev[selectedElement],
-                                hasQuestion,
-                                question: hasQuestion ? {
-                                  groups: {
-                                    1: [{
-                                      id: `${selectedElement}_q1`,
-                                      question: `Question about ${prev[selectedElement].name}...`,
-                                      type: 'multiple_choice',
-                                      options: ['Option A', 'Option B', 'Option C', 'Option D'],
-                                      answer: 'Option A',
-                                      hint: 'Hint for this question...',
-                                      clue: 'Clue revealed when solved...'
-                                    }]
-                                  }
-                                } : null
+                                revealedElementId: e.target.value || null
                               }
-                            }));
-                          }}
-                          className="mr-2"
-                        />
-                        Make this element interactive (has question/clue)
-                      </label>
-                    </div>
-
-                    {/* Question Configuration */}
-                    {roomElements[selectedElement].hasQuestion && (
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-gray-700">Question Configuration</h4>
-                        
-                        {/* Group Selection for Questions */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Configure for Group:</label>
-                          <select
-                            value={selectedGroup}
-                            onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
+                            }))}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            {[...Array(15)].map((_, i) => (
-                              <option key={i + 1} value={i + 1}>Group {i + 1}</option>
-                            ))}
+                            <option value="">Select element to reveal...</option>
+                            {Object.entries(roomElements)
+                              .filter(([id]) => id !== selectedElement)
+                              .map(([id, element]) => (
+                                <option key={id} value={id}>{element.name}</option>
+                              ))}
                           </select>
                         </div>
-
-                        {(() => {
-                          const currentQuestion = roomElements[selectedElement].question?.groups?.[selectedGroup]?.[0] || {
-                            id: `${selectedElement}_q1`,
-                            question: '',
-                            type: 'multiple_choice',
-                            options: ['', '', '', ''],
-                            answer: '',
-                            hint: '',
-                            clue: ''
-                          };
-                          
-                          return (
-                            <div className="space-y-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
-                                <textarea
-                                  value={currentQuestion.question}
-                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                    ...currentQuestion, 
-                                    question: e.target.value 
-                                  })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  rows="3"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
-                                <select
-                                  value={currentQuestion.type}
-                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                    ...currentQuestion, 
-                                    type: e.target.value 
-                                  })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="multiple_choice">Multiple Choice</option>
-                                  <option value="text">Text Input</option>
-                                </select>
-                              </div>
-
-                              {currentQuestion.type === 'multiple_choice' && (
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
-                                  {currentQuestion.options.map((option, index) => (
-                                    <div key={index} className="flex items-center space-x-2 mb-2">
-                                      <input
-                                        type="radio"
-                                        name={`answer-${selectedElement}-${selectedGroup}`}
-                                        checked={currentQuestion.answer === option}
-                                        onChange={() => updateElementQuestion(selectedElement, selectedGroup, { 
-                                          ...currentQuestion, 
-                                          answer: option 
-                                        })}
-                                        className="text-blue-600"
-                                      />
-                                      <input
-                                        value={option}
-                                        onChange={(e) => {
-                                          const newOptions = [...currentQuestion.options];
-                                          newOptions[index] = e.target.value;
-                                          updateElementQuestion(selectedElement, selectedGroup, { 
-                                            ...currentQuestion, 
-                                            options: newOptions 
-                                          });
-                                        }}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {currentQuestion.type === 'text' && (
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
-                                  <input
-                                    value={currentQuestion.answer}
-                                    onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                      ...currentQuestion, 
-                                      answer: e.target.value 
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                              )}
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Hint</label>
-                                <textarea
-                                  value={currentQuestion.hint}
-                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                    ...currentQuestion, 
-                                    hint: e.target.value 
-                                  })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  rows="2"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Clue (revealed when solved)</label>
-                                <textarea
-                                  value={currentQuestion.clue}
-                                  onChange={(e) => updateElementQuestion(selectedElement, selectedGroup, { 
-                                    ...currentQuestion, 
-                                    clue: e.target.value 
-                                  })}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  rows="2"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Preview Panel */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Preview - {selectedWall.charAt(0).toUpperCase() + selectedWall.slice(1)} Wall</h3>
+                
+                <div className="mb-4 text-sm text-gray-600">
+                  <p>• Click and drag elements to reposition them</p>
+                  <p>• Use the controls on the left to resize and configure elements</p>
                 </div>
-
-                {/* Preview Panel */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Room Preview</h3>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Preview Wall</label>
-                    <select
-                      value={roomElements[selectedElement].wall}
-                      onChange={(e) => setRoomElements(prev => ({
-                        ...prev,
-                        [selectedElement]: {
-                          ...prev[selectedElement],
-                          wall: e.target.value
-                        }
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {wallOptions.map(wall => (
-                        <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {renderRoomPreview(roomElements[selectedElement].wall)}
+                
+                {renderRoomPreview()}
+                
+                <div className="mt-4 text-xs text-gray-500">
+                  Elements on this wall: {Object.values(roomElements).filter(el => el.wall === selectedWall).length}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -1953,15 +1950,16 @@ const InstructorInterface = () => {
                 </div>
 
                 <div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={newElementData.hasQuestion}
-                      onChange={(e) => setNewElementData(prev => ({ ...prev, hasQuestion: e.target.checked }))}
-                      className="mr-2"
-                    />
-                    Make this element interactive (clickable with question)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Interaction Type</label>
+                  <select
+                    value={newElementData.interactionType}
+                    onChange={(e) => setNewElementData(prev => ({ ...prev, interactionType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(interactionTypes).map(([key, description]) => (
+                      <option key={key} value={key}>{description}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -2210,121 +2208,8 @@ const InstructorInterface = () => {
         )}
       </div>
       
-      {/* Image Cropping Modal */}
-      {showCropModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">✂️ Crop Image</h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Crop Preview */}
-              <div>
-                <h4 className="font-medium text-gray-700 mb-2">Select Crop Area</h4>
-                <div className="border border-gray-300 rounded-lg p-4">
-                  {renderCropPreview()}
-                </div>
-              </div>
-              
-              {/* Crop Controls */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-700 mb-2">Crop Settings (%)</h4>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      X Position: {cropSelection.x}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={cropSelection.x}
-                      onChange={(e) => handleCropSelectionChange('x', e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Y Position: {cropSelection.y}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={cropSelection.y}
-                      onChange={(e) => handleCropSelectionChange('y', e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Width: {cropSelection.width}%
-                    </label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      value={cropSelection.width}
-                      onChange={(e) => handleCropSelectionChange('width', e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Height: {cropSelection.height}%
-                    </label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      value={cropSelection.height}
-                      onChange={(e) => handleCropSelectionChange('height', e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-3 rounded">
-                  <p className="text-sm text-gray-600">
-                    <strong>Tips:</strong>
-                  </p>
-                  <ul className="text-xs text-gray-500 mt-1 space-y-1">
-                    <li>• Adjust the red selection box to crop the desired area</li>
-                    <li>• White background will be automatically removed</li>
-                    <li>• Crop tightly around the equipment for best results</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={applyCrop}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
-              >
-                ✂️ Apply Crop
-              </button>
-              <button
-                onClick={() => {
-                  setShowCropModal(false);
-                  setCropImageData(null);
-                  setCurrentCropContext(null);
-                }}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Hidden canvas for image processing */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-      <canvas ref={cropCanvasRef} style={{ display: 'none' }} />
     </div>
   );
 };
