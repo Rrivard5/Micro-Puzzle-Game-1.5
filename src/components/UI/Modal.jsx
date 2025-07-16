@@ -1,71 +1,40 @@
 import { useState, useEffect } from 'react'
 import { useGame } from '../../context/GameStateContext'
 
-export default function Modal({ isOpen, onClose, title, equipmentType, elementId, studentGroup, onSolved }) {
+export default function Modal({ isOpen, onClose, title, elementId, studentGroup, onSolved }) {
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [userAnswer, setUserAnswer] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [attempts, setAttempts] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [showHint, setShowHint] = useState(false)
-  const [equipmentImage, setEquipmentImage] = useState(null)
   const [elementContent, setElementContent] = useState(null)
-  const [isElement, setIsElement] = useState(false)
   const [showInfoOnly, setShowInfoOnly] = useState(false)
   
   const { trackAttempt, studentInfo } = useGame()
 
   useEffect(() => {
-    if (isOpen && (equipmentType || elementId)) {
+    if (isOpen && elementId) {
       loadContent()
     }
-  }, [isOpen, equipmentType, elementId, studentGroup])
+  }, [isOpen, elementId, studentGroup])
 
   const loadContent = async () => {
     setIsLoading(true)
-    setIsElement(!!elementId)
     setShowInfoOnly(false)
     
-    if (equipmentType) {
-      // Load equipment content
-      const question = await getEquipmentQuestion(equipmentType, studentGroup)
+    // Load room element content
+    const element = await getRoomElement(elementId)
+    setElementContent(element)
+    
+    if (element && ['question', 'question_element'].includes(element.interactionType)) {
+      const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
-      
-      // Check if this is info-only equipment
-      if (question && question.interactionType === 'info') {
-        setShowInfoOnly(true)
-      }
-      
-      const image = await getEquipmentImage(equipmentType, studentGroup)
-      setEquipmentImage(image)
-    } else if (elementId) {
-      // Load room element content
-      const element = await getRoomElement(elementId)
-      setElementContent(element)
-      
-      if (element && ['question', 'question_element'].includes(element.interactionType)) {
-        const question = await getElementQuestion(elementId, studentGroup)
-        setCurrentQuestion(question)
-      } else if (element && element.interactionType === 'info') {
-        setShowInfoOnly(true)
-      }
+    } else if (element && element.interactionType === 'info') {
+      setShowInfoOnly(true)
     }
     
     setIsLoading(false)
-  }
-
-  const getEquipmentQuestion = async (equipment, group) => {
-    const savedQuestions = localStorage.getItem('instructor-lab-questions')
-    
-    if (savedQuestions) {
-      const questions = JSON.parse(savedQuestions)
-      const groupQuestions = questions[equipment]?.groups?.[group] || questions[equipment]?.groups?.[1]
-      if (groupQuestions && groupQuestions.length > 0) {
-        return groupQuestions[0]
-      }
-    }
-    
-    return getDefaultQuestion(equipment)
   }
 
   const getRoomElement = async (elementId) => {
@@ -101,98 +70,6 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
       hint: 'Look carefully at the details.',
       clue: 'Observation recorded successfully.'
     }
-  }
-
-  const getDefaultQuestion = (equipment) => {
-    const defaultQuestions = {
-      microscope: {
-        id: 'mic1',
-        interactionType: 'question',
-        question: 'Looking at the bacterial specimen under 1000x magnification, what is the most likely shape classification of these cells?',
-        type: 'multiple_choice',
-        options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
-        answer: 'Bacilli (rod-shaped)',
-        hint: 'Look carefully at the elongated shape of the individual cells.',
-        clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
-        randomizeAnswers: false,
-        info: 'Rod-shaped bacteria detected - likely Escherichia coli',
-        infoImage: null
-      },
-      incubator: {
-        id: 'inc1',
-        interactionType: 'question',
-        question: 'The incubator display shows 37°C and 5% CO2. This environment is optimal for growing which type of microorganisms?',
-        type: 'multiple_choice',
-        options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
-        answer: 'Mesophiles',
-        hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
-        clue: 'Mesophilic conditions set - optimal for human pathogens',
-        randomizeAnswers: false,
-        info: 'Mesophilic conditions set - optimal for human pathogens',
-        infoImage: null
-      },
-      petriDish: {
-        id: 'pet1',
-        interactionType: 'question',
-        question: 'On the blood agar plate, you observe clear zones around some bacterial colonies. This indicates:',
-        type: 'multiple_choice',
-        options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
-        answer: 'Beta hemolysis',
-        hint: 'Clear zones indicate complete breakdown of red blood cells.',
-        clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-        randomizeAnswers: false,
-        info: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
-        infoImage: null
-      },
-      autoclave: {
-        id: 'auto1',
-        interactionType: 'question',
-        question: 'For proper sterilization, the autoclave must reach what temperature and pressure for how long?',
-        type: 'multiple_choice',
-        options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
-        answer: '121°C, 15 psi, 15 minutes',
-        hint: 'Standard sterilization parameters for most laboratory equipment.',
-        clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
-        randomizeAnswers: false,
-        info: 'Sterilization protocol confirmed - equipment properly decontaminated',
-        infoImage: null
-      },
-      centrifuge: {
-        id: 'cent1',
-        interactionType: 'question',
-        question: 'When centrifuging blood samples, the heavier red blood cells settle at the bottom while the lighter plasma rises to the top. This separation is based on:',
-        type: 'multiple_choice',
-        options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
-        answer: 'Density differences',
-        hint: 'Think about what causes particles to separate when spun at high speed.',
-        clue: 'Density separation principle confirmed - sample fractionation successful',
-        randomizeAnswers: false,
-        info: 'Density separation principle confirmed - sample fractionation successful',
-        infoImage: null
-      }
-    }
-    
-    return defaultQuestions[equipment] || {
-      id: 'default',
-      interactionType: 'question',
-      question: 'What is the primary function of this laboratory equipment?',
-      type: 'text',
-      answer: 'analysis',
-      hint: 'Think about how this equipment is used in microbiology research.',
-      clue: 'Equipment function understood',
-      info: 'Equipment function understood',
-      infoImage: null
-    }
-  }
-
-  const getEquipmentImage = async (equipment, group) => {
-    const savedImages = localStorage.getItem('instructor-lab-images')
-    if (savedImages) {
-      const images = JSON.parse(savedImages)
-      const imageKey = `${equipment}_group${group}`
-      return images[imageKey] || null
-    }
-    return null
   }
 
   const shuffleArray = (array) => {
@@ -249,7 +126,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
     setAttempts(prev => prev + 1)
     
     // Track the attempt
-    const trackingId = equipmentType ? `${equipmentType}_${currentQuestion.id}` : `${elementId}_${currentQuestion.id}`
+    const trackingId = `${elementId}_${currentQuestion.id}`
     trackAttempt('lab', trackingId, userAnswer, isCorrect)
     
     if (isCorrect) {
@@ -260,8 +137,8 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
       
       // Delay before solving to show feedback
       setTimeout(() => {
-        const clueText = currentQuestion.info || currentQuestion.clue || (isElement ? elementContent?.content?.info || 'Information discovered!' : 'Equipment analyzed successfully!')
-        onSolved(equipmentType || elementId, clueText)
+        const clueText = currentQuestion.info || currentQuestion.clue || elementContent?.content?.info || 'Information discovered!'
+        onSolved(elementId, clueText)
       }, 2000)
     } else {
       setFeedback({ 
@@ -291,19 +168,14 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
 
   const handleHint = () => {
     setShowHint(true)
-    const trackingId = equipmentType ? `${equipmentType}_hint` : `${elementId}_hint`
+    const trackingId = `${elementId}_hint`
     trackAttempt('lab', trackingId, 'hint_requested', false)
   }
 
   const handleInfoOnly = () => {
-    // For info-only equipment/elements, just show the information and close
-    let infoText = ''
-    if (equipmentType) {
-      infoText = currentQuestion?.info || 'Information discovered!'
-    } else if (elementContent) {
-      infoText = elementContent.content?.info || 'Information discovered!'
-    }
-    onSolved(equipmentType || elementId, infoText)
+    // For info-only elements, just show the information and close
+    const infoText = elementContent.content?.info || 'Information discovered!'
+    onSolved(elementId, infoText)
   }
 
   if (!isOpen) return null
@@ -325,7 +197,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
           </div>
           <p className="text-blue-100 mt-2">
             {studentGroup ? `Group ${studentGroup} - ` : ''}
-            {isElement ? 'Element Interaction' : 'Equipment Analysis'}
+            Element Interaction
           </p>
         </div>
 
@@ -339,22 +211,11 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
           ) : (
             <div className="space-y-6">
               
-              {/* Equipment/Element Image */}
-              {equipmentImage && (
-                <div className="text-center">
-                  <img 
-                    src={equipmentImage.data} 
-                    alt={`${equipmentType} analysis`}
-                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                  />
-                </div>
-              )}
-              
               {/* Element Image */}
               {elementContent?.image && (
                 <div className="text-center">
                   <img 
-                    src={elementContent.image.processed} 
+                    src={elementContent.image.processed || elementContent.image.original} 
                     alt={elementContent.name}
                     className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                   />
@@ -364,17 +225,14 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
               {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-bold text-blue-800 mb-2">
-                  {isElement ? '🔍 Element Examination' : '🔬 Equipment Analysis'}
+                  🔍 Element Examination
                 </h3>
                 <p className="text-blue-700">
-                  {isElement 
-                    ? `You examine the ${elementContent?.name || 'element'} and notice interesting details that might be relevant to your investigation.`
-                    : getEquipmentDescription(equipmentType)
-                  }
+                  You examine the {elementContent?.name || 'element'} and notice interesting details that might be relevant to your investigation.
                 </p>
               </div>
 
-              {/* Info-only elements and equipment */}
+              {/* Info-only elements */}
               {showInfoOnly && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6">
                   <h3 className="font-bold text-green-800 mb-4">📋 Information Discovered</h3>
@@ -382,19 +240,16 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                   {/* Text Information */}
                   <div className="mb-4">
                     <p className="text-green-700 mb-4">
-                      {equipmentType 
-                        ? (currentQuestion?.info || 'You have discovered important information about this equipment!')
-                        : (elementContent?.content?.info || 'You have discovered important information about this element!')
-                      }
+                      {elementContent?.content?.info || 'You have discovered important information about this element!'}
                     </p>
                   </div>
 
                   {/* Info Image */}
-                  {equipmentType && currentQuestion?.infoImage && (
+                  {elementContent?.content?.infoImage && (
                     <div className="mb-4">
                       <img
-                        src={currentQuestion.infoImage.data}
-                        alt={`${equipmentType} information`}
+                        src={elementContent.content.infoImage.data}
+                        alt={`${elementContent.name} information`}
                         className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                       />
                     </div>
@@ -495,7 +350,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                         <div className="mb-4">
                           <img
                             src={currentQuestion.infoImage.data}
-                            alt={`${equipmentType || elementId} analysis results`}
+                            alt={`${elementId} analysis results`}
                             className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                           />
                         </div>
@@ -525,7 +380,7 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
                   <p className="font-medium">{feedback.message}</p>
                   {feedback.type === 'success' && (
                     <p className="text-sm mt-2 text-green-600">
-                      {isElement ? 'Information' : 'Equipment data'} has been added to your research findings.
+                      Information has been added to your research findings.
                     </p>
                   )}
                 </div>
@@ -543,15 +398,4 @@ export default function Modal({ isOpen, onClose, title, equipmentType, elementId
       </div>
     </div>
   )
-}
-
-function getEquipmentDescription(type) {
-  const descriptions = {
-    microscope: 'You approach the research microscope and notice a prepared slide is already mounted. The specimen appears to be a bacterial culture stained with methylene blue. Adjust the focus and examine the cellular morphology.',
-    incubator: 'The incubator door is slightly ajar, revealing several culture plates inside. The digital display shows current temperature and atmospheric conditions. A research protocol is posted on the front panel.',
-    petriDish: 'Several petri dishes are arranged on the lab bench. One contains blood agar with distinct bacterial colonies showing different hemolytic patterns. The colonies vary in size, color, and transparency.',
-    autoclave: 'The autoclave chamber contains various lab equipment that needs sterilization. A temperature log sheet is attached to the front, showing the sterilization cycle parameters.',
-    centrifuge: 'The centrifuge contains several test tubes with what appears to be blood samples. The rotor is balanced and ready for operation. Safety protocols are posted on the nearby wall.'
-  }
-  return descriptions[type] || 'Examine this equipment carefully for clues to your research.'
 }
