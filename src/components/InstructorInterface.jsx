@@ -806,3 +806,822 @@ const InstructorInterface = () => {
       }
     }
   };
+
+  // Add event listeners for mouse events
+  useEffect(() => {
+    if (draggedElement) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [draggedElement, dragOffset]);
+
+  // Render the component
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center p-6">
+        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+            🔒 Instructor Login
+          </h1>
+          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter instructor password"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            />
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all"
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-800">
+              🧪 Microbiology Lab Instructor Portal
+            </h1>
+            <button
+              onClick={saveAllSettings}
+              disabled={isSaving}
+              className={`px-6 py-2 rounded-lg font-bold transition-all ${
+                isSaving 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+            >
+              {isSaving ? 'Saving...' : '💾 Save All Settings'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex space-x-8">
+            {['dashboard', 'room-setup', 'word-scramble', 'progress'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
+                  activeTab === tab
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab === 'dashboard' && '📊 Dashboard'}
+                {tab === 'room-setup' && '🏗️ Room Setup'}
+                {tab === 'word-scramble' && '🧩 Word Scramble'}
+                {tab === 'progress' && '📈 Student Progress'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Overview</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="font-bold text-blue-800">Room Elements</h3>
+                  <p className="text-2xl font-bold text-blue-600">{Object.keys(roomElements).length}</p>
+                  <p className="text-sm text-blue-600">Total elements configured</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="font-bold text-green-800">Student Groups</h3>
+                  <p className="text-2xl font-bold text-green-600">{wordSettings.numGroups}</p>
+                  <p className="text-sm text-green-600">Groups configured</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h3 className="font-bold text-purple-800">Target Word</h3>
+                  <p className="text-2xl font-bold text-purple-600">{wordSettings.targetWord || 'Not Set'}</p>
+                  <p className="text-sm text-purple-600">Word scramble answer</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Game Settings */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Game Completion Settings</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Completion Mode
+                  </label>
+                  <select
+                    value={completionMode}
+                    onChange={(e) => setCompletionMode(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Complete All Required Elements</option>
+                    <option value="final">Complete Specific Final Element Only</option>
+                  </select>
+                </div>
+
+                {completionMode === 'final' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Final Element (Must be solved to complete)
+                    </label>
+                    <select
+                      value={finalElementId}
+                      onChange={(e) => setFinalElementId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select final element...</option>
+                      {Object.entries(roomElements)
+                        .filter(([id, el]) => ['info', 'question', 'element', 'question_element'].includes(el.interactionType))
+                        .map(([id, element]) => (
+                          <option key={id} value={id}>
+                            {element.name} ({element.wall} wall)
+                          </option>
+                        ))}
+                    </select>
+                    {finalElementId && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ⭐ Students must complete "{roomElements[finalElementId]?.name}" to finish the lab
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Room Setup Tab */}
+        {activeTab === 'room-setup' && (
+          <div className="space-y-6">
+            {/* Background Images Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Room Background Images</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {wallOptions.map(wall => (
+                  <div key={wall} className="space-y-2">
+                    <h3 className="font-medium text-gray-700 capitalize">{wall} Wall</h3>
+                    {backgroundImages[wall] ? (
+                      <div className="relative">
+                        <img
+                          src={backgroundImages[wall].data}
+                          alt={`${wall} wall background`}
+                          className="w-full h-32 object-cover rounded-lg border-2 border-gray-300"
+                        />
+                        <button
+                          onClick={() => removeBackgroundImage(wall)}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                        <label className="cursor-pointer text-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleBackgroundImageUpload(e, wall)}
+                            className="hidden"
+                          />
+                          <div className="text-gray-500">
+                            <div className="text-2xl mb-1">📷</div>
+                            <div className="text-xs">Upload Image</div>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Room Elements Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Room Elements</h2>
+                <button
+                  onClick={() => setShowAddElementModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                >
+                  + Add Element
+                </button>
+              </div>
+
+              {Object.keys(roomElements).length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No elements added yet. Click "Add Element" to create your first room element.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(roomElements).map(([elementId, element]) => (
+                    <div key={elementId} className="border rounded-lg p-4 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-lg">{element.name}</h3>
+                          <p className="text-sm text-gray-600">
+                            Type: {elementTypes[element.type]} | Wall: {element.wall} | 
+                            Interaction: {interactionTypes[element.interactionType]}
+                            {element.isRequired && ' | Required ✓'}
+                            {completionMode === 'final' && finalElementId === elementId && ' | ⭐ Final Element'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deleteRoomElement(elementId)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+
+                      {/* Element Image */}
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          {element.image ? (
+                            <img
+                              src={element.image.processed || element.image.original}
+                              alt={element.name}
+                              className="w-24 h-24 object-contain rounded-lg border-2 border-gray-300"
+                            />
+                          ) : (
+                            <div className="w-24 h-24 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                              <span className="text-3xl">{element.defaultIcon}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 inline-block">
+                            {processingImages[elementId] ? 'Processing...' : 'Upload Image'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleElementImageUpload(e, elementId)}
+                              className="hidden"
+                              disabled={processingImages[elementId]}
+                            />
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            White backgrounds will be automatically removed
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Element Settings */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-600">Size (px)</label>
+                          <input
+                            type="number"
+                            value={element.settings.size}
+                            onChange={(e) => updateElementSettings(elementId, { size: parseInt(e.target.value) || 100 })}
+                            className="w-full px-2 py-1 border rounded"
+                            min="20"
+                            max="300"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">X Position (%)</label>
+                          <input
+                            type="number"
+                            value={Math.round(element.settings.x)}
+                            onChange={(e) => updateElementSettings(elementId, { x: parseInt(e.target.value) || 0 })}
+                            className="w-full px-2 py-1 border rounded"
+                            min="0"
+                            max="100"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">Y Position (%)</label>
+                          <input
+                            type="number"
+                            value={Math.round(element.settings.y)}
+                            onChange={(e) => updateElementSettings(elementId, { y: parseInt(e.target.value) || 0 })}
+                            className="w-full px-2 py-1 border rounded"
+                            min="0"
+                            max="100"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">Z-Index Layer</label>
+                          <select
+                            value={element.settings.zIndex}
+                            onChange={(e) => updateElementSettings(elementId, { zIndex: parseInt(e.target.value) })}
+                            className="w-full px-2 py-1 border rounded"
+                          >
+                            {Object.entries(zIndexLayers).map(([value, description]) => (
+                              <option key={value} value={value}>
+                                {value} - {description}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Content Configuration */}
+                      {['info', 'question', 'question_element'].includes(element.interactionType) && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Information Text</label>
+                            <textarea
+                              value={element.content?.info || ''}
+                              onChange={(e) => updateElementContent(elementId, 'info', e.target.value)}
+                              className="w-full px-3 py-2 border rounded-lg"
+                              rows="2"
+                              placeholder="Information revealed when element is clicked or question is solved..."
+                            />
+                          </div>
+
+                          {['question', 'question_element'].includes(element.interactionType) && (
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Questions by Group
+                                </label>
+                                <button
+                                  onClick={() => addNewGroup(elementId)}
+                                  className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                >
+                                  + Add Group
+                                </button>
+                              </div>
+
+                              {element.content?.question?.groups && (
+                                <div className="space-y-2">
+                                  {Object.entries(element.content.question.groups).map(([groupNum, questions]) => {
+                                    const question = questions[0];
+                                    return (
+                                      <div key={groupNum} className="border rounded-lg p-3 bg-gray-50">
+                                        <div className="flex justify-between items-center mb-2">
+                                          <h4 className="font-medium text-gray-700">Group {groupNum}</h4>
+                                          <button
+                                            onClick={() => setSelectedGroup(parseInt(groupNum))}
+                                            className={`text-sm px-2 py-1 rounded ${
+                                              selectedGroup === parseInt(groupNum)
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-200 text-gray-700'
+                                            }`}
+                                          >
+                                            {selectedGroup === parseInt(groupNum) ? 'Editing' : 'Edit'}
+                                          </button>
+                                        </div>
+
+                                        {selectedGroup === parseInt(groupNum) && (
+                                          <div className="space-y-3">
+                                            <textarea
+                                              value={question?.question || ''}
+                                              onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                ...question,
+                                                question: e.target.value
+                                              })}
+                                              className="w-full px-2 py-1 border rounded text-sm"
+                                              rows="2"
+                                              placeholder="Enter question..."
+                                            />
+
+                                            {question?.type === 'multiple_choice' && (
+                                              <div className="space-y-2">
+                                                <label className="text-xs text-gray-600">Options:</label>
+                                                {question.options?.map((option, idx) => (
+                                                  <input
+                                                    key={idx}
+                                                    value={option}
+                                                    onChange={(e) => {
+                                                      const newOptions = [...question.options];
+                                                      newOptions[idx] = e.target.value;
+                                                      updateElementQuestion(elementId, groupNum, {
+                                                        ...question,
+                                                        options: newOptions
+                                                      });
+                                                    }}
+                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                    placeholder={`Option ${idx + 1}`}
+                                                  />
+                                                ))}
+                                              </div>
+                                            )}
+
+                                            <input
+                                              value={question?.answer || ''}
+                                              onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                ...question,
+                                                answer: e.target.value
+                                              })}
+                                              className="w-full px-2 py-1 border rounded text-sm"
+                                              placeholder="Correct answer..."
+                                            />
+
+                                            <input
+                                              value={question?.hint || ''}
+                                              onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                ...question,
+                                                hint: e.target.value
+                                              })}
+                                              className="w-full px-2 py-1 border rounded text-sm"
+                                              placeholder="Hint (optional)..."
+                                            />
+
+                                            <div className="flex items-center space-x-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={question?.randomizeAnswers || false}
+                                                onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                  ...question,
+                                                  randomizeAnswers: e.target.checked
+                                                })}
+                                                className="rounded"
+                                              />
+                                              <label className="text-sm text-gray-700">
+                                                Randomize answer order for each student
+                                              </label>
+                                            </div>
+
+                                            {/* Info Image Upload */}
+                                            <div className="border-t pt-3">
+                                              <label className="text-sm font-medium text-gray-700">
+                                                Info Image (shown after correct answer)
+                                              </label>
+                                              {question?.infoImage ? (
+                                                <div className="mt-2 relative">
+                                                  <img
+                                                    src={question.infoImage.data}
+                                                    alt="Info"
+                                                    className="w-32 h-32 object-cover rounded border"
+                                                  />
+                                                  <button
+                                                    onClick={() => removeInfoImage(elementId, groupNum)}
+                                                    className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full text-xs"
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                </div>
+                                              ) : (
+                                                <label className="mt-2 cursor-pointer inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300">
+                                                  {uploadingImages[`${elementId}_${groupNum}_info`] ? 'Uploading...' : 'Upload Image'}
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleInfoImageUpload(e, elementId, groupNum)}
+                                                    className="hidden"
+                                                    disabled={uploadingImages[`${elementId}_${groupNum}_info`]}
+                                                  />
+                                                </label>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reveal Element Configuration */}
+                      {['element', 'question_element'].includes(element.interactionType) && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">
+                            Element to Reveal When Solved
+                          </label>
+                          <select
+                            value={element.revealedElementId || ''}
+                            onChange={(e) => setRoomElements(prev => ({
+                              ...prev,
+                              [elementId]: {
+                                ...prev[elementId],
+                                revealedElementId: e.target.value
+                              }
+                            }))}
+                            className="w-full px-3 py-2 border rounded-lg mt-1"
+                          >
+                            <option value="">None - No element revealed</option>
+                            {Object.entries(roomElements)
+                              .filter(([id]) => id !== elementId)
+                              .map(([id, el]) => (
+                                <option key={id} value={id}>
+                                  {el.name} ({el.wall} wall)
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Visual Position Preview */}
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">
+                          Position Preview ({element.wall} wall)
+                        </h4>
+                        <div 
+                          id="room-preview"
+                          className="relative w-full h-48 bg-white border-2 border-gray-300 rounded"
+                          style={{
+                            backgroundImage: backgroundImages[element.wall] 
+                              ? `url('${backgroundImages[element.wall].data}')`
+                              : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center'
+                          }}
+                        >
+                          <div
+                            className="absolute cursor-move"
+                            style={{
+                              left: `${element.settings.x}%`,
+                              top: `${element.settings.y}%`,
+                              transform: 'translate(-50%, -50%)',
+                              zIndex: element.settings.zIndex
+                            }}
+                            onMouseDown={(e) => handleMouseDown(e, elementId)}
+                          >
+                            {element.image ? (
+                              <img
+                                src={element.image.processed || element.image.original}
+                                alt={element.name}
+                                className="object-contain"
+                                style={{
+                                  width: `${element.settings.size / 2}px`,
+                                  height: `${element.settings.size / 2}px`
+                                }}
+                                draggable={false}
+                              />
+                            ) : (
+                              <div
+                                className="bg-blue-100 border-2 border-blue-300 rounded flex items-center justify-center"
+                                style={{
+                                  width: `${element.settings.size / 2}px`,
+                                  height: `${element.settings.size / 2}px`
+                                }}
+                              >
+                                <span className="text-2xl">{element.defaultIcon}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Drag the element to reposition it
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Word Scramble Tab */}
+        {activeTab === 'word-scramble' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Word Scramble Configuration</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Word (Solution)
+                  </label>
+                  <input
+                    type="text"
+                    value={wordSettings.targetWord}
+                    onChange={(e) => {
+                      const newWord = e.target.value.toUpperCase();
+                      const newSettings = { ...wordSettings, targetWord: newWord };
+                      assignLettersToGroups(newSettings, newWord, wordSettings.numGroups);
+                      setWordSettings(newSettings);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter the target word..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Groups
+                  </label>
+                  <input
+                    type="number"
+                    value={wordSettings.numGroups}
+                    onChange={(e) => {
+                      const numGroups = parseInt(e.target.value) || 1;
+                      const newSettings = { ...wordSettings, numGroups };
+                      assignLettersToGroups(newSettings, wordSettings.targetWord, numGroups);
+                      setWordSettings(newSettings);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                    max="50"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-bold text-blue-800 mb-2">Letter Assignments</h3>
+                  <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                    {Object.entries(wordSettings.groupLetters).map(([group, letter]) => (
+                      <div key={group} className="bg-white border border-blue-300 rounded p-2 text-center">
+                        <div className="text-xs text-gray-600">Group {group}</div>
+                        <div className="text-lg font-bold text-blue-600">{letter}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Tab */}
+        {activeTab === 'progress' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Student Progress</h2>
+              {studentProgress.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No student data recorded yet.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Student
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Group
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Progress
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Completion Time
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {studentProgress.map((student, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {student.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.group}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.progress}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.completionTime || 'In Progress'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add Element Modal */}
+      {showAddElementModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Add Room Element</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Element Name
+                </label>
+                <input
+                  type="text"
+                  value={newElementData.name}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Microscope, Incubator..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Element Type
+                </label>
+                <select
+                  value={newElementData.type}
+                  onChange={(e) => setNewElementData(prev => ({ 
+                    ...prev, 
+                    type: e.target.value,
+                    defaultIcon: defaultIcons[e.target.value] || '📦'
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(elementTypes).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Wall Location
+                </label>
+                <select
+                  value={newElementData.wall}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, wall: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {wallOptions.map(wall => (
+                    <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)} Wall</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Interaction Type
+                </label>
+                <select
+                  value={newElementData.interactionType}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, interactionType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(interactionTypes).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isRequired"
+                  checked={newElementData.isRequired}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, isRequired: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-700">
+                  Required for completion
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Icon
+                </label>
+                <input
+                  type="text"
+                  value={newElementData.defaultIcon}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, defaultIcon: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter an emoji..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddElementModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addRoomElement}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Add Element
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+    </div>
+  );
+};
+
+export default InstructorInterface;
