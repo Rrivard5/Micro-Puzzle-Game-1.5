@@ -50,7 +50,7 @@ const InstructorInterface = () => {
   const [completionMode, setCompletionMode] = useState('all');
   const [finalElementId, setFinalElementId] = useState('');
 
-  // Equipment positioning - Updated to match student room
+  // Equipment positioning - Fixed coordinates
   const [equipmentPositions, setEquipmentPositions] = useState({
     north: [],
     east: [],
@@ -141,21 +141,21 @@ const InstructorInterface = () => {
     }
   };
 
-  // Initialize default equipment positions to match student room coordinates
+  // Initialize default equipment positions - Fixed to match student room
   const initializeDefaultEquipmentPositions = () => {
     const defaultPositions = {
       north: [
-        { equipmentType: 'microscope', x: 20, y: 50, size: 120, zIndex: 10 }
+        { equipmentType: 'microscope', x: 50, y: 70, size: 100, zIndex: 10 }
       ],
       east: [
-        { equipmentType: 'incubator', x: 20, y: 40, size: 120, zIndex: 10 },
-        { equipmentType: 'autoclave', x: 60, y: 40, size: 120, zIndex: 10 }
+        { equipmentType: 'incubator', x: 30, y: 70, size: 100, zIndex: 10 },
+        { equipmentType: 'autoclave', x: 70, y: 70, size: 100, zIndex: 10 }
       ],
       south: [
-        { equipmentType: 'centrifuge', x: 50, y: 40, size: 120, zIndex: 10 }
+        { equipmentType: 'centrifuge', x: 50, y: 70, size: 100, zIndex: 10 }
       ],
       west: [
-        { equipmentType: 'petriDish', x: 50, y: 40, size: 120, zIndex: 10 }
+        { equipmentType: 'petriDish', x: 50, y: 70, size: 100, zIndex: 10 }
       ]
     };
     setEquipmentPositions(defaultPositions);
@@ -201,7 +201,7 @@ const InstructorInterface = () => {
         updated[targetWall].push({
           ...equipmentData,
           x: 50, // Reset position to center
-          y: 40
+          y: 70
         });
       }
       
@@ -906,12 +906,11 @@ const InstructorInterface = () => {
     setSelectedGroup(newGroupNumber);
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers - Fixed to use percentage-based positioning
   const handleMouseDown = (e, elementId) => {
     e.preventDefault();
     setDraggedElement(elementId);
     const rect = e.currentTarget.getBoundingClientRect();
-    const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     setDragOffset({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top
@@ -921,7 +920,10 @@ const InstructorInterface = () => {
   const handleMouseMove = (e) => {
     if (!draggedElement) return;
     
-    const previewRect = document.getElementById('room-preview').getBoundingClientRect();
+    const previewElement = document.getElementById('room-preview');
+    if (!previewElement) return;
+    
+    const previewRect = previewElement.getBoundingClientRect();
     const x = ((e.clientX - previewRect.left - dragOffset.x) / previewRect.width) * 100;
     const y = ((e.clientY - previewRect.top - dragOffset.y) / previewRect.height) * 100;
     
@@ -963,7 +965,7 @@ const InstructorInterface = () => {
     });
   };
 
-  // Updated room preview component with proper scaling and positioning
+  // Fixed room preview component with consistent positioning
   const renderRoomPreview = () => {
     const wallElements = Object.entries(roomElements).filter(([id, element]) => element.wall === selectedWall);
     const wallEquipment = getEquipmentOnWall(selectedWall);
@@ -972,10 +974,10 @@ const InstructorInterface = () => {
     return (
       <div 
         id="room-preview"
-        className="relative bg-gradient-to-b from-blue-50 to-gray-100 rounded-lg border-2 border-gray-300 overflow-hidden"
+        className="relative bg-gradient-to-b from-slate-100 to-blue-100 rounded-lg border-2 border-gray-300 overflow-hidden"
         style={{
           width: '100%',
-          height: '400px', // Fixed height for consistent preview
+          height: '600px', // Fixed height matching student room
           backgroundImage: backgroundImage 
             ? `url('${backgroundImage.data}')`
             : undefined,
@@ -993,7 +995,7 @@ const InstructorInterface = () => {
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{
               backgroundImage: `url('data:image/svg+xml,${encodeURIComponent(`
-                <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+                <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <linearGradient id="floorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stop-color="#f1f5f9"/>
@@ -1003,22 +1005,22 @@ const InstructorInterface = () => {
                       <stop offset="0%" stop-color="#ffffff"/>
                       <stop offset="100%" stop-color="#f8fafc"/>
                     </linearGradient>
-                    <pattern id="floorTiles" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <rect width="40" height="40" fill="#f8fafc"/>
-                      <rect width="38" height="38" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+                    <pattern id="floorTiles" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                      <rect width="50" height="50" fill="#f8fafc"/>
+                      <rect width="48" height="48" x="1" y="1" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
                     </pattern>
                   </defs>
                   
-                  <polygon points="80,120 720,120 760,380 40,380" fill="url(#floorTiles)" stroke="#cbd5e0" stroke-width="2"/>
-                  <polygon points="120,40 680,40 720,120 80,120" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  <polygon points="80,120 120,40 120,280 80,360" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  <polygon points="680,40 720,120 720,360 680,280" fill="url(#wallGrad)" stroke="#e2e8f0"/>
-                  <polygon points="150,200 650,200 680,240 120,240" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
-                  <polygon points="120,240 680,240 680,260 120,260" fill="#d1d5db"/>
-                  <polygon points="680,240 720,280 720,300 680,260" fill="#cbd5e0"/>
-                  <ellipse cx="250" cy="55" rx="50" ry="8" fill="#fef3c7" opacity="0.9"/>
-                  <ellipse cx="400" cy="58" rx="60" ry="10" fill="#fef3c7" opacity="0.9"/>
-                  <ellipse cx="550" cy="55" rx="50" ry="8" fill="#fef3c7" opacity="0.9"/>
+                  <polygon points="80,180 720,180 760,550 40,550" fill="url(#floorTiles)" stroke="#cbd5e0" stroke-width="2"/>
+                  <polygon points="120,60 680,60 720,180 80,180" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+                  <polygon points="80,180 120,60 120,400 80,520" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+                  <polygon points="680,60 720,180 720,520 680,400" fill="url(#wallGrad)" stroke="#e2e8f0"/>
+                  <polygon points="150,300 650,300 680,340 120,340" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
+                  <polygon points="120,340 680,340 680,360 120,360" fill="#d1d5db"/>
+                  <polygon points="680,340 720,380 720,400 680,360" fill="#cbd5e0"/>
+                  <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+                  <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
+                  <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
                 </svg>
               `)}')`,
               backgroundSize: 'cover',
@@ -1051,8 +1053,8 @@ const InstructorInterface = () => {
                 alt={element.name}
                 className="object-contain transition-all duration-300 pointer-events-none"
                 style={{
-                  width: `${element.settings.size * 0.6}px`, // Scale down for preview
-                  height: `${element.settings.size * 0.6}px`,
+                  width: `${element.settings.size}px`,
+                  height: `${element.settings.size}px`,
                   filter: 'drop-shadow(2px 4px 8px rgba(0,0,0,0.4))'
                 }}
               />
@@ -1060,8 +1062,8 @@ const InstructorInterface = () => {
               <div
                 className="bg-gray-300 border-2 border-gray-500 rounded-lg flex items-center justify-center"
                 style={{
-                  width: `${element.settings.size * 0.4}px`, // Scale placeholder appropriately
-                  height: `${element.settings.size * 0.4}px`
+                  width: `${element.settings.size}px`,
+                  height: `${element.settings.size}px`
                 }}
               >
                 <div className="text-gray-600 text-center">
@@ -1100,8 +1102,8 @@ const InstructorInterface = () => {
                 alt={equipment.equipmentType}
                 className="object-contain transition-all duration-300 pointer-events-none"
                 style={{
-                  width: `${equipment.size * 0.6}px`, // Scale down for preview
-                  height: `${equipment.size * 0.6}px`,
+                  width: `${equipment.size}px`,
+                  height: `${equipment.size}px`,
                   filter: 'drop-shadow(2px 4px 8px rgba(0,0,0,0.4))'
                 }}
               />
@@ -1111,7 +1113,7 @@ const InstructorInterface = () => {
         
         {/* Grid overlay for reference */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
-          <svg className="w-full h-full" viewBox="0 0 800 400">
+          <svg className="w-full h-full" viewBox="0 0 800 600">
             <defs>
               <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                 <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" strokeWidth="1"/>
@@ -2026,12 +2028,12 @@ const InstructorInterface = () => {
                             type="range"
                             min="50"
                             max="200"
-                            value={getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size || 120}
+                            value={getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size || 100}
                             onChange={(e) => updateEquipmentPosition(selectedElement, { size: parseInt(e.target.value) })}
                             className="w-full"
                           />
                           <div className="text-xs text-gray-500">
-                            {getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size || 120}px
+                            {getEquipmentOnWall(selectedWall).find(eq => eq.equipmentType === selectedElement)?.size || 100}px
                           </div>
                         </div>
                         
