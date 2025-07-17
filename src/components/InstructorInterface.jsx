@@ -1305,6 +1305,7 @@ const InstructorInterface = () => {
                                               placeholder="Enter question..."
                                             />
                             </div>
+                          )}
                           <p className="text-xs text-gray-500 mt-2">
                             Drag the element to reposition it
                           </p>
