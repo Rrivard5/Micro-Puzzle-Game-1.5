@@ -1304,17 +1304,6 @@ const InstructorInterface = () => {
                                               rows="2"
                                               placeholder="Enter question..."
                                             />
-                            ) : (
-                              <div
-                                className="bg-blue-100 border-2 border-blue-300 rounded flex items-center justify-center"
-                                style={{
-                                  width: `${element.settings.size / 2}px`,
-                                  height: `${element.settings.size / 2}px`
-                                }}
-                              >
-                                <span className="text-2xl">{element.defaultIcon}</span>
-                              </div>
-                            )}
                             </div>
                           <p className="text-xs text-gray-500 mt-2">
                             Drag the element to reposition it
