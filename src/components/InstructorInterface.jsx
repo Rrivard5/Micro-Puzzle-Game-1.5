@@ -1316,10 +1316,10 @@ const InstructorInterface = () => {
                               </div>
                             )}
                           </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Drag the element to reposition it
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Drag the element to reposition it
-                        </p>
                       </div>
                     </div>
                   ))}
