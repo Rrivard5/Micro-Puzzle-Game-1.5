@@ -62,13 +62,15 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       }
     }
     
+    // Return a default question if none exists
     return {
       id: `${elementId}_default`,
       question: `What do you observe about ${element?.name || 'this element'}?`,
       type: 'text',
-      answer: 'observed',
+      correctText: 'observed',
       hint: 'Look carefully at the details.',
-      clue: 'Observation recorded successfully.'
+      clue: 'Observation recorded successfully.',
+      info: 'Analysis completed successfully!'
     }
   }
 
@@ -150,9 +152,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
 
   const checkAnswer = (answer, question) => {
     if (question.type === 'multiple_choice') {
-      return question.answer === answer.trim()
+      // For multiple choice, check if the selected answer matches the correct answer index
+      const selectedIndex = question.options.findIndex(opt => opt === answer.trim())
+      return selectedIndex === question.correctAnswer
     } else {
-      return question.answer.toLowerCase() === answer.trim().toLowerCase()
+      // For text questions, check against correctText
+      return question.correctText && question.correctText.toLowerCase() === answer.trim().toLowerCase()
     }
   }
 
