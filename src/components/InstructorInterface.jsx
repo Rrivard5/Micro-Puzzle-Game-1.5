@@ -1310,7 +1310,6 @@ const InstructorInterface = () => {
                             Drag the element to reposition it
                           </p>
                         </div>
-                    </div>
                   ))}
                 </div>
               )}
