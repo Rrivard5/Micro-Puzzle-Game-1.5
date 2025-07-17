@@ -44,6 +44,9 @@ const InstructorInterface = () => {
   // Canvas ref for image processing
   const canvasRef = useRef(null);
 
+  // Wall preview state
+  const [previewWall, setPreviewWall] = useState('north');
+
   // Default equipment icons
   const defaultIcons = {
     microscope: '🔬',
@@ -159,8 +162,9 @@ const InstructorInterface = () => {
                   id: 'mic1',
                   question: 'Looking at the bacterial specimen under 1000x magnification, what is the most likely shape classification of these cells?',
                   type: 'multiple_choice',
+                  numOptions: 4,
                   options: ['Cocci (spherical)', 'Bacilli (rod-shaped)', 'Spirilla (spiral)', 'Pleomorphic (variable)'],
-                  answer: 'Bacilli (rod-shaped)',
+                  correctAnswer: 1,
                   hint: 'Look carefully at the elongated shape of the individual cells.',
                   clue: 'Rod-shaped bacteria detected - likely Escherichia coli',
                   randomizeAnswers: false,
@@ -196,8 +200,9 @@ const InstructorInterface = () => {
                   id: 'inc1',
                   question: 'The incubator display shows 37°C and 5% CO2. This environment is optimal for growing which type of microorganisms?',
                   type: 'multiple_choice',
+                  numOptions: 4,
                   options: ['Psychrophiles', 'Mesophiles', 'Thermophiles', 'Hyperthermophiles'],
-                  answer: 'Mesophiles',
+                  correctAnswer: 1,
                   hint: 'Consider the temperature range and CO2 requirements for human pathogens.',
                   clue: 'Mesophilic conditions set - optimal for human pathogens',
                   randomizeAnswers: false,
@@ -233,8 +238,9 @@ const InstructorInterface = () => {
                   id: 'pet1',
                   question: 'On the blood agar plate, you observe clear zones around some bacterial colonies. This indicates:',
                   type: 'multiple_choice',
+                  numOptions: 4,
                   options: ['Alpha hemolysis', 'Beta hemolysis', 'Gamma hemolysis', 'No hemolysis'],
-                  answer: 'Beta hemolysis',
+                  correctAnswer: 1,
                   hint: 'Clear zones indicate complete breakdown of red blood cells.',
                   clue: 'Beta-hemolytic bacteria identified - Streptococcus pyogenes likely',
                   randomizeAnswers: false,
@@ -270,8 +276,9 @@ const InstructorInterface = () => {
                   id: 'auto1',
                   question: 'For proper sterilization, the autoclave must reach what temperature and pressure for how long?',
                   type: 'multiple_choice',
+                  numOptions: 4,
                   options: ['121°C, 15 psi, 15 minutes', '100°C, 10 psi, 10 minutes', '134°C, 20 psi, 20 minutes', '80°C, 5 psi, 30 minutes'],
-                  answer: '121°C, 15 psi, 15 minutes',
+                  correctAnswer: 0,
                   hint: 'Standard sterilization parameters for most laboratory equipment.',
                   clue: 'Sterilization protocol confirmed - equipment properly decontaminated',
                   randomizeAnswers: false,
@@ -307,8 +314,9 @@ const InstructorInterface = () => {
                   id: 'cent1',
                   question: 'When centrifuging blood samples, the heavier red blood cells settle at the bottom while the lighter plasma rises to the top. This separation is based on:',
                   type: 'multiple_choice',
+                  numOptions: 4,
                   options: ['Molecular weight', 'Density differences', 'Electrical charge', 'Surface tension'],
-                  answer: 'Density differences',
+                  correctAnswer: 1,
                   hint: 'Think about what causes particles to separate when spun at high speed.',
                   clue: 'Density separation principle confirmed - sample fractionation successful',
                   randomizeAnswers: false,
@@ -465,8 +473,10 @@ const InstructorInterface = () => {
               id: `${elementId}_q1`,
               question: `Question about ${newElementData.name}...`,
               type: 'multiple_choice',
+              numOptions: 4,
               options: ['Option A', 'Option B', 'Option C', 'Option D'],
-              answer: 'Option A',
+              correctAnswer: 0,
+              correctText: '',
               hint: 'Hint for this question...',
               clue: 'Clue revealed when solved...',
               randomizeAnswers: false,
@@ -699,8 +709,10 @@ const InstructorInterface = () => {
       id: `${elementId}_g${newGroupNumber}`,
       question: `New question for group ${newGroupNumber}...`,
       type: 'multiple_choice',
+      numOptions: 4,
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
-      answer: 'Option A',
+      correctAnswer: 0,
+      correctText: '',
       hint: 'Hint for this question...',
       clue: 'Clue revealed when solved...',
       randomizeAnswers: false,
@@ -968,6 +980,101 @@ const InstructorInterface = () => {
                 )}
               </div>
             </div>
+
+            {/* Full Room Preview */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Full Room Preview</h2>
+              <div className="flex justify-center mb-4">
+                <div className="flex space-x-2">
+                  {wallOptions.map(wall => (
+                    <button
+                      key={wall}
+                      onClick={() => setPreviewWall(wall)}
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        previewWall === wall
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {wall.charAt(0).toUpperCase() + wall.slice(1)} Wall
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div 
+                className="relative w-full h-[600px] bg-white border-4 border-gray-300 rounded-lg overflow-hidden"
+                style={{
+                  backgroundImage: backgroundImages[previewWall] 
+                    ? `url('${backgroundImages[previewWall].data}')`
+                    : `url('data:image/svg+xml,${encodeURIComponent(`
+                      <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                          <linearGradient id="wallGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#f8fafc"/>
+                            <stop offset="100%" stop-color="#e5e7eb"/>
+                          </linearGradient>
+                          <pattern id="floorTiles" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                            <rect width="50" height="50" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+                          </pattern>
+                        </defs>
+                        <rect width="800" height="600" fill="url(#wallGrad)"/>
+                        <polygon points="0,400 800,400 800,600 0,600" fill="url(#floorTiles)" opacity="0.5"/>
+                        <text x="400" y="50" text-anchor="middle" fill="#9ca3af" font-size="24" font-family="Arial">
+                          ${previewWall.charAt(0).toUpperCase() + previewWall.slice(1)} Wall
+                        </text>
+                      </svg>
+                    `)}')`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
+              >
+                {/* Render all elements for this wall */}
+                {Object.entries(roomElements)
+                  .filter(([id, element]) => element.wall === previewWall)
+                  .map(([elementId, element]) => (
+                    <div
+                      key={elementId}
+                      className="absolute"
+                      style={{
+                        left: `${element.settings.x}%`,
+                        top: `${element.settings.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: element.settings.zIndex
+                      }}
+                      title={element.name}
+                    >
+                      {element.image ? (
+                        <img
+                          src={element.image.processed || element.image.original}
+                          alt={element.name}
+                          className="object-contain drop-shadow-lg"
+                          style={{
+                            width: `${element.settings.size}px`,
+                            height: `${element.settings.size}px`
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center shadow-lg"
+                          style={{
+                            width: `${element.settings.size}px`,
+                            height: `${element.settings.size}px`
+                          }}
+                        >
+                          <div className="text-center">
+                            <div className="text-3xl">{element.defaultIcon}</div>
+                            <div className="text-xs mt-1">{element.name}</div>
+                          </div>
+                        </div>
+                      )}
+                      {completionMode === 'final' && finalElementId === elementId && (
+                        <div className="absolute -top-2 -right-2 text-2xl">⭐</div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1197,38 +1304,369 @@ const InstructorInterface = () => {
                                               rows="2"
                                               placeholder="Enter question..."
                                             />
+                            ) : (
+                              <div
+                                className="bg-blue-100 border-2 border-blue-300 rounded flex items-center justify-center"
+                                style={{
+                                  width: `${element.settings.size / 2}px`,
+                                  height: `${element.settings.size / 2}px`
+                                }}
+                              >
+                                <span className="text-2xl">{element.defaultIcon}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Drag the element to reposition it
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Word Scramble Tab */}
+        {activeTab === 'word-scramble' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Word Scramble Configuration</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Word (Solution)
+                  </label>
+                  <input
+                    type="text"
+                    value={wordSettings.targetWord}
+                    onChange={(e) => {
+                      const newWord = e.target.value.toUpperCase();
+                      const newSettings = { ...wordSettings, targetWord: newWord };
+                      assignLettersToGroups(newSettings, newWord, wordSettings.numGroups);
+                      setWordSettings(newSettings);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter the target word..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Groups
+                  </label>
+                  <input
+                    type="number"
+                    value={wordSettings.numGroups}
+                    onChange={(e) => {
+                      const numGroups = parseInt(e.target.value) || 1;
+                      const newSettings = { ...wordSettings, numGroups };
+                      assignLettersToGroups(newSettings, wordSettings.targetWord, numGroups);
+                      setWordSettings(newSettings);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                    max="50"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-bold text-blue-800 mb-2">Letter Assignments</h3>
+                  <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                    {Object.entries(wordSettings.groupLetters).map(([group, letter]) => (
+                      <div key={group} className="bg-white border border-blue-300 rounded p-2 text-center">
+                        <div className="text-xs text-gray-600">Group {group}</div>
+                        <div className="text-lg font-bold text-blue-600">{letter}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Tab */}
+        {activeTab === 'progress' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Student Progress</h2>
+              {studentProgress.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No student data recorded yet.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Student
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Group
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Progress
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Completion Time
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {studentProgress.map((student, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {student.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.group}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.progress}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.completionTime || 'In Progress'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add Element Modal */}
+      {showAddElementModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Add Room Element</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Element Name
+                </label>
+                <input
+                  type="text"
+                  value={newElementData.name}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Microscope, Incubator..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Element Type
+                </label>
+                <select
+                  value={newElementData.type}
+                  onChange={(e) => setNewElementData(prev => ({ 
+                    ...prev, 
+                    type: e.target.value,
+                    defaultIcon: defaultIcons[e.target.value] || '📦'
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(elementTypes).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Wall Location
+                </label>
+                <select
+                  value={newElementData.wall}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, wall: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {wallOptions.map(wall => (
+                    <option key={wall} value={wall}>{wall.charAt(0).toUpperCase() + wall.slice(1)} Wall</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Interaction Type
+                </label>
+                <select
+                  value={newElementData.interactionType}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, interactionType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(interactionTypes).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isRequired"
+                  checked={newElementData.isRequired}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, isRequired: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-700">
+                  Required for completion
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Icon
+                </label>
+                <input
+                  type="text"
+                  value={newElementData.defaultIcon}
+                  onChange={(e) => setNewElementData(prev => ({ ...prev, defaultIcon: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter an emoji..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddElementModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addRoomElement}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Add Element
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+    </div>
+  );
+};
+
+export default InstructorInterface;
+
+                                            {/* Question Type Selection */}
+                                            <div>
+                                              <label className="text-xs text-gray-600">Question Type:</label>
+                                              <select
+                                                value={question?.type || 'multiple_choice'}
+                                                onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                  ...question,
+                                                  type: e.target.value
+                                                })}
+                                                className="w-full px-2 py-1 border rounded text-sm"
+                                              >
+                                                <option value="multiple_choice">Multiple Choice</option>
+                                                <option value="text">Fill in the Blank</option>
+                                              </select>
+                                            </div>
 
                                             {question?.type === 'multiple_choice' && (
-                                              <div className="space-y-2">
-                                                <label className="text-xs text-gray-600">Options:</label>
-                                                {question.options?.map((option, idx) => (
+                                              <>
+                                                <div>
+                                                  <label className="text-xs text-gray-600">Number of Options:</label>
                                                   <input
-                                                    key={idx}
-                                                    value={option}
+                                                    type="number"
+                                                    value={question?.numOptions || 4}
                                                     onChange={(e) => {
-                                                      const newOptions = [...question.options];
-                                                      newOptions[idx] = e.target.value;
+                                                      const numOptions = parseInt(e.target.value) || 4;
+                                                      const currentOptions = question.options || [];
+                                                      const newOptions = [...currentOptions];
+                                                      
+                                                      // Adjust array size
+                                                      while (newOptions.length < numOptions) {
+                                                        newOptions.push(`Option ${String.fromCharCode(65 + newOptions.length)}`);
+                                                      }
+                                                      while (newOptions.length > numOptions) {
+                                                        newOptions.pop();
+                                                      }
+                                                      
                                                       updateElementQuestion(elementId, groupNum, {
                                                         ...question,
+                                                        numOptions,
                                                         options: newOptions
                                                       });
                                                     }}
                                                     className="w-full px-2 py-1 border rounded text-sm"
-                                                    placeholder={`Option ${idx + 1}`}
+                                                    min="2"
+                                                    max="8"
                                                   />
-                                                ))}
-                                              </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                  <label className="text-xs text-gray-600">Options:</label>
+                                                  {(question.options || []).slice(0, question.numOptions || 4).map((option, idx) => (
+                                                    <input
+                                                      key={idx}
+                                                      value={option}
+                                                      onChange={(e) => {
+                                                        const newOptions = [...(question.options || [])];
+                                                        newOptions[idx] = e.target.value;
+                                                        updateElementQuestion(elementId, groupNum, {
+                                                          ...question,
+                                                          options: newOptions
+                                                        });
+                                                      }}
+                                                      className="w-full px-2 py-1 border rounded text-sm"
+                                                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                                    />
+                                                  ))}
+                                                </div>
+
+                                                <div>
+                                                  <label className="text-xs text-gray-600">Correct Answer:</label>
+                                                  <select
+                                                    value={question?.correctAnswer || 0}
+                                                    onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                      ...question,
+                                                      correctAnswer: parseInt(e.target.value)
+                                                    })}
+                                                    className="w-full px-2 py-1 border rounded text-sm"
+                                                  >
+                                                    {(question.options || []).slice(0, question.numOptions || 4).map((option, idx) => (
+                                                      <option key={idx} value={idx}>
+                                                        {String.fromCharCode(65 + idx)}: {option}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                </div>
+                                              </>
                                             )}
 
-                                            <input
-                                              value={question?.answer || ''}
-                                              onChange={(e) => updateElementQuestion(elementId, groupNum, {
-                                                ...question,
-                                                answer: e.target.value
-                                              })}
-                                              className="w-full px-2 py-1 border rounded text-sm"
-                                              placeholder="Correct answer..."
-                                            />
+                                            {question?.type === 'text' && (
+                                              <div>
+                                                <label className="text-xs text-gray-600">Correct Answer:</label>
+                                                <input
+                                                  value={question?.correctText || ''}
+                                                  onChange={(e) => updateElementQuestion(elementId, groupNum, {
+                                                    ...question,
+                                                    correctText: e.target.value
+                                                  })}
+                                                  className="w-full px-2 py-1 border rounded text-sm"
+                                                  placeholder="Enter the correct answer..."
+                                                />
+                                              </div>
+                                            )}
 
                                             <input
                                               value={question?.hint || ''}
