@@ -40,13 +40,6 @@ export default function Header() {
               >
                 {labCompleted ? '✅ Laboratory' : '🔬 Laboratory'}
               </Link>
-              
-              <Link
-                to="/word-scramble"
-                className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-all"
-              >
-                🧩 Word Scramble
-              </Link>
             </div>
           )}
           
