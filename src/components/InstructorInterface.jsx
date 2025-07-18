@@ -28,6 +28,17 @@ export default function InstructorInterface() {
   const [studentProgress, setStudentProgress] = useState([]);
   const [studentData, setStudentData] = useState([]);
   
+  // Feedback settings
+  const [feedbackSettings, setFeedbackSettings] = useState({
+    questionFeedback: {},
+    generalFeedback: {
+      excellent: 'Outstanding work! You demonstrate excellent understanding of microbiology concepts.',
+      good: 'Good job! You show solid understanding with room for minor improvements.',
+      needs_improvement: 'Consider reviewing the material and practicing more questions.',
+      poor: 'Please review the fundamental concepts and seek additional help if needed.'
+    }
+  });
+  
   // Game settings
   const [gameSettings, setGameSettings] = useState({
     completionMode: 'all',
@@ -138,6 +149,12 @@ export default function InstructorInterface() {
         setFinalQuestionSettings(JSON.parse(savedFinalQuestions));
       }
       
+      // Load feedback settings
+      const savedFeedbackSettings = localStorage.getItem('instructor-feedback-settings');
+      if (savedFeedbackSettings) {
+        setFeedbackSettings(JSON.parse(savedFeedbackSettings));
+      }
+      
       // Load student progress
       const savedStudentData = localStorage.getItem('instructor-student-data');
       if (savedStudentData) {
@@ -165,6 +182,7 @@ export default function InstructorInterface() {
           lastActivity: record.timestamp,
           questionsAnswered: 0,
           questionsCorrect: 0,
+          incorrectAnswers: [],
           rooms: new Set(),
           completed: false
         });
@@ -175,6 +193,15 @@ export default function InstructorInterface() {
       summary.questionsAnswered++;
       if (record.isCorrect) {
         summary.questionsCorrect++;
+      } else {
+        // Track incorrect answers with details
+        summary.incorrectAnswers.push({
+          questionId: record.questionId,
+          roomId: record.roomId,
+          studentAnswer: record.answer,
+          timestamp: record.timestamp,
+          attemptNumber: record.attemptNumber
+        });
       }
       summary.rooms.add(record.roomId);
       
@@ -542,6 +569,50 @@ export default function InstructorInterface() {
     localStorage.setItem('instructor-game-settings', JSON.stringify(newGameSettings));
   };
 
+  const updateFeedbackSettings = (updates) => {
+    const newFeedbackSettings = { ...feedbackSettings, ...updates };
+    setFeedbackSettings(newFeedbackSettings);
+    localStorage.setItem('instructor-feedback-settings', JSON.stringify(newFeedbackSettings));
+  };
+
+  const updateQuestionFeedback = (questionId, feedbackData) => {
+    const newFeedbackSettings = {
+      ...feedbackSettings,
+      questionFeedback: {
+        ...feedbackSettings.questionFeedback,
+        [questionId]: feedbackData
+      }
+    };
+    setFeedbackSettings(newFeedbackSettings);
+    localStorage.setItem('instructor-feedback-settings', JSON.stringify(newFeedbackSettings));
+  };
+
+  const generateStudentFeedback = (student) => {
+    const feedback = [];
+    const accuracyRate = student.accuracyRate;
+    
+    // Add general feedback based on performance
+    if (accuracyRate >= 90) {
+      feedback.push(feedbackSettings.generalFeedback.excellent);
+    } else if (accuracyRate >= 75) {
+      feedback.push(feedbackSettings.generalFeedback.good);
+    } else if (accuracyRate >= 60) {
+      feedback.push(feedbackSettings.generalFeedback.needs_improvement);
+    } else {
+      feedback.push(feedbackSettings.generalFeedback.poor);
+    }
+    
+    // Add specific feedback for incorrect answers
+    student.incorrectAnswers.forEach(incorrectAnswer => {
+      const questionFeedback = feedbackSettings.questionFeedback[incorrectAnswer.questionId];
+      if (questionFeedback) {
+        feedback.push(`${questionFeedback.topic}: ${questionFeedback.feedback}`);
+      }
+    });
+    
+    return feedback;
+  };
+
   const exportStudentData = () => {
     try {
       const exportData = {
@@ -574,7 +645,7 @@ export default function InstructorInterface() {
       const headers = [
         'Session ID', 'Name', 'Semester', 'Year', 'Group Number',
         'Start Time', 'Last Activity', 'Questions Answered', 'Questions Correct',
-        'Accuracy Rate', 'Rooms Visited', 'Completed'
+        'Accuracy Rate', 'Incorrect Answers', 'Rooms Visited', 'Completed'
       ];
       
       const rows = studentProgress.map(student => [
@@ -588,6 +659,7 @@ export default function InstructorInterface() {
         student.questionsAnswered,
         student.questionsCorrect,
         `${student.accuracyRate}%`,
+        student.incorrectAnswers.map(ia => `${ia.questionId}: "${ia.studentAnswer}"`).join('; '),
         student.rooms.join('; '),
         student.completed ? 'Yes' : 'No'
       ]);
@@ -641,6 +713,7 @@ export default function InstructorInterface() {
       localStorage.setItem('instructor-game-settings', JSON.stringify(gameSettings));
       localStorage.setItem('instructor-ppe-questions', JSON.stringify(ppeSettings));
       localStorage.setItem('instructor-final-questions', JSON.stringify(finalQuestionSettings));
+      localStorage.setItem('instructor-feedback-settings', JSON.stringify(feedbackSettings));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('All settings saved successfully!');
@@ -709,9 +782,6 @@ export default function InstructorInterface() {
               Login
             </button>
           </form>
-          <p className="text-center text-sm text-gray-600 mt-4">
-            Password: microbiology2024
-          </p>
         </div>
       </div>
     );
@@ -745,7 +815,7 @@ export default function InstructorInterface() {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex space-x-8">
-            {['dashboard', 'room-setup', 'group-questions', 'word-scramble', 'progress'].map(tab => (
+            {['dashboard', 'room-setup', 'group-questions', 'feedback', 'word-scramble', 'progress'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -758,6 +828,7 @@ export default function InstructorInterface() {
                 {tab === 'dashboard' && '📊 Dashboard'}
                 {tab === 'room-setup' && '🏗️ Room Setup'}
                 {tab === 'group-questions' && '❓ Group Questions'}
+                {tab === 'feedback' && '💬 Feedback System'}
                 {tab === 'word-scramble' && '🧩 Word Scramble'}
                 {tab === 'progress' && '📈 Student Progress'}
               </button>
@@ -1395,6 +1466,215 @@ export default function InstructorInterface() {
           </div>
         )}
 
+        {/* Feedback Tab */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-6">
+            {/* General Feedback Settings */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">General Performance Feedback</h2>
+              <p className="text-gray-600 mb-4">
+                Configure feedback messages based on student performance levels. These will be included in their final feedback report.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Excellent (90-100% accuracy)
+                  </label>
+                  <textarea
+                    value={feedbackSettings.generalFeedback.excellent}
+                    onChange={(e) => updateFeedbackSettings({
+                      generalFeedback: {
+                        ...feedbackSettings.generalFeedback,
+                        excellent: e.target.value
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    rows="3"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Good (75-89% accuracy)
+                  </label>
+                  <textarea
+                    value={feedbackSettings.generalFeedback.good}
+                    onChange={(e) => updateFeedbackSettings({
+                      generalFeedback: {
+                        ...feedbackSettings.generalFeedback,
+                        good: e.target.value
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Needs Improvement (60-74% accuracy)
+                  </label>
+                  <textarea
+                    value={feedbackSettings.generalFeedback.needs_improvement}
+                    onChange={(e) => updateFeedbackSettings({
+                      generalFeedback: {
+                        ...feedbackSettings.generalFeedback,
+                        needs_improvement: e.target.value
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    rows="3"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Poor (Below 60% accuracy)
+                  </label>
+                  <textarea
+                    value={feedbackSettings.generalFeedback.poor}
+                    onChange={(e) => updateFeedbackSettings({
+                      generalFeedback: {
+                        ...feedbackSettings.generalFeedback,
+                        poor: e.target.value
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    rows="3"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Question-Specific Feedback */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Question-Specific Feedback</h2>
+              <p className="text-gray-600 mb-4">
+                Configure specific feedback for different types of questions. When students get these questions wrong, 
+                they'll receive targeted advice on what to study.
+              </p>
+              
+              <div className="space-y-4">
+                {/* Common Question Types */}
+                {[
+                  { id: 'ppe_safety', topic: 'PPE Safety', description: 'Personal protective equipment questions' },
+                  { id: 'microscopy', topic: 'Microscopy', description: 'Microscope use and observation questions' },
+                  { id: 'bacterial_morphology', topic: 'Bacterial Morphology', description: 'Bacterial shapes and arrangements' },
+                  { id: 'culture_techniques', topic: 'Culture Techniques', description: 'Growing and maintaining bacterial cultures' },
+                  { id: 'sterilization', topic: 'Sterilization', description: 'Autoclave and sterilization methods' },
+                  { id: 'diagnosis', topic: 'Diagnosis', description: 'Patient diagnosis and pathogen identification' }
+                ].map(questionType => (
+                  <div key={questionType.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-bold text-gray-800">{questionType.topic}</h3>
+                        <p className="text-sm text-gray-600">{questionType.description}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Feedback for incorrect answers:
+                      </label>
+                      <textarea
+                        value={feedbackSettings.questionFeedback[questionType.id]?.feedback || ''}
+                        onChange={(e) => updateQuestionFeedback(questionType.id, {
+                          topic: questionType.topic,
+                          feedback: e.target.value
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                        placeholder={`Enter feedback for ${questionType.topic.toLowerCase()} questions...`}
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Custom Question Feedback */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-blue-50">
+                  <h3 className="font-bold text-blue-800 mb-2">Custom Question Feedback</h3>
+                  <p className="text-sm text-blue-700 mb-3">
+                    You can also add feedback for specific questions by their ID. Question IDs are shown in the student progress data.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <div className="flex space-x-3">
+                      <input
+                        type="text"
+                        placeholder="Question ID (e.g., element_123_g1)"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id="custom-question-id"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Topic (e.g., Centrifuge Operation)"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id="custom-question-topic"
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Feedback for this specific question..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows="2"
+                      id="custom-question-feedback"
+                    />
+                    <button
+                      onClick={() => {
+                        const questionId = document.getElementById('custom-question-id').value;
+                        const topic = document.getElementById('custom-question-topic').value;
+                        const feedback = document.getElementById('custom-question-feedback').value;
+                        
+                        if (questionId && topic && feedback) {
+                          updateQuestionFeedback(questionId, { topic, feedback });
+                          document.getElementById('custom-question-id').value = '';
+                          document.getElementById('custom-question-topic').value = '';
+                          document.getElementById('custom-question-feedback').value = '';
+                        } else {
+                          alert('Please fill in all fields');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+                    >
+                      Add Custom Feedback
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing Custom Feedback */}
+            {Object.keys(feedbackSettings.questionFeedback).length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Configured Question Feedback</h2>
+                <div className="space-y-3">
+                  {Object.entries(feedbackSettings.questionFeedback).map(([questionId, feedback]) => (
+                    <div key={questionId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-bold text-gray-800">{feedback.topic}</h3>
+                        <p className="text-sm text-gray-600">ID: {questionId}</p>
+                        <p className="text-sm text-gray-700 mt-1">{feedback.feedback}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newFeedback = { ...feedbackSettings.questionFeedback };
+                          delete newFeedback[questionId];
+                          updateFeedbackSettings({
+                            questionFeedback: newFeedback
+                          });
+                        }}
+                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Word Scramble Tab */}
         {activeTab === 'word-scramble' && (
           <div className="space-y-6">
@@ -1460,14 +1740,8 @@ export default function InstructorInterface() {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Student Progress</h2>
+                <h2 className="text-xl font-bold text-gray-800">Student Progress & Feedback</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={exportStudentData}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-                  >
-                    📁 Export JSON
-                  </button>
                   <button
                     onClick={exportStudentDataCSV}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
@@ -1493,729 +1767,6 @@ export default function InstructorInterface() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Group
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Questions
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Accuracy
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rooms
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Last Activity
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {studentProgress.map((student, index) => (
-                        <tr key={index} className={student.completed ? 'bg-green-50' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                            <div className="text-sm text-gray-500">{student.semester} {student.year}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {student.groupNumber}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {student.questionsCorrect}/{student.questionsAnswered}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {student.accuracyRate}%
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {student.rooms.join(', ')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              student.completed 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {student.completed ? 'Complete' : 'In Progress'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(student.lastActivity).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Statistics Summary */}
-            {studentProgress.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Statistics Summary</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="font-bold text-blue-800">Total Students</h4>
-                    <p className="text-2xl font-bold text-blue-600">{studentProgress.length}</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h4 className="font-bold text-green-800">Completed</h4>
-                    <p className="text-2xl font-bold text-green-600">
-                      {studentProgress.filter(s => s.completed).length}
-                    </p>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-4">
-                    <h4 className="font-bold text-yellow-800">In Progress</h4>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {studentProgress.filter(s => !s.completed).length}
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h4 className="font-bold text-purple-800">Completion Rate</h4>
-                    <p className="text-2xl font-bold text-purple-600">
-                      {Math.round((studentProgress.filter(s => s.completed).length / studentProgress.length) * 100)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Element Configuration Modal */}
-      {showElementModal && editingElement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Configure Element</h2>
-                <button
-                  onClick={() => {
-                    setShowElementModal(false);
-                    setEditingElement(null);
-                    setSelectedElementId(null);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 text-3xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Element Name
-                    </label>
-                    <input
-                      type="text"
-                      value={editingElement.name}
-                      onChange={(e) => {
-                        const updated = { ...editingElement, name: e.target.value };
-                        setEditingElement(updated);
-                        updateElement(selectedElementId, updated);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Element Type
-                    </label>
-                    <select
-                      value={editingElement.type}
-                      onChange={(e) => {
-                        const updated = { 
-                          ...editingElement, 
-                          type: e.target.value,
-                          defaultIcon: defaultIcons[e.target.value] || '📦'
-                        };
-                        setEditingElement(updated);
-                        updateElement(selectedElementId, updated);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {Object.entries(elementTypes).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Interaction Type
-                    </label>
-                    <select
-                      value={editingElement.interactionType}
-                      onChange={(e) => {
-                        const updated = { ...editingElement, interactionType: e.target.value };
-                        setEditingElement(updated);
-                        updateElement(selectedElementId, updated);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {Object.entries(interactionTypes).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Default Icon
-                    </label>
-                    <input
-                      type="text"
-                      value={editingElement.defaultIcon}
-                      onChange={(e) => {
-                        const updated = { ...editingElement, defaultIcon: e.target.value };
-                        setEditingElement(updated);
-                        updateElement(selectedElementId, updated);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter an emoji..."
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isRequired"
-                    checked={editingElement.isRequired}
-                    onChange={(e) => {
-                      const updated = { ...editingElement, isRequired: e.target.checked };
-                      setEditingElement(updated);
-                      updateElement(selectedElementId, updated);
-                    }}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-700">
-                    Required for completion
-                  </label>
-                </div>
-
-                {/* Content Configuration */}
-                {['info', 'question'].includes(editingElement.interactionType) && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Information Text
-                      </label>
-                      <textarea
-                        value={editingElement.content?.info || ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...editingElement,
-                            content: { ...editingElement.content, info: e.target.value }
-                          };
-                          setEditingElement(updated);
-                          updateElement(selectedElementId, updated);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows="3"
-                        placeholder="Information revealed when element is clicked or question is solved..."
-                      />
-                    </div>
-
-                    {/* Information Image Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Information Image (Optional)
-                      </label>
-                      {editingElement.content?.infoImage ? (
-                        <div className="space-y-2">
-                          <img
-                            src={editingElement.content.infoImage.data}
-                            alt="Information"
-                            className="w-32 h-32 object-cover rounded border"
-                          />
-                          <button
-                            onClick={() => {
-                              const updated = {
-                                ...editingElement,
-                                content: { ...editingElement.content, infoImage: null }
-                              };
-                              setEditingElement(updated);
-                              updateElement(selectedElementId, updated);
-                            }}
-                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                          >
-                            Remove Image
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                          Upload Image
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                if (file.size > 5 * 1024 * 1024) {
-                                  alert('File size must be less than 5MB');
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  const updated = {
-                                    ...editingElement,
-                                    content: { 
-                                      ...editingElement.content, 
-                                      infoImage: {
-                                        data: event.target.result,
-                                        name: file.name,
-                                        size: file.size,
-                                        lastModified: new Date().toISOString()
-                                      }
-                                    }
-                                  };
-                                  setEditingElement(updated);
-                                  updateElement(selectedElementId, updated);
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                      <p className="text-sm text-gray-500 mt-1">
-                        Optional image shown alongside the information text
-                      </p>
-                    </div>
-
-                    {editingElement.interactionType === 'question' && (
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Question Configuration
-                          </label>
-                          <div className="flex items-center space-x-2">
-                            <label className="text-sm text-gray-600">Group:</label>
-                            <select
-                              value={selectedGroup}
-                              onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                              className="px-2 py-1 border border-gray-300 rounded"
-                            >
-                              {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
-                                <option key={num} value={num}>Group {num}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="border rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-medium text-gray-700 mb-3">Group {selectedGroup} Question</h4>
-                          
-                          <div className="space-y-4">
-                            {/* Question Text */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question
-                              </label>
-                              <textarea
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    id: `${selectedElementId}_g${selectedGroup}`,
-                                    question: e.target.value,
-                                    type: currentQuestion.type || 'multiple_choice',
-                                    numOptions: currentQuestion.numOptions || 4,
-                                    options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-                                    correctAnswer: currentQuestion.correctAnswer || 0,
-                                    correctText: currentQuestion.correctText || '',
-                                    hint: currentQuestion.hint || '',
-                                    clue: currentQuestion.clue || '',
-                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
-                                    info: currentQuestion.info || '',
-                                    infoImage: currentQuestion.infoImage || null
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Enter question for this group..."
-                              />
-                            </div>
-                            
-                            {/* Question Type */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question Type
-                              </label>
-                              <select
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    id: `${selectedElementId}_g${selectedGroup}`,
-                                    type: e.target.value,
-                                    question: currentQuestion.question || '',
-                                    numOptions: e.target.value === 'multiple_choice' ? (currentQuestion.numOptions || 4) : 0,
-                                    options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
-                                    correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
-                                    correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : '',
-                                    hint: currentQuestion.hint || '',
-                                    clue: currentQuestion.clue || '',
-                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
-                                    info: currentQuestion.info || '',
-                                    infoImage: currentQuestion.infoImage || null
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="multiple_choice">Multiple Choice</option>
-                                <option value="text">Fill in the Blank</option>
-                              </select>
-                            </div>
-
-                            {/* Multiple Choice Options */}
-                            {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
-                              <div className="space-y-3">
-                                {/* Number of Options */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Number of Options
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="2"
-                                    max="8"
-                                    value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.numOptions || 4}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const numOptions = parseInt(e.target.value) || 4;
-                                      const currentOptions = currentQuestion.options || [];
-                                      const newOptions = [...currentOptions];
-                                      
-                                      // Adjust array size
-                                      while (newOptions.length < numOptions) {
-                                        newOptions.push(`Option ${String.fromCharCode(65 + newOptions.length)}`);
-                                      }
-                                      while (newOptions.length > numOptions) {
-                                        newOptions.pop();
-                                      }
-                                      
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        numOptions,
-                                        options: newOptions,
-                                        correctAnswer: Math.min(currentQuestion.correctAnswer || 0, numOptions - 1)
-                                      };
-                                      
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-
-                                {/* Answer Options */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Answer Options
-                                  </label>
-                                  <div className="space-y-2">
-                                    {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                                      <div key={idx} className="flex items-center space-x-2">
-                                        <span className="text-sm font-medium text-gray-600 w-8">
-                                          {String.fromCharCode(65 + idx)}:
-                                        </span>
-                                        <input
-                                          type="text"
-                                          value={option}
-                                          onChange={(e) => {
-                                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                            const newOptions = [...(currentQuestion.options || [])];
-                                            newOptions[idx] = e.target.value;
-                                            const updatedQuestion = {
-                                              ...currentQuestion,
-                                              options: newOptions
-                                            };
-                                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                            setEditingElement(prev => ({
-                                              ...prev,
-                                              content: {
-                                                ...prev.content,
-                                                question: {
-                                                  ...prev.content.question,
-                                                  groups: {
-                                                    ...prev.content.question?.groups,
-                                                    [selectedGroup]: [updatedQuestion]
-                                                  }
-                                                }
-                                              }
-                                            }));
-                                          }}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Correct Answer */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Correct Answer
-                                  </label>
-                                  <select
-                                    value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        correctAnswer: parseInt(e.target.value)
-                                      };
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                                      <option key={idx} value={idx}>
-                                        {String.fromCharCode(65 + idx)}: {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                {/* Randomize Answers */}
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`randomize-${selectedGroup}`}
-                                    checked={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        randomizeAnswers: e.target.checked
-                                      };
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="rounded"
-                                  />
-                                  <label htmlFor={`randomize-${selectedGroup}`} className="text-sm text-gray-700">
-                                    Randomize answer order for each student
-                                  </label>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Text Answer */}
-                            {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Correct Answer
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
-                                  onChange={(e) => {
-                                    const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                    const updatedQuestion = {
-                                      ...currentQuestion,
-                                      correctText: e.target.value
-                                    };
-                                    updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                    setEditingElement(prev => ({
-                                      ...prev,
-                                      content: {
-                                        ...prev.content,
-                                        question: {
-                                          ...prev.content.question,
-                                          groups: {
-                                            ...prev.content.question?.groups,
-                                            [selectedGroup]: [updatedQuestion]
-                                          }
-                                        }
-                                      }
-                                    }));
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Enter the correct answer..."
-                                />
-                              </div>
-                            )}
-
-                            {/* Hint */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Hint (Optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    hint: e.target.value
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Optional hint for students..."
-                              />
-                            </div>
-
-                            {/* Clue/Info */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Revealed When Correct
-                              </label>
-                              <textarea
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    info: e.target.value,
-                                    clue: e.target.value // Keep clue in sync with info
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Information revealed when the student answers correctly..."
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex justify-between pt-4">
-                  <button
-                    onClick={() => deleteElement(selectedElementId)}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-                  >
-                    Delete Element
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowElementModal(false);
-                      setEditingElement(null);
-                      setSelectedElementId(null);
-                    }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}-500 uppercase tracking-wider">
                           Student
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -2231,6 +1782,12 @@ export default function InstructorInterface() {
                           Rooms
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Incorrect Answers
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Generated Feedback
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -2256,6 +1813,39 @@ export default function InstructorInterface() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {student.rooms.join(', ')}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                            {student.incorrectAnswers.length > 0 ? (
+                              <div className="space-y-1">
+                                {student.incorrectAnswers.slice(0, 3).map((incorrect, idx) => (
+                                  <div key={idx} className="text-xs">
+                                    <span className="font-medium text-red-600">{incorrect.questionId}:</span>
+                                    <span className="text-red-500 ml-1">"{incorrect.studentAnswer}"</span>
+                                  </div>
+                                ))}
+                                {student.incorrectAnswers.length > 3 && (
+                                  <div className="text-xs text-gray-400">
+                                    +{student.incorrectAnswers.length - 3} more
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-green-600">None</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                            <div className="space-y-1">
+                              {generateStudentFeedback(student).slice(0, 2).map((feedback, idx) => (
+                                <div key={idx} className="text-xs p-1 bg-blue-50 rounded">
+                                  {feedback}
+                                </div>
+                              ))}
+                              {generateStudentFeedback(student).length > 2 && (
+                                <div className="text-xs text-gray-400">
+                                  +{generateStudentFeedback(student).length - 2} more suggestions
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
