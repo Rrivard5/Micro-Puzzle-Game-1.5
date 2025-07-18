@@ -203,6 +203,13 @@ export default function PPERoom() {
   const handleLockClick = () => {
     if (!lockerOpen) {
       setShowQuestion(true)
+      // Scroll to question after a short delay
+      setTimeout(() => {
+        const questionElement = document.getElementById('safety-question')
+        if (questionElement) {
+          questionElement.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 100)
     }
   }
 
@@ -294,7 +301,7 @@ export default function PPERoom() {
                   
                   {/* Locker Number Plate */}
                   <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-b from-white to-gray-100 rounded px-4 py-2 shadow-lg border border-gray-300">
-                    <span className="font-bold text-gray-800 text-lg">#{studentInfo?.groupNumber || '1'}</span>
+                    <span className="font-bold text-gray-800 text-lg">Lab Locker</span>
                   </div>
                   
                   {/* Ventilation slots */}
@@ -386,7 +393,7 @@ export default function PPERoom() {
 
         {/* Safety Question Panel */}
         {showQuestion && !lockerOpen && currentQuestion && (
-          <div className="mt-8 bg-white rounded-xl shadow-xl p-6">
+          <div id="safety-question" className="mt-8 bg-white rounded-xl shadow-xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">🔒 Locker Security Question</h3>
               <button
