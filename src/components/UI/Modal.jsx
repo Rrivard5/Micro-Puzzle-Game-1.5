@@ -22,12 +22,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const loadContent = async () => {
     setIsLoading(true)
     setShowInfoOnly(false)
+    setUserAnswer('')
+    setFeedback(null)
+    setAttempts(0)
+    setShowHint(false)
     
     // Load room element content
     const element = await getRoomElement(elementId)
     setElementContent(element)
     
-    if (element && ['question', 'question_element'].includes(element.interactionType)) {
+    if (element && element.interactionType === 'question') {
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
     } else if (element && element.interactionType === 'info') {
@@ -72,15 +76,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       clue: 'Observation recorded successfully.',
       info: 'Analysis completed successfully!'
     }
-  }
-
-  const shuffleArray = (array) => {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
   }
 
   const getDisplayOptions = (question) => {
@@ -202,7 +197,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           </div>
           <p className="text-blue-100 mt-2">
             {studentGroup ? `Group ${studentGroup} - ` : ''}
-            Element Interaction
+            Equipment Analysis
           </p>
         </div>
 
@@ -211,41 +206,30 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading content...</p>
+              <p className="text-gray-600">Loading analysis interface...</p>
             </div>
           ) : (
             <div className="space-y-6">
               
-              {/* Element Image */}
-              {elementContent?.image && (
-                <div className="text-center">
-                  <img 
-                    src={elementContent.image.processed || elementContent.image.original} 
-                    alt={elementContent.name}
-                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                  />
-                </div>
-              )}
-
               {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-bold text-blue-800 mb-2">
-                  🔍 Element Examination
+                  🔍 Equipment Analysis
                 </h3>
                 <p className="text-blue-700">
-                  You examine the {elementContent?.name || 'element'} and notice interesting details that might be relevant to your investigation.
+                  You are examining the {elementContent?.name || 'equipment'} to gather diagnostic information about the patient sample.
                 </p>
               </div>
 
               {/* Info-only elements */}
               {showInfoOnly && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                  <h3 className="font-bold text-green-800 mb-4">📋 Information Discovered</h3>
+                  <h3 className="font-bold text-green-800 mb-4">📋 Analysis Results</h3>
                   
                   {/* Text Information */}
                   <div className="mb-4">
                     <p className="text-green-700 mb-4">
-                      {elementContent?.content?.info || 'You have discovered important information about this element!'}
+                      {elementContent?.content?.info || 'You have discovered important diagnostic information!'}
                     </p>
                   </div>
 
@@ -254,7 +238,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                     <div className="mb-4">
                       <img
                         src={elementContent.content.infoImage.data}
-                        alt={`${elementContent.name} information`}
+                        alt={`${elementContent.name} analysis`}
                         className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                       />
                     </div>
@@ -264,7 +248,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                     onClick={handleInfoOnly}
                     className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
                   >
-                    ✅ Record Information
+                    ✅ Record Analysis Data
                   </button>
                 </div>
               )}
@@ -323,7 +307,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                         }`}
                       >
-                        {feedback?.type === 'success' ? '✅ Completed' : '✅ Submit Answer'}
+                        {feedback?.type === 'success' ? '✅ Analysis Complete' : '📝 Submit Answer'}
                       </button>
                       
                       {!showHint && attempts > 0 && feedback?.type !== 'success' && (
@@ -341,12 +325,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                   {/* Success Information Display */}
                   {feedback?.type === 'success' && (
                     <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-bold text-green-800 mb-3">📋 Analysis Results</h4>
+                      <h4 className="font-bold text-green-800 mb-3">📊 Diagnostic Results</h4>
                       
                       {/* Text Information */}
                       <div className="mb-4">
                         <p className="text-green-700">
-                          {currentQuestion.info || currentQuestion.clue || 'Analysis completed successfully!'}
+                          {currentQuestion.info || currentQuestion.clue || 'Diagnostic analysis completed successfully!'}
                         </p>
                       </div>
 
@@ -355,11 +339,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                         <div className="mb-4">
                           <img
                             src={currentQuestion.infoImage.data}
-                            alt={`${elementId} analysis results`}
+                            alt={`${elementId} diagnostic results`}
                             className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                           />
                         </div>
                       )}
+                      
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto mb-2"></div>
+                        <p className="text-green-600 text-sm">Recording analysis data...</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -368,7 +357,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
               {/* Hint Display */}
               {showHint && currentQuestion?.hint && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-bold text-yellow-800 mb-2">💡 Hint</h4>
+                  <h4 className="font-bold text-yellow-800 mb-2">💡 Analysis Hint</h4>
                   <p className="text-yellow-700">{currentQuestion.hint}</p>
                 </div>
               )}
@@ -385,7 +374,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                   <p className="font-medium">{feedback.message}</p>
                   {feedback.type === 'success' && (
                     <p className="text-sm mt-2 text-green-600">
-                      Information has been added to your research findings.
+                      Diagnostic data has been added to your investigation findings.
                     </p>
                   )}
                 </div>
@@ -394,7 +383,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
               {/* Attempt Counter */}
               {attempts > 0 && (
                 <div className="text-center text-sm text-gray-500">
-                  Attempts: {attempts}
+                  Analysis attempts: {attempts}
                 </div>
               )}
             </div>
