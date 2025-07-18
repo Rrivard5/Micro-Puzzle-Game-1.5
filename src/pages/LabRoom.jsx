@@ -12,41 +12,38 @@ export default function LabRoom() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [labLocked, setLabLocked] = useState(true)
   const [currentWall, setCurrentWall] = useState(0) // 0=North, 1=East, 2=South, 3=West
-  const [backgroundImages, setBackgroundImages] = useState({})
+  const [roomImages, setRoomImages] = useState({})
   const [roomElements, setRoomElements] = useState({})
-  const [expandedElements, setExpandedElements] = useState({})
   const [gameSettings, setGameSettings] = useState({
     completionMode: 'all',
     finalElementId: ''
   })
+  const [elementStates, setElementStates] = useState({})
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt, startRoomTimer, completeRoom } = useGame()
-
-  const [elementStates, setElementStates] = useState({})
 
   const wallNames = ['North Wall', 'East Wall', 'South Wall', 'West Wall']
   const wallKeys = ['north', 'east', 'south', 'west']
 
   useEffect(() => {
     startRoomTimer('lab')
-    loadBackgroundImages()
-    loadRoomElements()
+    loadRoomData()
     loadGameSettings()
   }, [studentInfo])
 
-  const loadBackgroundImages = () => {
-    const savedBgImages = localStorage.getItem('instructor-background-images')
-    if (savedBgImages) {
+  const loadRoomData = () => {
+    // Load room images
+    const savedImages = localStorage.getItem('instructor-room-images')
+    if (savedImages) {
       try {
-        setBackgroundImages(JSON.parse(savedBgImages))
+        setRoomImages(JSON.parse(savedImages))
       } catch (error) {
-        console.error('Error loading background images:', error)
+        console.error('Error loading room images:', error)
       }
     }
-  }
-
-  const loadRoomElements = () => {
+    
+    // Load room elements
     const savedElements = localStorage.getItem('instructor-room-elements')
     if (savedElements) {
       try {
@@ -91,24 +88,11 @@ export default function LabRoom() {
     }
   }
 
-  const getBackgroundImage = (wall) => {
-    return backgroundImages[wall]?.data || null
-  }
-
-  const handleElementClick = (elementId) => {
+  const handleElementClick = (elementId, event) => {
     const element = roomElements[elementId]
     if (!element) return
 
-    // Check if element has zoom interaction
-    if (element.interactionType === 'zoom') {
-      setExpandedElements(prev => ({
-        ...prev,
-        [elementId]: !prev[elementId]
-      }))
-      return
-    }
-
-    // Handle other interaction types
+    // Handle non-interactive elements
     if (element.interactionType === 'none') return
 
     setElementStates(prev => ({
@@ -142,14 +126,6 @@ export default function LabRoom() {
       [elementId]: { ...prev[elementId], solved: true, active: false }
     }))
 
-    // Handle element revelation
-    if (['element', 'question_element'].includes(element.interactionType) && element.revealedElementId) {
-      setRevealedElements(prev => ({
-        ...prev,
-        [element.revealedElementId]: true
-      }))
-    }
-
     setActiveModal(null)
     
     // Check if this was the final element
@@ -177,7 +153,7 @@ export default function LabRoom() {
     // Default: all required elements mode
     const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
       element.isRequired !== false && 
-      ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
+      ['info', 'question'].includes(element.interactionType)
     )
     
     const solvedRequiredCount = requiredElements.filter(([id]) => solvedElements[id]).length
@@ -207,7 +183,7 @@ export default function LabRoom() {
       // Default: all required elements mode
       const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
         element.isRequired !== false && 
-        ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
+        ['info', 'question'].includes(element.interactionType)
       )
       
       const unsolvedRequired = requiredElements.filter(([id]) => !solvedElements[id])
@@ -237,93 +213,68 @@ export default function LabRoom() {
   const renderRoomElement = (elementId, element) => {
     const state = elementStates[elementId] || { discovered: false, active: false, solved: false }
     const isRevealed = revealedElements[elementId]
-    const isExpanded = expandedElements[elementId]
     const isFinalElement = gameSettings.finalElementId === elementId
     
     if (!isRevealed) {
       return null
     }
 
-    const isInteractive = ['info', 'question', 'element', 'question_element', 'zoom'].includes(element.interactionType)
+    const isInteractive = ['info', 'question'].includes(element.interactionType)
     const isDecorative = element.interactionType === 'none'
+    
+    // Calculate position and size based on region
+    const region = element.region
+    const style = {
+      position: 'absolute',
+      left: `${(region.x / 800) * 100}%`,
+      top: `${(region.y / 600) * 100}%`,
+      width: `${(region.width / 800) * 100}%`,
+      height: `${(region.height / 600) * 100}%`,
+      zIndex: 10
+    }
     
     return (
       <div
         key={elementId}
-        className={`absolute transition-all duration-300 ${
-          isInteractive ? 'cursor-pointer hover:scale-105 group' : ''
-        } ${isExpanded ? 'z-50' : ''} ${
-          isFinalElement ? 'ring-4 ring-yellow-400 ring-opacity-50 rounded-lg' : ''
-        }`}
-        style={{
-          left: `${element.settings.x}%`,
-          top: `${element.settings.y}%`,
-          transform: `translate(-50%, -50%) ${isExpanded ? 'scale(2)' : 'scale(1)'}`,
-          zIndex: isExpanded ? 9999 : element.settings.zIndex
-        }}
-        onClick={() => isInteractive && handleElementClick(elementId)}
+        className={`transition-all duration-300 ${
+          isInteractive ? 'cursor-pointer group' : ''
+        } ${isFinalElement ? 'ring-4 ring-yellow-400 ring-opacity-50 rounded-lg' : ''}`}
+        style={style}
+        onClick={isInteractive ? (e) => handleElementClick(elementId, e) : undefined}
       >
-        {element.image ? (
-          <img
-            src={element.image.processed || element.image.original}
-            alt={element.name}
-            className="object-contain transition-all duration-300 filter drop-shadow-lg"
-            style={{
-              width: `${element.settings.size}px`,
-              height: `${element.settings.size}px`,
-              filter: 'drop-shadow(3px 6px 12px rgba(0,0,0,0.4))'
-            }}
-          />
-        ) : (
-          <div
-            className="rounded-lg flex items-center justify-center transition-all duration-300 bg-gray-100 border-2 border-gray-300"
-            style={{
-              width: `${element.settings.size}px`,
-              height: `${element.settings.size}px`
-            }}
-          >
-            <div className="text-gray-600 text-center">
-              <div className="text-2xl mb-1">
-                {element.defaultIcon || '📦'}
-              </div>
-              <div className="text-xs">{element.name}</div>
+        {/* Invisible clickable area - no visual indication */}
+        <div className="w-full h-full rounded-lg">
+          
+          {/* Final element indicator */}
+          {isFinalElement && (
+            <div className="absolute top-1 left-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-xs shadow-lg">
+              ⭐
             </div>
-          </div>
-        )}
-        
-        {/* Label for interactive elements */}
-        {isInteractive && (
-          <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 text-center">
-            <div className="bg-white bg-opacity-95 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-bold text-gray-700 whitespace-nowrap">
+          )}
+          
+          {/* Solved indicator */}
+          {state.solved && (
+            <div className="absolute top-1 right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold shadow-lg text-white">
+              ✓
+            </div>
+          )}
+          
+          {/* Element name tooltip - only shows on hover */}
+          {isInteractive && (
+            <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-20">
               {element.name}
-              {isFinalElement && <span className="text-yellow-600 ml-1">⭐</span>}
-              {element.isRequired && <span className="text-red-600 ml-1">*</span>}
+              {state.solved && <span className="ml-1 text-green-400">✓</span>}
+              {element.isRequired && <span className="ml-1 text-red-400">*</span>}
             </div>
-            {state.solved && <div className="text-xs text-green-600 mt-1">✓ Examined</div>}
-          </div>
-        )}
-        
-        {/* Only show tooltips for non-decorative elements */}
-        {isInteractive && !isDecorative && (
-          <div className="absolute left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs py-2 px-3 rounded-lg whitespace-nowrap z-30 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-               style={{ top: '-60px', maxWidth: '250px', whiteSpace: 'normal' }}>
-            {element.interactionType === 'zoom' 
-              ? (isExpanded ? "Click to return to normal size" : "Click to examine closely")
-              : state.solved 
-              ? "Analysis complete - data recorded" 
-              : state.active 
-              ? "Currently examining..." 
-              : `Click to examine ${element.name}`
-            }
-          </div>
-        )}
+          )}
+        </div>
       </div>
     )
   }
 
   const renderWallContent = () => {
     const wallKey = wallKeys[currentWall]
-    const backgroundImage = getBackgroundImage(wallKey)
+    const roomImage = roomImages[wallKey]
     
     // Get room elements for this wall
     const wallElements = Object.entries(roomElements).filter(([id, element]) => 
@@ -332,12 +283,12 @@ export default function LabRoom() {
     
     return (
       <div className="relative w-full h-[600px] overflow-hidden rounded-xl border-4 border-gray-600 shadow-2xl">
-        {/* Background Layer */}
+        {/* Background Image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: backgroundImage 
-              ? `url('${backgroundImage}')`
+            backgroundImage: roomImage 
+              ? `url('${roomImage.data}')`
               : `url('data:image/svg+xml,${encodeURIComponent(`
                 <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
                   <defs>
@@ -365,6 +316,9 @@ export default function LabRoom() {
                   <ellipse cx="250" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
                   <ellipse cx="400" cy="85" rx="70" ry="15" fill="#fef3c7" opacity="0.9"/>
                   <ellipse cx="550" cy="80" rx="60" ry="12" fill="#fef3c7" opacity="0.9"/>
+                  <text x="400" y="50" text-anchor="middle" fill="#9ca3af" font-size="24" font-family="Arial">
+                    ${wallNames[currentWall]}
+                  </text>
                 </svg>
               `)}')`,
             backgroundSize: 'cover',
@@ -372,7 +326,7 @@ export default function LabRoom() {
           }}
         />
 
-        {/* Room Elements Positioning */}
+        {/* Room Elements Overlay */}
         <div className="absolute inset-0">
           {wallElements.map(([elementId, element]) => {
             const isRevealed = revealedElements[elementId]
@@ -388,10 +342,10 @@ export default function LabRoom() {
             <div className="bg-white bg-opacity-90 rounded-lg p-6 text-center shadow-lg">
               <div className="text-4xl mb-4">🔬</div>
               <h3 className="text-lg font-bold text-gray-700 mb-2">
-                No items available on this wall
+                No equipment available on this wall
               </h3>
               <p className="text-gray-600 text-sm">
-                Try rotating to other walls or check for hidden elements
+                Try rotating to other walls or explore the room carefully
               </p>
             </div>
           </div>
@@ -402,7 +356,6 @@ export default function LabRoom() {
           <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-yellow-100 via-transparent to-transparent opacity-30"></div>
           <div className="absolute top-12 left-1/4 w-32 h-32 bg-yellow-200 rounded-full blur-3xl opacity-10"></div>
           <div className="absolute top-16 right-1/4 w-40 h-40 bg-yellow-100 rounded-full blur-3xl opacity-15"></div>
-          <div className="absolute top-10 left-1/2 w-36 h-36 bg-yellow-150 rounded-full blur-3xl opacity-12"></div>
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-200 via-transparent to-transparent opacity-30"></div>
         </div>
       </div>
@@ -429,7 +382,7 @@ export default function LabRoom() {
       // Default: all required elements mode
       const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
         element.isRequired !== false && 
-        ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
+        ['info', 'question'].includes(element.interactionType)
       )
       
       const solvedRequiredCount = requiredElements.filter(([id]) => solvedElements[id]).length
@@ -444,7 +397,7 @@ export default function LabRoom() {
 
   const completionReq = getCompletionRequirements()
   const interactiveElements = Object.entries(roomElements).filter(([id, element]) => 
-    ['info', 'question', 'element', 'question_element'].includes(element.interactionType)
+    ['info', 'question'].includes(element.interactionType)
   )
   const solvedElementsCount = Object.values(solvedElements).filter(Boolean).length
 
@@ -465,8 +418,8 @@ export default function LabRoom() {
           <p className="text-red-700 text-lg font-semibold">Group {studentInfo?.groupNumber} - Patient Sample Investigation</p>
           
           <div className="mt-2 text-sm">
-            {Object.keys(backgroundImages).length > 0 && (
-              <span className="text-green-600 mr-4">✓ {Object.keys(backgroundImages).length} Custom Backgrounds</span>
+            {Object.keys(roomImages).length > 0 && (
+              <span className="text-green-600 mr-4">✓ {Object.keys(roomImages).length} Room Images</span>
             )}
             {Object.keys(roomElements).length > 0 && (
               <span className="text-blue-600 mr-4">🏗️ {Object.keys(roomElements).length} Room Elements</span>
@@ -496,7 +449,7 @@ export default function LabRoom() {
                   return (
                     <div
                       key={elementId}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 ${
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 relative ${
                         elementState.solved 
                           ? 'bg-green-500 text-white border-green-600 shadow-lg scale-110' 
                           : elementState.discovered
@@ -538,7 +491,7 @@ export default function LabRoom() {
           
           <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">{wallNames[currentWall]}</h2>
-            <p className="text-gray-600">Click on interactive elements to analyze them</p>
+            <p className="text-gray-600">Explore the room carefully to find interactive equipment</p>
           </div>
 
           <div className="flex justify-between items-center mb-6">
@@ -621,7 +574,7 @@ export default function LabRoom() {
           <h3 className="text-xl font-bold mb-3">🚨 Emergency Protocol</h3>
           <ul className="space-y-2 text-sm">
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
-            <li>• <strong>Click Elements:</strong> Click directly on any interactive element to analyze it</li>
+            <li>• <strong>Explore Carefully:</strong> Click on equipment and areas that look interactable</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
             <li>• <strong>Complete Investigation:</strong> Complete the required analyses based on the completion mode</li>
             <li>• <strong>Save Patient:</strong> Submit your diagnosis when all analyses are complete</li>
