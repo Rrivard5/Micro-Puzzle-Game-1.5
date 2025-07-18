@@ -36,10 +36,9 @@ export default function PPERoom() {
       }
     },
     pants: {
-      correct: ['longPants', 'labPants'],
+      correct: ['longPants'],
       options: {
         longPants: { emoji: '👖', name: 'Long Pants', correct: true },
-        labPants: { emoji: '🦺', name: 'Lab Pants', correct: true },
         shorts: { emoji: '🩳', name: 'Shorts', correct: false },
         skirt: { emoji: '👗', name: 'Short Skirt', correct: false }
       }
