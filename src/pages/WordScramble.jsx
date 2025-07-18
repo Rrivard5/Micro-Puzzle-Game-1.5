@@ -8,6 +8,7 @@ export default function WordScramble() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [attempts, setAttempts] = useState(0)
+  const [availableLetters, setAvailableLetters] = useState('')
   const { studentInfo } = useGame()
 
   useEffect(() => {
@@ -27,6 +28,10 @@ export default function WordScramble() {
       try {
         const parsed = JSON.parse(progress)
         setCompletedGroups(parsed)
+        
+        // Set available letters for the scramble
+        const letters = parsed.map(group => group.letter).join('')
+        setAvailableLetters(letters)
       } catch (error) {
         console.error('Error loading class progress:', error)
       }
@@ -64,10 +69,6 @@ export default function WordScramble() {
     }
   }
 
-  const getAvailableLetters = () => {
-    return completedGroups.map(group => group.letter).join('')
-  }
-
   const getHint = () => {
     const hints = {
       'MICROBIOLOGY': 'The study of microscopic life forms and their effects on humans, animals, and the environment.',
@@ -77,6 +78,10 @@ export default function WordScramble() {
       'PATHOGEN': 'A microorganism that causes disease.'
     }
     return hints[targetWord] || 'A term related to microbiology and laboratory science.'
+  }
+
+  const scrambleLetters = (letters) => {
+    return letters.split('').sort(() => Math.random() - 0.5).join('')
   }
 
   return (
@@ -89,7 +94,7 @@ export default function WordScramble() {
             🧩 Class Word Scramble Challenge
           </h1>
           <p className="text-lg text-gray-600">
-            Combine all group letters to solve the microbiology mystery word!
+            Use your group's letters to solve the microbiology mystery word!
           </p>
         </div>
 
@@ -126,12 +131,15 @@ export default function WordScramble() {
           
           {completedGroups.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-bold text-blue-800 mb-2">Available Letters:</h3>
-              <div className="text-2xl font-mono font-bold text-blue-600 tracking-wider">
-                {getAvailableLetters()}
+              <h3 className="font-bold text-blue-800 mb-2">Available Letters for Scramble:</h3>
+              <div className="text-3xl font-mono font-bold text-blue-600 tracking-wider mb-4">
+                {scrambleLetters(availableLetters)}
               </div>
-              <p className="text-blue-600 text-sm mt-2">
+              <p className="text-blue-600 text-sm">
                 {completedGroups.length} of your class groups have completed their investigations
+              </p>
+              <p className="text-blue-500 text-xs mt-1">
+                Letters are scrambled - rearrange them to form the mystery word!
               </p>
             </div>
           )}
@@ -144,6 +152,16 @@ export default function WordScramble() {
               🎯 Solve the Mystery Word
             </h2>
             
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <h3 className="font-bold text-yellow-800 mb-2">📝 Instructions:</h3>
+              <ul className="text-yellow-700 text-sm space-y-1">
+                <li>• Use the scrambled letters above to form a word</li>
+                <li>• The word is related to microbiology and laboratory science</li>
+                <li>• You may use each letter as many times as it appears</li>
+                <li>• Try different combinations until you find the correct answer</li>
+              </ul>
+            </div>
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -153,9 +171,12 @@ export default function WordScramble() {
                   type="text"
                   value={userGuess}
                   onChange={(e) => setUserGuess(e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg font-mono"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg font-mono text-center"
                   placeholder="Enter your guess using the available letters..."
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Available letters: {scrambleLetters(availableLetters)}
+                </p>
               </div>
               
               <div className="flex gap-4">
@@ -221,9 +242,10 @@ export default function WordScramble() {
           <ul className="space-y-2 text-sm">
             <li>• Each group completes their laboratory investigation to earn a letter</li>
             <li>• Letters are revealed here as groups finish their analysis</li>
-            <li>• Use all available letters to unscramble the target word</li>
+            <li>• Letters are scrambled - you must unscramble them to find the target word</li>
             <li>• Work together with your classmates to solve the puzzle</li>
             <li>• The word is related to microbiology and laboratory science</li>
+            <li>• Use hints if you get stuck after multiple attempts</li>
           </ul>
         </div>
 
