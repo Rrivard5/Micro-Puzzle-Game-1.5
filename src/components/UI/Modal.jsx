@@ -10,6 +10,8 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [showHint, setShowHint] = useState(false)
   const [elementContent, setElementContent] = useState(null)
   const [showInfoOnly, setShowInfoOnly] = useState(false)
+  const [isAlreadySolved, setIsAlreadySolved] = useState(false)
+  const [solvedInfo, setSolvedInfo] = useState('')
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -26,6 +28,20 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     setFeedback(null)
     setAttempts(0)
     setShowHint(false)
+    setIsAlreadySolved(false)
+    setSolvedInfo('')
+    
+    // Check if this element was already solved
+    const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
+    const sessionId = studentInfo?.sessionId || 'default'
+    const elementKey = `${sessionId}_${elementId}`
+    
+    if (solvedElements[elementKey]) {
+      setIsAlreadySolved(true)
+      setSolvedInfo(solvedElements[elementKey])
+      setIsLoading(false)
+      return
+    }
     
     // Load room element content
     const element = await getRoomElement(elementId)
@@ -127,16 +143,19 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     trackAttempt('lab', trackingId, userAnswer, isCorrect)
     
     if (isCorrect) {
+      const clueText = currentQuestion.info || currentQuestion.clue || elementContent?.content?.info || 'Information discovered!'
+      
+      // Save this element as solved
+      const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
+      const sessionId = studentInfo?.sessionId || 'default'
+      const elementKey = `${sessionId}_${elementId}`
+      solvedElements[elementKey] = clueText
+      localStorage.setItem('solved-elements', JSON.stringify(solvedElements))
+      
       setFeedback({ 
         type: 'success', 
         message: '🎉 Correct! Analysis complete.' 
       })
-      
-      // Delay before solving to show feedback
-      setTimeout(() => {
-        const clueText = currentQuestion.info || currentQuestion.clue || elementContent?.content?.info || 'Information discovered!'
-        onSolved(elementId, clueText)
-      }, 2000)
     } else {
       setFeedback({ 
         type: 'error', 
@@ -178,6 +197,19 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     onSolved(elementId, infoText)
   }
 
+  const handleConfirmClose = () => {
+    if (feedback?.type === 'success') {
+      const clueText = currentQuestion.info || currentQuestion.clue || elementContent?.content?.info || 'Information discovered!'
+      onSolved(elementId, clueText)
+    } else if (isAlreadySolved) {
+      onSolved(elementId, solvedInfo)
+    }
+  }
+
+  const handleAlreadySolvedClose = () => {
+    onSolved(elementId, solvedInfo)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -190,7 +222,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
             <button
               onClick={onClose}
               className="text-white hover:text-gray-300 text-3xl font-bold"
-              disabled={feedback?.type === 'success'}
             >
               ×
             </button>
@@ -207,6 +238,35 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading analysis interface...</p>
+            </div>
+          ) : isAlreadySolved ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <h3 className="font-bold text-green-800 mb-4">📋 Previously Analyzed</h3>
+              
+              {/* Show the previously discovered information */}
+              <div className="mb-4">
+                <p className="text-green-700 mb-4">
+                  {solvedInfo}
+                </p>
+              </div>
+
+              {/* Show image if it exists */}
+              {currentQuestion?.infoImage && (
+                <div className="mb-4">
+                  <img
+                    src={currentQuestion.infoImage.data}
+                    alt={`${elementId} diagnostic results`}
+                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleAlreadySolvedClose}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
+              >
+                ✅ Continue Investigation
+              </button>
             </div>
           ) : (
             <div className="space-y-6">
@@ -346,8 +406,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                       )}
                       
                       <div className="text-center">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto mb-2"></div>
-                        <p className="text-green-600 text-sm">Recording analysis data...</p>
+                        <button
+                          onClick={handleConfirmClose}
+                          className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
+                        >
+                          ✅ Continue Investigation
+                        </button>
                       </div>
                     </div>
                   )}
@@ -363,20 +427,13 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
               )}
 
               {/* Feedback */}
-              {feedback && (
+              {feedback && feedback.type !== 'success' && (
                 <div className={`p-4 rounded-lg border-2 ${
-                  feedback.type === 'success' 
-                    ? 'bg-green-50 border-green-200 text-green-800'
-                    : feedback.type === 'error'
+                  feedback.type === 'error'
                     ? 'bg-red-50 border-red-200 text-red-800'
                     : 'bg-yellow-50 border-yellow-200 text-yellow-800'
                 }`}>
                   <p className="font-medium">{feedback.message}</p>
-                  {feedback.type === 'success' && (
-                    <p className="text-sm mt-2 text-green-600">
-                      Diagnostic data has been added to your investigation findings.
-                    </p>
-                  )}
                 </div>
               )}
 
