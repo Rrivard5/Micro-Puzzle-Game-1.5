@@ -10,15 +10,20 @@ export default function LabRoom() {
   const [activeModal, setActiveModal] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [labLocked, setLabLocked] = useState(true)
   const [currentWall, setCurrentWall] = useState(0) // 0=North, 1=East, 2=South, 3=West
   const [roomImages, setRoomImages] = useState({})
   const [roomElements, setRoomElements] = useState({})
   const [gameSettings, setGameSettings] = useState({
-    completionMode: 'all',
-    finalElementId: ''
+    completionMode: 'final_question',
+    finalQuestion: null
   })
   const [elementStates, setElementStates] = useState({})
+  const [showFinalQuestion, setShowFinalQuestion] = useState(false)
+  const [finalQuestionAnswer, setFinalQuestionAnswer] = useState('')
+  const [finalQuestionAttempts, setFinalQuestionAttempts] = useState(0)
+  const [finalQuestionFeedback, setFinalQuestionFeedback] = useState(null)
+  const [showFinalHint, setShowFinalHint] = useState(false)
+  const [finalQuestionSolved, setFinalQuestionSolved] = useState(false)
   
   const navigate = useNavigate()
   const { studentInfo, trackAttempt, startRoomTimer, completeRoom } = useGame()
@@ -30,7 +35,15 @@ export default function LabRoom() {
     startRoomTimer('lab')
     loadRoomData()
     loadGameSettings()
+    checkFinalQuestionStatus()
   }, [studentInfo])
+
+  const checkFinalQuestionStatus = () => {
+    const sessionId = studentInfo?.sessionId || 'default'
+    const finalQuestionKey = `${sessionId}_final_question_solved`
+    const isSolved = localStorage.getItem(finalQuestionKey) === 'true'
+    setFinalQuestionSolved(isSolved)
+  }
 
   const loadRoomData = () => {
     // Load room images
@@ -50,15 +63,25 @@ export default function LabRoom() {
         const elements = JSON.parse(savedElements)
         setRoomElements(elements)
         
-        // Initialize element states
+        // Initialize element states and check solved status
         const initialStates = {}
         const initialRevealed = {}
+        const sessionId = studentInfo?.sessionId || 'default'
+        const solvedElementsData = JSON.parse(localStorage.getItem('solved-elements') || '{}')
         
         Object.entries(elements).forEach(([elementId, element]) => {
+          const elementKey = `${sessionId}_${elementId}`
+          const isSolved = !!solvedElementsData[elementKey]
+          
           initialStates[elementId] = {
-            discovered: false,
+            discovered: isSolved,
             active: false,
-            solved: false
+            solved: isSolved
+          }
+          
+          if (isSolved) {
+            setSolvedElements(prev => ({ ...prev, [elementId]: true }))
+            setDiscoveredClues(prev => ({ ...prev, [elementId]: solvedElementsData[elementKey] }))
           }
           
           // Elements are initially visible unless they have a revealedBy property
@@ -79,8 +102,8 @@ export default function LabRoom() {
       try {
         const settings = JSON.parse(savedSettings)
         setGameSettings({
-          completionMode: settings.completionMode || 'all',
-          finalElementId: settings.finalElementId || ''
+          completionMode: 'final_question',
+          finalQuestion: settings.finalQuestion || null
         })
       } catch (error) {
         console.error('Error loading game settings:', error)
@@ -127,71 +150,92 @@ export default function LabRoom() {
     }))
 
     setActiveModal(null)
-    
-    // Check if this was the final element
-    if (gameSettings.completionMode === 'final' && gameSettings.finalElementId === elementId) {
-      setTimeout(() => {
-        setLabLocked(false)
-      }, 1000)
+  }
+
+  const handleFinalQuestionClick = () => {
+    if (finalQuestionSolved) {
+      // If already solved, go directly to completion
+      handleLabExit()
     } else {
-      checkLabCompletion()
+      setShowFinalQuestion(true)
     }
   }
 
-  const checkLabCompletion = () => {
-    // Check completion based on game settings
-    if (gameSettings.completionMode === 'final') {
-      // Only check if final element is solved
-      if (gameSettings.finalElementId && solvedElements[gameSettings.finalElementId]) {
-        setTimeout(() => {
-          setLabLocked(false)
-        }, 1000)
-      }
+  const handleFinalQuestionSubmit = (e) => {
+    e.preventDefault()
+    
+    if (!finalQuestionAnswer.trim()) {
+      setFinalQuestionFeedback({ type: 'warning', message: 'Please provide an answer before submitting.' })
       return
     }
 
-    // Default: all required elements mode
-    const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
-      element.isRequired !== false && 
-      ['info', 'question'].includes(element.interactionType)
-    )
+    const finalQuestion = getFinalQuestion()
+    if (!finalQuestion) {
+      console.error('No final question configured')
+      return
+    }
+
+    const isCorrect = checkFinalAnswer(finalQuestionAnswer, finalQuestion)
+    setFinalQuestionAttempts(prev => prev + 1)
     
-    const solvedRequiredCount = requiredElements.filter(([id]) => solvedElements[id]).length
+    // Track the attempt
+    trackAttempt('lab', 'final_question', finalQuestionAnswer, isCorrect)
     
-    if (requiredElements.length > 0 && solvedRequiredCount >= requiredElements.length) {
-      setTimeout(() => {
-        setLabLocked(false)
-      }, 1000)
+    if (isCorrect) {
+      setFinalQuestionFeedback({ 
+        type: 'success', 
+        message: '🎉 Correct! Patient diagnosis complete.' 
+      })
+      
+      // Mark final question as solved
+      const sessionId = studentInfo?.sessionId || 'default'
+      const finalQuestionKey = `${sessionId}_final_question_solved`
+      localStorage.setItem(finalQuestionKey, 'true')
+      setFinalQuestionSolved(true)
+    } else {
+      setFinalQuestionFeedback({ 
+        type: 'error', 
+        message: 'Incorrect. Review your laboratory findings and try again.' 
+      })
+    }
+  }
+
+  const getFinalQuestion = () => {
+    const settings = gameSettings.finalQuestion
+    if (!settings) return null
+
+    // Get group-specific question or fall back to group 1
+    const groupNumber = studentInfo?.groupNumber || 1
+    const groupQuestion = settings.groups?.[groupNumber] || settings.groups?.[1]
+    
+    if (groupQuestion && groupQuestion.length > 0) {
+      return groupQuestion[0]
+    }
+
+    // Default final question
+    return {
+      id: 'final_question_default',
+      question: 'Based on your laboratory analysis, what is your final diagnosis for the patient?',
+      type: 'text',
+      correctText: 'bacterial infection',
+      hint: 'Consider all the evidence you gathered from the laboratory equipment.',
+      info: 'Patient successfully diagnosed and treated!'
+    }
+  }
+
+  const checkFinalAnswer = (answer, question) => {
+    if (question.type === 'multiple_choice') {
+      const selectedIndex = question.options.findIndex(opt => opt === answer.trim())
+      return selectedIndex === question.correctAnswer
+    } else {
+      return question.correctText && question.correctText.toLowerCase() === answer.trim().toLowerCase()
     }
   }
 
   const handleLabExit = async () => {
-    // Check completion requirements based on game settings
-    if (gameSettings.completionMode === 'final') {
-      if (!gameSettings.finalElementId) {
-        alert('Final element not configured. Please contact your instructor.')
-        return
-      }
-      
-      const isFinalSolved = solvedElements[gameSettings.finalElementId]
-      
-      if (!isFinalSolved) {
-        alert('You must complete the required final investigation element before treating the patient!')
-        return
-      }
-    } else {
-      // Default: all required elements mode
-      const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
-        element.isRequired !== false && 
-        ['info', 'question'].includes(element.interactionType)
-      )
-      
-      const unsolvedRequired = requiredElements.filter(([id]) => !solvedElements[id])
-      
-      if (unsolvedRequired.length > 0) {
-        alert(`You must complete all required investigations! ${unsolvedRequired.length} item(s) remaining.`)
-        return
-      }
+    if (!finalQuestionSolved) {
+      alert('You must complete the final diagnosis question before treating the patient!')
+      return
     }
     
     setIsSubmitting(true)
@@ -213,14 +257,12 @@ export default function LabRoom() {
   const renderRoomElement = (elementId, element) => {
     const state = elementStates[elementId] || { discovered: false, active: false, solved: false }
     const isRevealed = revealedElements[elementId]
-    const isFinalElement = gameSettings.finalElementId === elementId
     
     if (!isRevealed) {
       return null
     }
 
     const isInteractive = ['info', 'question'].includes(element.interactionType)
-    const isDecorative = element.interactionType === 'none'
     
     // Calculate position and size based on region
     const region = element.region
@@ -238,19 +280,12 @@ export default function LabRoom() {
         key={elementId}
         className={`transition-all duration-300 ${
           isInteractive ? 'cursor-pointer group' : ''
-        } ${isFinalElement ? 'ring-4 ring-yellow-400 ring-opacity-50 rounded-lg' : ''}`}
+        }`}
         style={style}
         onClick={isInteractive ? (e) => handleElementClick(elementId, e) : undefined}
       >
         {/* Invisible clickable area - no visual indication */}
         <div className="w-full h-full rounded-lg">
-          
-          {/* Final element indicator */}
-          {isFinalElement && (
-            <div className="absolute top-1 left-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-xs shadow-lg">
-              ⭐
-            </div>
-          )}
           
           {/* Solved indicator */}
           {state.solved && (
@@ -336,21 +371,6 @@ export default function LabRoom() {
           })}
         </div>
 
-        {/* Message when no elements are visible */}
-        {wallElements.filter(([id]) => revealedElements[id]).length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-white bg-opacity-90 rounded-lg p-6 text-center shadow-lg">
-              <div className="text-4xl mb-4">🔬</div>
-              <h3 className="text-lg font-bold text-gray-700 mb-2">
-                No equipment available on this wall
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Try rotating to other walls or explore the room carefully
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Enhanced atmospheric effects */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-yellow-100 via-transparent to-transparent opacity-30"></div>
@@ -363,35 +383,17 @@ export default function LabRoom() {
   }
 
   const getCompletionRequirements = () => {
-    if (gameSettings.completionMode === 'final') {
-      const finalItem = gameSettings.finalElementId
-      let isCompleted = false
-      let itemName = 'Not configured'
-      
-      if (finalItem && roomElements[finalItem]) {
-        isCompleted = solvedElements[finalItem] || false
-        itemName = roomElements[finalItem].name
-      }
-      
-      return {
-        required: 1,
-        completed: isCompleted ? 1 : 0,
-        description: `Final Element: ${itemName}`
-      }
-    } else {
-      // Default: all required elements mode
-      const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
-        element.isRequired !== false && 
-        ['info', 'question'].includes(element.interactionType)
-      )
-      
-      const solvedRequiredCount = requiredElements.filter(([id]) => solvedElements[id]).length
-      
-      return {
-        required: requiredElements.length,
-        completed: solvedRequiredCount,
-        description: 'All Required Elements'
-      }
+    const requiredElements = Object.entries(roomElements).filter(([id, element]) => 
+      element.isRequired !== false && 
+      ['info', 'question'].includes(element.interactionType)
+    )
+    
+    const solvedRequiredCount = requiredElements.filter(([id]) => solvedElements[id]).length
+    
+    return {
+      required: requiredElements.length,
+      completed: solvedRequiredCount,
+      description: 'Required Equipment Analyses'
     }
   }
 
@@ -434,7 +436,7 @@ export default function LabRoom() {
         <div className="mb-6 bg-white bg-opacity-95 rounded-xl p-4 text-center shadow-xl border border-gray-200">
           <h3 className="text-lg font-bold text-gray-800 mb-2">🔍 Investigation Progress</h3>
           <p className="text-sm text-gray-600 mb-3">
-            Completion Mode: {completionReq.description}
+            Analyze all required equipment before attempting final diagnosis
           </p>
           
           {/* Interactive Elements Progress */}
@@ -443,7 +445,6 @@ export default function LabRoom() {
               <div className="flex justify-center gap-2 mb-2 flex-wrap">
                 {interactiveElements.map(([elementId, element]) => {
                   const elementState = elementStates[elementId] || { solved: false, discovered: false }
-                  const isFinalElement = gameSettings.finalElementId === elementId
                   const isRevealed = revealedElements[elementId]
                   
                   return (
@@ -457,12 +458,11 @@ export default function LabRoom() {
                           : isRevealed
                           ? 'bg-gray-300 text-gray-600 border-gray-400'
                           : 'bg-gray-200 text-gray-400 border-gray-300 opacity-50'
-                      } ${isFinalElement ? 'ring-2 ring-yellow-400' : ''}`}
+                      }`}
                       title={element.name}
                     >
                       {elementState.solved ? '✓' : elementState.discovered ? '?' : isRevealed ? '○' : '🔒'}
-                      {isFinalElement && <div className="absolute -top-1 -right-1 text-yellow-400">⭐</div>}
-                      {element.isRequired && !isFinalElement && <div className="absolute -bottom-1 -right-1 text-red-400 text-xs">*</div>}
+                      {element.isRequired && <div className="absolute -bottom-1 -right-1 text-red-400 text-xs">*</div>}
                     </div>
                   )
                 })}
@@ -482,7 +482,7 @@ export default function LabRoom() {
             ></div>
           </div>
           <p className="text-sm text-gray-600">
-            Progress: {completionReq.completed}/{completionReq.required} - Patient diagnosis: {labLocked ? 'PENDING' : 'READY'}
+            Required Progress: {completionReq.completed}/{completionReq.required} - Final Question: {finalQuestionSolved ? 'COMPLETED' : 'PENDING'}
           </p>
         </div>
 
@@ -522,25 +522,24 @@ export default function LabRoom() {
 
           <div className="mt-6 text-center">
             <button
-              onClick={handleLabExit}
-              disabled={labLocked || isSubmitting}
+              onClick={handleFinalQuestionClick}
               className={`px-10 py-5 rounded-xl font-bold text-xl shadow-xl transition-all duration-300 ${
-                labLocked 
-                  ? 'bg-red-500 text-white cursor-not-allowed opacity-50'
+                finalQuestionSolved
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white transform hover:scale-105 shadow-2xl'
                   : isSubmitting
                   ? 'bg-yellow-500 text-black'
-                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white transform hover:scale-105 shadow-2xl'
+                  : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white transform hover:scale-105 shadow-2xl'
               }`}
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
-                  Finalizing Diagnosis...
+                  Finalizing Treatment...
                 </span>
-              ) : labLocked ? (
-                '🔒 Complete Required Analyses First'
+              ) : finalQuestionSolved ? (
+                '🚑 Treat Patient - Diagnosis Complete!'
               ) : (
-                '🚑 Submit Patient Diagnosis'
+                '🚨 Attempt Final Diagnosis'
               )}
             </button>
           </div>
@@ -569,6 +568,170 @@ export default function LabRoom() {
           </div>
         )}
 
+        {/* Final Question Modal */}
+        {showFinalQuestion && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-6 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">🚨 Final Patient Diagnosis</h2>
+                  <button
+                    onClick={() => setShowFinalQuestion(false)}
+                    className="text-white hover:text-gray-300 text-3xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="text-red-100 mt-2">
+                  Critical: Patient condition is deteriorating rapidly
+                </p>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-bold text-red-800 mb-2">
+                    🏥 Emergency Assessment Required
+                  </h3>
+                  <p className="text-red-700">
+                    Based on all your laboratory analyses, you must now provide a final diagnosis to save the patient's life.
+                  </p>
+                </div>
+
+                {(() => {
+                  const finalQuestion = getFinalQuestion()
+                  if (!finalQuestion) return <div>No final question configured</div>
+
+                  return (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <h3 className="font-bold text-gray-800 mb-4 text-lg">{finalQuestion.question}</h3>
+                      
+                      <form onSubmit={handleFinalQuestionSubmit} className="space-y-4">
+                        {finalQuestion.type === 'multiple_choice' ? (
+                          <div className="space-y-2">
+                            {finalQuestion.options?.map((option, index) => (
+                              <label 
+                                key={index}
+                                className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border-2 ${
+                                  finalQuestionAnswer === option 
+                                    ? 'border-blue-500 bg-blue-50' 
+                                    : 'border-gray-200 bg-white hover:border-blue-300'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="finalAnswer"
+                                  value={option}
+                                  checked={finalQuestionAnswer === option}
+                                  onChange={(e) => setFinalQuestionAnswer(e.target.value)}
+                                  disabled={finalQuestionFeedback?.type === 'success'}
+                                  className="mr-3 h-4 w-4 text-blue-600"
+                                />
+                                <span className="text-gray-700">{option}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={finalQuestionAnswer}
+                            onChange={(e) => setFinalQuestionAnswer(e.target.value)}
+                            placeholder="Enter your final diagnosis..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={finalQuestionFeedback?.type === 'success'}
+                          />
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            type="submit"
+                            disabled={!finalQuestionAnswer || finalQuestionFeedback?.type === 'success'}
+                            className={`px-6 py-3 rounded-lg font-bold transition-all ${
+                              finalQuestionFeedback?.type === 'success' 
+                                ? 'bg-green-600 text-white cursor-not-allowed' 
+                                : !finalQuestionAnswer 
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                          >
+                            {finalQuestionFeedback?.type === 'success' ? '✅ Diagnosis Complete' : '🚑 Submit Diagnosis'}
+                          </button>
+                          
+                          {!showFinalHint && finalQuestionAttempts > 0 && finalQuestionFeedback?.type !== 'success' && (
+                            <button
+                              type="button"
+                              onClick={() => setShowFinalHint(true)}
+                              className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold transition-all"
+                            >
+                              💡 Show Hint
+                            </button>
+                          )}
+                        </div>
+                      </form>
+
+                      {/* Hint Display */}
+                      {showFinalHint && finalQuestion?.hint && (
+                        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <h4 className="font-bold text-yellow-800 mb-2">💡 Clinical Hint</h4>
+                          <p className="text-yellow-700">{finalQuestion.hint}</p>
+                        </div>
+                      )}
+
+                      {/* Feedback */}
+                      {finalQuestionFeedback && (
+                        <div className={`mt-4 p-4 rounded-lg border-2 ${
+                          finalQuestionFeedback.type === 'success' 
+                            ? 'bg-green-50 border-green-200 text-green-800'
+                            : finalQuestionFeedback.type === 'error'
+                            ? 'bg-red-50 border-red-200 text-red-800'
+                            : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                        }`}>
+                          <p className="font-medium">{finalQuestionFeedback.message}</p>
+                          {finalQuestionFeedback.type === 'success' && (
+                            <div className="mt-4">
+                              {/* Text Information */}
+                              {finalQuestion.info && (
+                                <p className="text-green-700 mb-4">
+                                  {finalQuestion.info}
+                                </p>
+                              )}
+                              
+                              {/* Info Image */}
+                              {finalQuestion.infoImage && (
+                                <div className="mb-4">
+                                  <img
+                                    src={finalQuestion.infoImage.data}
+                                    alt="Final diagnosis results"
+                                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                                  />
+                                </div>
+                              )}
+                              
+                              <div className="text-center">
+                                <button
+                                  onClick={() => setShowFinalQuestion(false)}
+                                  className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition-all"
+                                >
+                                  ✅ Continue to Treatment
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {finalQuestionAttempts > 0 && (
+                        <div className="mt-4 text-center text-sm text-gray-500">
+                          Diagnosis attempts: {finalQuestionAttempts}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Instructions */}
         <div className="mt-8 bg-gradient-to-r from-red-600 to-blue-600 rounded-xl p-6 text-white shadow-xl">
           <h3 className="text-xl font-bold mb-3">🚨 Emergency Protocol</h3>
@@ -576,8 +739,8 @@ export default function LabRoom() {
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
             <li>• <strong>Explore Carefully:</strong> Click on equipment and areas that look interactable</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
-            <li>• <strong>Complete Investigation:</strong> Complete the required analyses based on the completion mode</li>
-            <li>• <strong>Save Patient:</strong> Submit your diagnosis when all analyses are complete</li>
+            <li>• <strong>Final Diagnosis:</strong> Click the red button to attempt your final diagnosis</li>
+            <li>• <strong>Complete Treatment:</strong> Successfully diagnose the patient to proceed</li>
             <li>• <strong>Time Critical:</strong> The patient's condition is deteriorating - work quickly!</li>
           </ul>
         </div>
