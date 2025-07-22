@@ -11,8 +11,7 @@ export default function PPERoom() {
   const [feedback, setFeedback] = useState(null)
   const [selectedItems, setSelectedItems] = useState({
     footwear: null,
-    pants: null,
-    shirt: null,
+    bodyProtection: null,
     eyewear: null,
     handwear: null
   })
@@ -35,21 +34,14 @@ export default function PPERoom() {
         heels: { emoji: '👠', name: 'High Heels', correct: false }
       }
     },
-    pants: {
-      correct: ['longPants'],
-      options: {
-        longPants: { emoji: '👖', name: 'Long Pants', correct: true },
-        shorts: { emoji: '🩳', name: 'Shorts', correct: false },
-        skirt: { emoji: '👗', name: 'Short Skirt', correct: false }
-      }
-    },
-    shirt: {
+    bodyProtection: {
       correct: ['labCoat'],
       options: {
-        labCoat: { emoji: '🥼', name: 'Lab Coat', correct: true },
-        tShirt: { emoji: '👕', name: 'T-Shirt', correct: false },
-        tankTop: { emoji: '🎽', name: 'Tank Top', correct: false },
-        hoodie: { emoji: '🧥', name: 'Hoodie', correct: false }
+        labCoat: { emoji: '🥼', name: 'Lab Coat', correct: true, note: '(worn over regular shirt)' },
+        vest: { emoji: '🦺', name: 'Safety Vest', correct: false },
+        shawl: { emoji: '🧣', name: 'Shawl', correct: false },
+        parka: { emoji: '🧥', name: 'Winter Parka', correct: false },
+        noProtection: { emoji: '👕', name: 'Just Regular Shirt', correct: false, warning: true }
       }
     },
     eyewear: {
@@ -212,6 +204,16 @@ export default function PPERoom() {
     }
   }
 
+  const getCategoryDisplayName = (category) => {
+    const names = {
+      footwear: 'Foot Protection',
+      bodyProtection: 'Body Protection',
+      eyewear: 'Eye Protection',
+      handwear: 'Hand Protection'
+    }
+    return names[category] || category
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-200 to-blue-200 relative overflow-hidden">
       {/* Realistic Floor */}
@@ -314,39 +316,61 @@ export default function PPERoom() {
                 {/* Locker Contents (visible when open) */}
                 {lockerOpen && (
                   <div className="absolute inset-2 bg-gradient-to-b from-blue-50 to-white rounded-lg p-4 overflow-y-auto">
-                    <h3 className="text-center font-bold text-gray-800 mb-4 text-lg">Select Appropriate PPE</h3>
+                    <h3 className="text-center font-bold text-gray-800 mb-2 text-lg">Select Appropriate PPE</h3>
+                    
+                    {/* Scroll Instruction */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-4">
+                      <p className="text-yellow-800 text-xs text-center font-semibold">
+                        📜 Scroll down to see all PPE categories
+                      </p>
+                    </div>
+                    
+                    {/* Important Note about Lab Coat */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
+                      <p className="text-blue-800 text-xs text-center">
+                        <strong>Note:</strong> Lab coats are worn OVER regular clothing for protection
+                      </p>
+                    </div>
                     
                     {/* Clothing Categories */}
                     <div className="space-y-6">
                       {Object.entries(clothingOptions).map(([category, categoryData]) => (
                         <div key={category} className="bg-gray-50 rounded-lg p-3">
-                          <h4 className="font-semibold text-gray-700 mb-2 capitalize">
-                            {category === 'handwear' ? 'Hand Protection' : 
-                             category === 'eyewear' ? 'Eye Protection' : 
-                             category === 'footwear' ? 'Foot Protection' : category}:
+                          <h4 className="font-semibold text-gray-700 mb-2">
+                            {getCategoryDisplayName(category)}:
                           </h4>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 gap-2">
                             {shuffledOptions[category] && shuffledOptions[category].map((itemKey) => {
                               const item = categoryData.options[itemKey]
                               return (
                                 <div
                                   key={itemKey}
                                   onClick={() => selectClothing(category, itemKey)}
-                                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-center text-xs ${
+                                  className={`cursor-pointer p-2 rounded-lg border-2 transition-all text-left text-xs flex items-center ${
                                     selectedItems[category] === itemKey
                                       ? item.correct 
                                         ? 'border-green-400 bg-green-50' 
                                         : 'border-red-400 bg-red-50'
                                       : 'border-gray-300 bg-white hover:border-blue-400'
-                                  }`}
+                                  } ${item.warning ? 'border-orange-300' : ''}`}
                                 >
-                                  <div className="text-xl mb-1">{item.emoji}</div>
-                                  <div className="font-semibold text-gray-700">{item.name}</div>
-                                  {selectedItems[category] === itemKey && (
-                                    <div className={`text-xs mt-1 ${item.correct ? 'text-green-600' : 'text-red-600'}`}>
-                                      {item.correct ? '✓ Appropriate' : '✗ Inappropriate'}
+                                  <div className="text-lg mr-3">{item.emoji}</div>
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-gray-700">
+                                      {item.name}
+                                      {item.note && <span className="text-gray-500 text-xs ml-1">{item.note}</span>}
                                     </div>
-                                  )}
+                                    {selectedItems[category] === itemKey && (
+                                      <div className={`text-xs mt-1 ${item.correct ? 'text-green-600' : 'text-red-600'}`}>
+                                        {item.correct ? '✓ Appropriate' : '✗ Inappropriate'}
+                                      </div>
+                                    )}
+                                    {item.warning && selectedItems[category] !== itemKey && (
+                                      <div className="text-xs text-orange-600 mt-1">
+                                        ⚠️ Insufficient protection for lab work
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               )
                             })}
@@ -502,7 +526,7 @@ export default function PPERoom() {
             <h3 className="text-xl font-bold text-gray-800 mb-4">👷‍♀️ PPE Selection Status</h3>
             
             {/* Current Selections */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               {Object.entries(selectedItems).map(([category, selectedItem]) => {
                 const item = selectedItem ? clothingOptions[category].options[selectedItem] : null
                 return (
@@ -516,10 +540,8 @@ export default function PPERoom() {
                     <div className="text-2xl mb-2">
                       {item ? item.emoji : '❓'}
                     </div>
-                    <div className="font-semibold text-gray-800 capitalize text-sm">
-                      {category === 'handwear' ? 'Hands' : 
-                       category === 'eyewear' ? 'Eyes' : 
-                       category === 'footwear' ? 'Feet' : category}
+                    <div className="font-semibold text-gray-800 text-sm">
+                      {getCategoryDisplayName(category)}
                     </div>
                     <div className={`text-xs ${
                       item ? (item.correct ? 'text-green-600' : 'text-red-600') : 'text-gray-500'
@@ -545,7 +567,7 @@ export default function PPERoom() {
                 </p>
                 <ul className="text-red-700 text-sm">
                   {getIncorrectSelections().map(({ category, item }) => (
-                    <li key={category}>• {item} is not appropriate for {category}</li>
+                    <li key={category}>• {item} is not appropriate for {getCategoryDisplayName(category).toLowerCase()}</li>
                   ))}
                 </ul>
                 <p className="text-red-600 text-sm mt-2 text-center">
