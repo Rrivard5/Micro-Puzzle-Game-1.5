@@ -13,6 +13,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [isAlreadySolved, setIsAlreadySolved] = useState(false)
   const [solvedInfo, setSolvedInfo] = useState('')
   const [displayOptions, setDisplayOptions] = useState([])
+  const [debugInfo, setDebugInfo] = useState(null) // DEBUG: Add debug info state
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -31,6 +32,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     setShowHint(false)
     setIsAlreadySolved(false)
     setSolvedInfo('')
+    setDebugInfo(null) // DEBUG: Reset debug info
     
     // Check if this element was already solved
     const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
@@ -51,6 +53,18 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     if (element && element.interactionType === 'question') {
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
+      
+      // DEBUG: Set debug information
+      setDebugInfo({
+        elementId,
+        studentGroup,
+        questionType: question?.type,
+        options: question?.options,
+        correctAnswer: question?.correctAnswer,
+        correctText: question?.correctText,
+        answer: question?.answer,
+        questionData: question
+      })
       
       // Set up display options for multiple choice questions - NO SHUFFLING
       if (question && question.type === 'multiple_choice') {
@@ -112,6 +126,18 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const isCorrect = checkAnswer(userAnswer, currentQuestion)
     setAttempts(prev => prev + 1)
     
+    // DEBUG: Console log for debugging
+    console.log('=== ANSWER CHECK DEBUG ===')
+    console.log('User Answer:', userAnswer)
+    console.log('Question Type:', currentQuestion.type)
+    console.log('Question Options:', currentQuestion.options)
+    console.log('Correct Answer Index:', currentQuestion.correctAnswer)
+    console.log('Correct Answer Text (from options):', currentQuestion.options?.[currentQuestion.correctAnswer])
+    console.log('Correct Text Field:', currentQuestion.correctText)
+    console.log('Answer Field:', currentQuestion.answer)
+    console.log('Is Correct:', isCorrect)
+    console.log('========================')
+    
     // Track the attempt
     const trackingId = `${elementId}_${currentQuestion.id}`
     trackAttempt('lab', trackingId, userAnswer, isCorrect)
@@ -144,15 +170,27 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // SIMPLIFIED: For multiple choice, check if the selected answer text matches the correct answer text
+      // Method 1: Check using correctAnswer index
       if (question.options && typeof question.correctAnswer === 'number') {
-        // Check if the selected answer matches the correct option by index
         const correctAnswerText = question.options[question.correctAnswer]
-        return trimmedAnswer === correctAnswerText
-      } else if (question.answer) {
-        // Fallback: check against the answer field directly
-        return trimmedAnswer === question.answer
+        if (trimmedAnswer === correctAnswerText) {
+          return true
+        }
       }
+      
+      // Method 2: Check against answer field (legacy support)
+      if (question.answer && trimmedAnswer === question.answer) {
+        return true
+      }
+      
+      // Method 3: Check if the answer field matches one of the options and use that index
+      if (question.answer && question.options) {
+        const answerIndex = question.options.findIndex(opt => opt === question.answer)
+        if (answerIndex !== -1 && trimmedAnswer === question.options[answerIndex]) {
+          return true
+        }
+      }
+      
     } else if (question.type === 'text') {
       // For text questions, check against correctText (case-insensitive)
       if (question.correctText) {
@@ -243,9 +281,8 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </p>
               </div>
 
-              {/* Show image if it exists - FIXED: Look for the image in the correct location */}
+              {/* Show image if it exists */}
               {(() => {
-                // Try to get the solved question data to show the image
                 const element = elementContent
                 if (element?.interactionType === 'question') {
                   const question = element.content?.question?.groups?.[studentGroup]?.[0] || element.content?.question?.groups?.[1]?.[0]
@@ -283,6 +320,23 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
             </div>
           ) : (
             <div className="space-y-6">
+              
+              {/* DEBUG PANEL - Remove this in production */}
+              {debugInfo && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h3 className="font-bold text-red-800 mb-2">🐛 DEBUG INFO (Remove in production)</h3>
+                  <div className="text-xs text-red-700 space-y-1">
+                    <div><strong>Element ID:</strong> {debugInfo.elementId}</div>
+                    <div><strong>Student Group:</strong> {debugInfo.studentGroup}</div>
+                    <div><strong>Question Type:</strong> {debugInfo.questionType}</div>
+                    <div><strong>Options:</strong> {JSON.stringify(debugInfo.options)}</div>
+                    <div><strong>Correct Answer Index:</strong> {debugInfo.correctAnswer}</div>
+                    <div><strong>Correct Answer Text:</strong> {debugInfo.options?.[debugInfo.correctAnswer]}</div>
+                    <div><strong>Correct Text Field:</strong> {debugInfo.correctText}</div>
+                    <div><strong>Answer Field:</strong> {debugInfo.answer}</div>
+                  </div>
+                </div>
+              )}
               
               {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -353,6 +407,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                               className="mr-3 h-4 w-4 text-blue-600"
                             />
                             <span className="text-gray-700">{option}</span>
+                            {/* DEBUG: Show if this is the correct answer */}
+                            {debugInfo && index === debugInfo.correctAnswer && (
+                              <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-1 rounded">
+                                CORRECT ANSWER
+                              </span>
+                            )}
                           </label>
                         ))}
                       </div>
@@ -395,7 +455,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                     </div>
                   </form>
 
-                  {/* Success Information Display - FIXED: Now properly shows images */}
+                  {/* Success Information Display */}
                   {feedback?.type === 'success' && (
                     <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
                       <h4 className="font-bold text-green-800 mb-3">📊 Diagnostic Results</h4>
@@ -407,7 +467,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                         </p>
                       </div>
 
-                      {/* Info Image - FIXED: Now properly displays the infoImage */}
+                      {/* Info Image */}
                       {currentQuestion.infoImage && (
                         <div className="mb-4">
                           <img
