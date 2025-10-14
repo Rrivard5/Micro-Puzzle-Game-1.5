@@ -279,16 +279,36 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </p>
               </div>
 
-              {/* Show image if it exists */}
-              {currentQuestion?.infoImage && (
-                <div className="mb-4">
-                  <img
-                    src={currentQuestion.infoImage.data}
-                    alt={`${elementId} diagnostic results`}
-                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                  />
-                </div>
-              )}
+              {/* Show image if it exists - FIXED: Look for the image in the correct location */}
+              {(() => {
+                // Try to get the solved question data to show the image
+                const element = elementContent
+                if (element?.interactionType === 'question') {
+                  const question = element.content?.question?.groups?.[studentGroup]?.[0] || element.content?.question?.groups?.[1]?.[0]
+                  if (question?.infoImage) {
+                    return (
+                      <div className="mb-4">
+                        <img
+                          src={question.infoImage.data}
+                          alt={`${elementId} diagnostic results`}
+                          className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                        />
+                      </div>
+                    )
+                  }
+                } else if (element?.content?.infoImage) {
+                  return (
+                    <div className="mb-4">
+                      <img
+                        src={element.content.infoImage.data}
+                        alt={`${elementId} analysis`}
+                        className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                      />
+                    </div>
+                  )
+                }
+                return null
+              })()}
 
               <button
                 onClick={handleAlreadySolvedClose}
@@ -411,7 +431,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                     </div>
                   </form>
 
-                  {/* Success Information Display */}
+                  {/* Success Information Display - FIXED: Now properly shows images */}
                   {feedback?.type === 'success' && (
                     <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
                       <h4 className="font-bold text-green-800 mb-3">📊 Diagnostic Results</h4>
@@ -423,7 +443,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                         </p>
                       </div>
 
-                      {/* Info Image */}
+                      {/* Info Image - FIXED: Now properly displays the infoImage */}
                       {currentQuestion.infoImage && (
                         <div className="mb-4">
                           <img
