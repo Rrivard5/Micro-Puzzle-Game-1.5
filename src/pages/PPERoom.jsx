@@ -22,7 +22,7 @@ export default function PPERoom() {
   const navigate = useNavigate()
   const { studentInfo, trackAttempt } = useGame()
 
-  // Define clothing options with correct/incorrect choices
+  // Define clothing options with correct/incorrect choices - removed warning flags
   const clothingOptions = {
     footwear: {
       correct: ['closedShoes', 'labBoots'],
@@ -41,7 +41,7 @@ export default function PPERoom() {
         vest: { emoji: '🦺', name: 'Safety Vest', correct: false },
         shawl: { emoji: '🧣', name: 'Shawl', correct: false },
         parka: { emoji: '🧥', name: 'Winter Parka', correct: false },
-        noProtection: { emoji: '👕', name: 'Just Regular Shirt', correct: false, warning: true }
+        noProtection: { emoji: '👕', name: 'Just Regular Shirt', correct: false }
       }
     },
     eyewear: {
@@ -352,7 +352,7 @@ export default function PPERoom() {
                                         ? 'border-green-400 bg-green-50' 
                                         : 'border-red-400 bg-red-50'
                                       : 'border-gray-300 bg-white hover:border-blue-400'
-                                  } ${item.warning ? 'border-orange-300' : ''}`}
+                                  }`}
                                 >
                                   <div className="text-lg mr-3">{item.emoji}</div>
                                   <div className="flex-1">
@@ -363,11 +363,6 @@ export default function PPERoom() {
                                     {selectedItems[category] === itemKey && (
                                       <div className={`text-xs mt-1 ${item.correct ? 'text-green-600' : 'text-red-600'}`}>
                                         {item.correct ? '✓ Appropriate' : '✗ Inappropriate'}
-                                      </div>
-                                    )}
-                                    {item.warning && selectedItems[category] !== itemKey && (
-                                      <div className="text-xs text-orange-600 mt-1">
-                                        ⚠️ Insufficient protection for lab work
                                       </div>
                                     )}
                                   </div>
