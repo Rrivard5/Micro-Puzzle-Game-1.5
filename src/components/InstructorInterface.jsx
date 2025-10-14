@@ -726,6 +726,187 @@ export default function InstructorInterface() {
     }
   };
 
+  const downloadGroupData = (groupNumber) => {
+    try {
+      // Collect group-specific data
+      const groupData = {
+        version: '1.0',
+        groupNumber: groupNumber,
+        timestamp: new Date().toISOString(),
+        roomImages: roomImages,
+        roomElements: roomElements,
+        ppeQuestion: ppeSettings.groups?.[groupNumber] || null,
+        finalQuestion: finalQuestionSettings.groups?.[groupNumber] || null,
+        metadata: {
+          totalElements: Object.keys(roomElements).length,
+          interactiveElements: Object.values(roomElements).filter(el => ['info', 'question'].includes(el.interactionType)).length
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(groupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `microbiology-lab-group-${groupNumber}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log(`✅ Downloaded data for Group ${groupNumber}`);
+    } catch (error) {
+      console.error('Error downloading group data:', error);
+      alert('Error downloading group data. Please try again.');
+    }
+  };
+
+  const downloadAllGroupsData = () => {
+    try {
+      const allGroupsData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        roomImages: roomImages,
+        roomElements: roomElements,
+        ppeSettings: ppeSettings,
+        finalQuestionSettings: finalQuestionSettings,
+        wordSettings: wordSettings, // Include this for complete backup
+        gameSettings: gameSettings,
+        metadata: {
+          totalGroups: wordSettings.numGroups,
+          totalElements: Object.keys(roomElements).length,
+          interactiveElements: Object.values(roomElements).filter(el => ['info', 'question'].includes(el.interactionType)).length
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(allGroupsData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `microbiology-lab-all-groups-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('✅ Downloaded data for all groups');
+    } catch (error) {
+      console.error('Error downloading all groups data:', error);
+      alert('Error downloading all groups data. Please try again.');
+    }
+  };
+
+  const handleGroupDataUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      alert('Please upload a JSON file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        // Validate data structure
+        if (!data.version || (!data.groupNumber && !data.metadata)) {
+          alert('Invalid file format. Please upload a valid group data file.');
+          return;
+        }
+
+        // Ask for confirmation
+        const isAllGroups = !data.groupNumber;
+        const confirmMessage = isAllGroups 
+          ? `This will replace ALL group data. Are you sure you want to continue?`
+          : `This will replace data for Group ${data.groupNumber}. Are you sure you want to continue?`;
+        
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+
+        // Import the data
+        if (isAllGroups) {
+          // Import all groups data
+          if (data.roomImages) {
+            setRoomImages(data.roomImages);
+            localStorage.setItem('instructor-room-images', JSON.stringify(data.roomImages));
+          }
+          if (data.roomElements) {
+            setRoomElements(data.roomElements);
+            localStorage.setItem('instructor-room-elements', JSON.stringify(data.roomElements));
+          }
+          if (data.ppeSettings) {
+            setPpeSettings(data.ppeSettings);
+            localStorage.setItem('instructor-ppe-questions', JSON.stringify(data.ppeSettings));
+          }
+          if (data.finalQuestionSettings) {
+            setFinalQuestionSettings(data.finalQuestionSettings);
+            localStorage.setItem('instructor-final-questions', JSON.stringify(data.finalQuestionSettings));
+          }
+          if (data.wordSettings) {
+            setWordSettings(data.wordSettings);
+            localStorage.setItem('instructor-word-settings', JSON.stringify(data.wordSettings));
+          }
+          if (data.gameSettings) {
+            setGameSettings(data.gameSettings);
+            localStorage.setItem('instructor-game-settings', JSON.stringify(data.gameSettings));
+          }
+          alert('All groups data imported successfully!');
+        } else {
+          // Import specific group data
+          const groupNumber = data.groupNumber;
+          
+          // Import room images and elements (these are shared across groups)
+          if (data.roomImages) {
+            setRoomImages(data.roomImages);
+            localStorage.setItem('instructor-room-images', JSON.stringify(data.roomImages));
+          }
+          if (data.roomElements) {
+            setRoomElements(data.roomElements);
+            localStorage.setItem('instructor-room-elements', JSON.stringify(data.roomElements));
+          }
+          
+          // Import group-specific questions
+          if (data.ppeQuestion) {
+            const newPPESettings = {
+              ...ppeSettings,
+              groups: {
+                ...ppeSettings.groups,
+                [groupNumber]: data.ppeQuestion
+              }
+            };
+            setPpeSettings(newPPESettings);
+            localStorage.setItem('instructor-ppe-questions', JSON.stringify(newPPESettings));
+          }
+          
+          if (data.finalQuestion) {
+            const newFinalSettings = {
+              ...finalQuestionSettings,
+              groups: {
+                ...finalQuestionSettings.groups,
+                [groupNumber]: data.finalQuestion
+              }
+            };
+            setFinalQuestionSettings(newFinalSettings);
+            localStorage.setItem('instructor-final-questions', JSON.stringify(newFinalSettings));
+          }
+          
+          alert(`Group ${groupNumber} data imported successfully!`);
+        }
+
+        // Clear the file input
+        event.target.value = '';
+        
+      } catch (error) {
+        console.error('Error parsing uploaded file:', error);
+        alert('Error reading the uploaded file. Please make sure it\'s a valid JSON file.');
+      }
+    };
+    
+    reader.readAsText(file);
+  };
+
   // Load image when room image changes
   useEffect(() => {
     if (roomImages[selectedWall] && imageRef.current) {
@@ -840,6 +1021,52 @@ export default function InstructorInterface() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+
+        {/* Group Data Management Section - Available on all tabs */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">📦 Group Data Management</h2>
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Group:</label>
+              <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
+                  <option key={num} value={num}>Group {num}</option>
+                ))}
+              </select>
+            </div>
+            
+            <button
+              onClick={() => downloadGroupData(selectedGroup)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
+            >
+              📥 Download Group {selectedGroup} Data
+            </button>
+            
+            <label className="cursor-pointer px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium">
+              📤 Upload Group Data
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleGroupDataUpload}
+                className="hidden"
+              />
+            </label>
+            
+            <button
+              onClick={() => downloadAllGroupsData()}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium"
+            >
+              📦 Download All Groups
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            Download/upload includes: room elements, questions, images, and revealed information for the selected group.
+          </p>
+        </div>
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
