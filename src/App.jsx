@@ -3,6 +3,7 @@ import Home from './pages/Home'
 import StudentInfo from './pages/StudentInfo'
 import PPERoom from './pages/PPERoom'
 import LabRoom from './pages/LabRoom'
+import LabNotebook from './pages/LabNotebook'
 import Completion from './pages/Completion'
 import WordScramble from './pages/WordScramble'
 import InstructorInterface from './components/InstructorInterface'
@@ -41,6 +42,17 @@ export default function App() {
                   </ProtectedRoute>
                 } 
               />
+
+              {/* Protected Lab Notebook Route */}
+              <Route 
+                path="/lab-notebook" 
+                element={
+                  <ProtectedRoute>
+                    <LabNotebook />
+                  </ProtectedRoute>
+                } 
+              />
+              
               <Route 
                 path="/complete" 
                 element={
