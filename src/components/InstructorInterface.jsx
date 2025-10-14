@@ -728,7 +728,9 @@ export default function InstructorInterface() {
             </div>
           </div>
         )}
-
+             </div>
+          </div>
+        )}
         {/* Room Setup Tab */}
         {activeTab === 'room-setup' && (
           <div className="space-y-6">
