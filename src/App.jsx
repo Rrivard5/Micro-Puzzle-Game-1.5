@@ -9,6 +9,7 @@ import InstructorInterface from './components/InstructorInterface'
 import { GameProvider } from './context/GameStateContext'
 import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
+import InstructorDebug from './components/InstructorDebug'
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
               
               {/* Instructor Interface */}
               <Route path="/instructor" element={<InstructorInterface />} />
+              <Route path="/debug" element={<InstructorDebug />} />
             </Routes>
           </main>
         </div>
