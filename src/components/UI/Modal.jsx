@@ -12,6 +12,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [showInfoOnly, setShowInfoOnly] = useState(false)
   const [isAlreadySolved, setIsAlreadySolved] = useState(false)
   const [solvedInfo, setSolvedInfo] = useState('')
+  const [displayOptions, setDisplayOptions] = useState([])
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -50,6 +51,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     if (element && element.interactionType === 'question') {
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
+      
+      // Set up display options for multiple choice questions
+      if (question && question.type === 'multiple_choice') {
+        const options = getDisplayOptions(question)
+        setDisplayOptions(options)
+      }
     } else if (element && element.interactionType === 'info') {
       setShowInfoOnly(true)
     }
@@ -95,8 +102,8 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   }
 
   const getDisplayOptions = (question) => {
-    if (question.type !== 'multiple_choice' || !question.randomizeAnswers) {
-      return question.options
+    if (question.type !== 'multiple_choice' || !question.randomizeAnswers || !question.options) {
+      return question.options || []
     }
     
     // Create a consistent seed based on student and question
@@ -165,14 +172,36 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   }
 
   const checkAnswer = (answer, question) => {
+    if (!question || !answer) return false
+    
+    const trimmedAnswer = answer.trim()
+    
     if (question.type === 'multiple_choice') {
-      // For multiple choice, check if the selected answer matches the correct answer index
-      const selectedIndex = question.options.findIndex(opt => opt === answer.trim())
-      return selectedIndex === question.correctAnswer
+      // For multiple choice, we need to check the answer against the ORIGINAL options array
+      // Find which option the user selected
+      const selectedOptionIndex = displayOptions.findIndex(opt => opt === trimmedAnswer)
+      
+      if (selectedOptionIndex === -1) return false
+      
+      // Map back to original option to get the correct index
+      const originalOptionText = displayOptions[selectedOptionIndex]
+      const originalIndex = question.options.findIndex(opt => opt === originalOptionText)
+      
+      // Check if this original index matches the correctAnswer
+      return originalIndex === question.correctAnswer
     } else {
-      // For text questions, check against correctText
-      return question.correctText && question.correctText.toLowerCase() === answer.trim().toLowerCase()
+      // For text questions, check against correctText (case-insensitive)
+      if (question.correctText) {
+        return question.correctText.toLowerCase() === trimmedAnswer.toLowerCase()
+      }
+      
+      // Fallback check against the answer field for backwards compatibility
+      if (question.answer) {
+        return question.answer.toLowerCase() === trimmedAnswer.toLowerCase()
+      }
     }
+    
+    return false
   }
 
   const getWrongAnswerFeedback = () => {
@@ -321,7 +350,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {currentQuestion.type === 'multiple_choice' ? (
                       <div className="space-y-2">
-                        {getDisplayOptions(currentQuestion).map((option, index) => (
+                        {displayOptions.map((option, index) => (
                           <label 
                             key={index}
                             className={`flex items-center p-3 rounded-lg cursor-pointer transition-all border-2 ${
