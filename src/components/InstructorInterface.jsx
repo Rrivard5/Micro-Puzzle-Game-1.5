@@ -256,6 +256,7 @@ export default function InstructorInterface() {
     settings.groupLetters = newGroupLetters;
   };
 
+  // Canvas and Drawing Functions
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -283,6 +284,17 @@ export default function InstructorInterface() {
       };
       setRoomImages(newRoomImages);
       localStorage.setItem('instructor-room-images', JSON.stringify(newRoomImages));
+      
+      // Load image onto canvas
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, 800, 600);
+        drawExistingElements();
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   };
@@ -302,10 +314,347 @@ export default function InstructorInterface() {
       });
       setRoomElements(newElements);
       localStorage.setItem('instructor-room-elements', JSON.stringify(newElements));
+      
+      // Clear canvas
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 
-  // NEW: Export settings functionality
+  const handleCanvasMouseDown = (event) => {
+    if (!roomImages[selectedWall]) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = 800 / rect.width;
+    const scaleY = 600 / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    // Check if clicking on existing element
+    const clickedElement = getElementAtPosition(x, y);
+    if (clickedElement) {
+      setSelectedElementId(clickedElement);
+      redrawCanvas();
+      return;
+    }
+    
+    // Start drawing new element
+    setIsDrawing(true);
+    setCurrentDrawing({
+      startX: x,
+      startY: y,
+      endX: x,
+      endY: y
+    });
+  };
+
+  const handleCanvasMouseMove = (event) => {
+    if (!isDrawing || !roomImages[selectedWall]) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = 800 / rect.width;
+    const scaleY = 600 / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    setCurrentDrawing(prev => ({
+      ...prev,
+      endX: x,
+      endY: y
+    }));
+    
+    redrawCanvas();
+  };
+
+  const handleCanvasMouseUp = (event) => {
+    if (!isDrawing || !currentDrawing) return;
+    
+    const width = Math.abs(currentDrawing.endX - currentDrawing.startX);
+    const height = Math.abs(currentDrawing.endY - currentDrawing.startY);
+    
+    if (width < 20 || height < 20) {
+      alert('Element must be at least 20x20 pixels');
+      setIsDrawing(false);
+      setCurrentDrawing(null);
+      redrawCanvas();
+      return;
+    }
+    
+    // Create new element
+    const elementId = `element_${Date.now()}`;
+    const newElement = {
+      name: 'New Element',
+      type: 'equipment',
+      interactionType: 'none',
+      isRequired: false,
+      wall: selectedWall,
+      region: {
+        x: Math.min(currentDrawing.startX, currentDrawing.endX),
+        y: Math.min(currentDrawing.startY, currentDrawing.endY),
+        width: width,
+        height: height
+      },
+      content: {},
+      defaultIcon: defaultIcons.equipment
+    };
+    
+    const newElements = {
+      ...roomElements,
+      [elementId]: newElement
+    };
+    
+    setRoomElements(newElements);
+    localStorage.setItem('instructor-room-elements', JSON.stringify(newElements));
+    
+    setIsDrawing(false);
+    setCurrentDrawing(null);
+    setSelectedElementId(elementId);
+    setEditingElement(newElement);
+    setShowElementModal(true);
+    
+    redrawCanvas();
+  };
+
+  const handleCanvasClick = (event) => {
+    // This handles single clicks without dragging
+    if (isDrawing) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = 800 / rect.width;
+    const scaleY = 600 / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    const clickedElement = getElementAtPosition(x, y);
+    if (clickedElement) {
+      setSelectedElementId(clickedElement);
+      setEditingElement(roomElements[clickedElement]);
+      setShowElementModal(true);
+    } else {
+      setSelectedElementId(null);
+    }
+    
+    redrawCanvas();
+  };
+
+  const getElementAtPosition = (x, y) => {
+    for (const [elementId, element] of Object.entries(roomElements)) {
+      if (element.wall !== selectedWall) continue;
+      
+      const region = element.region;
+      if (x >= region.x && x <= region.x + region.width &&
+          y >= region.y && y <= region.y + region.height) {
+        return elementId;
+      }
+    }
+    return null;
+  };
+
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 800, 600);
+    
+    // Draw background image
+    if (roomImages[selectedWall]) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, 800, 600);
+        drawExistingElements();
+        drawCurrentDrawing();
+      };
+      img.src = roomImages[selectedWall].data;
+    } else {
+      drawExistingElements();
+      drawCurrentDrawing();
+    }
+  };
+
+  const drawExistingElements = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    Object.entries(roomElements).forEach(([elementId, element]) => {
+      if (element.wall !== selectedWall) return;
+      
+      const region = element.region;
+      const isSelected = elementId === selectedElementId;
+      
+      ctx.strokeStyle = isSelected ? '#ef4444' : '#22c55e';
+      ctx.lineWidth = isSelected ? 3 : 2;
+      ctx.fillStyle = isSelected ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+      
+      ctx.fillRect(region.x, region.y, region.width, region.height);
+      ctx.strokeRect(region.x, region.y, region.width, region.height);
+      
+      // Draw element name
+      ctx.fillStyle = isSelected ? '#ef4444' : '#22c55e';
+      ctx.font = '12px Arial';
+      ctx.fillText(element.name, region.x + 5, region.y + 15);
+    });
+  };
+
+  const drawCurrentDrawing = () => {
+    if (!isDrawing || !currentDrawing) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    const x = Math.min(currentDrawing.startX, currentDrawing.endX);
+    const y = Math.min(currentDrawing.startY, currentDrawing.endY);
+    const width = Math.abs(currentDrawing.endX - currentDrawing.startX);
+    const height = Math.abs(currentDrawing.endY - currentDrawing.startY);
+    
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+    
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeRect(x, y, width, height);
+  };
+
+  const updateElement = (elementId, updatedElement) => {
+    const newElements = {
+      ...roomElements,
+      [elementId]: updatedElement
+    };
+    setRoomElements(newElements);
+    localStorage.setItem('instructor-room-elements', JSON.stringify(newElements));
+  };
+
+  const deleteElement = (elementId) => {
+    if (confirm('Are you sure you want to delete this element?')) {
+      const newElements = { ...roomElements };
+      delete newElements[elementId];
+      setRoomElements(newElements);
+      localStorage.setItem('instructor-room-elements', JSON.stringify(newElements));
+      setShowElementModal(false);
+      setSelectedElementId(null);
+      setEditingElement(null);
+      redrawCanvas();
+    }
+  };
+
+  const updateElementQuestion = (elementId, groupNumber, question) => {
+    const element = roomElements[elementId];
+    if (!element) return;
+    
+    const updatedElement = {
+      ...element,
+      content: {
+        ...element.content,
+        question: {
+          ...element.content?.question,
+          groups: {
+            ...element.content?.question?.groups,
+            [groupNumber]: [question]
+          }
+        }
+      }
+    };
+    
+    updateElement(elementId, updatedElement);
+  };
+
+  // Load canvas when wall or images change
+  useEffect(() => {
+    if (canvasRef.current && roomImages[selectedWall]) {
+      redrawCanvas();
+    } else if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, 800, 600);
+      drawExistingElements();
+    }
+  }, [selectedWall, roomElements]);
+
+  // PPE Question Functions
+  const updatePPEQuestion = (groupNumber, question) => {
+    const updatedSettings = {
+      ...ppeSettings,
+      groups: {
+        ...ppeSettings.groups,
+        [groupNumber]: [question]
+      }
+    };
+    setPpeSettings(updatedSettings);
+    localStorage.setItem('instructor-ppe-questions', JSON.stringify(updatedSettings));
+  };
+
+  // Final Question Functions
+  const updateFinalQuestion = (groupNumber, question) => {
+    const updatedSettings = {
+      ...finalQuestionSettings,
+      groups: {
+        ...finalQuestionSettings.groups,
+        [groupNumber]: [question]
+      }
+    };
+    setFinalQuestionSettings(updatedSettings);
+    localStorage.setItem('instructor-final-questions', JSON.stringify(updatedSettings));
+  };
+
+  // Feedback Functions
+  const updateQuestionFeedback = (questionId, feedbackData) => {
+    const updatedSettings = {
+      ...feedbackSettings,
+      questionFeedback: {
+        ...feedbackSettings.questionFeedback,
+        [questionId]: feedbackData
+      }
+    };
+    setFeedbackSettings(updatedSettings);
+    localStorage.setItem('instructor-feedback-settings', JSON.stringify(updatedSettings));
+  };
+
+  // Student Progress Functions
+  const exportStudentDataCSV = () => {
+    if (studentData.length === 0) {
+      alert('No student data to export');
+      return;
+    }
+
+    const headers = ['Name', 'Group', 'Semester', 'Year', 'Room', 'Question', 'Answer', 'Correct', 'Timestamp', 'Attempt'];
+    const csvData = [
+      headers.join(','),
+      ...studentData.map(record => [
+        record.name,
+        record.groupNumber,
+        record.semester,
+        record.year,
+        record.roomId,
+        record.questionId,
+        `"${record.answer}"`,
+        record.isCorrect,
+        record.timestamp,
+        record.attemptNumber
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvData], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `microbiology-lab-data-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const clearStudentData = () => {
+    if (confirm('Are you sure you want to clear all student progress data? This cannot be undone.')) {
+      localStorage.removeItem('instructor-student-data');
+      setStudentData([]);
+      setStudentProgress([]);
+    }
+  };
+
+  // Export/Import Functions
   const exportSettings = async () => {
     setIsExporting(true);
     try {
@@ -345,7 +694,6 @@ export default function InstructorInterface() {
     }
   };
 
-  // NEW: Import settings functionality
   const handleSettingsUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -362,12 +710,10 @@ export default function InstructorInterface() {
       try {
         const importData = JSON.parse(e.target.result);
         
-        // Validate the imported data structure
         if (!importData.settings) {
           throw new Error('Invalid settings file format');
         }
 
-        // Confirm before importing
         if (!confirm('This will replace all current settings. Are you sure you want to continue?')) {
           setIsImporting(false);
           return;
@@ -375,7 +721,6 @@ export default function InstructorInterface() {
 
         const settings = importData.settings;
         
-        // Import each setting type if it exists
         if (settings.roomImages) {
           setRoomImages(settings.roomImages);
           localStorage.setItem('instructor-room-images', JSON.stringify(settings.roomImages));
@@ -417,7 +762,6 @@ export default function InstructorInterface() {
         alert('Error importing settings. Please check the file format and try again.');
       } finally {
         setIsImporting(false);
-        // Clear the file input
         event.target.value = '';
       }
     };
@@ -433,9 +777,6 @@ export default function InstructorInterface() {
   const triggerSettingsUpload = () => {
     fileInputRef.current?.click();
   };
-
-  // ... (keeping all the other existing functions for brevity - canvas handling, element management, etc.)
-  // The rest of your existing functions go here unchanged...
 
   const saveAllSettings = async () => {
     setIsSaving(true);
@@ -457,8 +798,6 @@ export default function InstructorInterface() {
       setIsSaving(false);
     }
   };
-
-  // ... (other existing functions continue here)
 
   if (!isAuthenticated) {
     return (
@@ -489,7 +828,7 @@ export default function InstructorInterface() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header with updated Save/Export/Import buttons */}
+      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -497,7 +836,7 @@ export default function InstructorInterface() {
               🧪 Microbiology Lab Instructor Portal
             </h1>
             
-            {/* Updated action buttons */}
+            {/* Action buttons */}
             <div className="flex gap-3">
               <button
                 onClick={exportSettings}
@@ -566,9 +905,7 @@ export default function InstructorInterface() {
         className="hidden"
       />
 
-      {/* Rest of your existing component JSX continues here... */}
-      {/* Tab Navigation, Dashboard, etc. - keeping the same structure */}
-      
+      {/* Tab Navigation */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex space-x-8">
@@ -685,7 +1022,7 @@ export default function InstructorInterface() {
               </div>
             </div>
 
-            {/* Game Completion Settings remains the same... */}
+            {/* Game Completion Settings */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Game Completion Settings</h2>
               <div className="space-y-4">
@@ -728,9 +1065,7 @@ export default function InstructorInterface() {
             </div>
           </div>
         )}
-             </div>
-          </div>
-        )}
+
         {/* Room Setup Tab */}
         {activeTab === 'room-setup' && (
           <div className="space-y-6">
@@ -1457,7 +1792,6 @@ export default function InstructorInterface() {
               </p>
               
               <div className="space-y-4">
-                {/* Common Question Types */}
                 {[
                   { id: 'ppe_safety', topic: 'PPE Safety', description: 'Personal protective equipment questions' },
                   { id: 'microscopy', topic: 'Microscopy', description: 'Microscope use and observation questions' },
@@ -1646,7 +1980,7 @@ export default function InstructorInterface() {
         )}
       </div>
 
-      {/* Element Configuration Modal - COMPLETE VERSION WITH FULL QUESTION EDITING */}
+      {/* Element Configuration Modal */}
       {showElementModal && editingElement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
