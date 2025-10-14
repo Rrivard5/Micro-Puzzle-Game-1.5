@@ -2753,6 +2753,191 @@ export default function InstructorInterface() {
                   </label>
                 </div>
 
+                {/* REWARD IMAGE SECTION - Only show for question-type elements */}
+                {editingElement.interactionType === 'question' && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-bold text-green-800 mb-4">🎁 Success/Reward Image</h3>
+                    <p className="text-sm text-green-700 mb-4">
+                      This image will be shown to students when they answer the question correctly - like a reward or "unlock"!
+                    </p>
+                    
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      {/* Check if there's already a reward image for the selected group */}
+                      {(() => {
+                        const groupQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0];
+                        const hasRewardImage = groupQuestion?.infoImage;
+                        
+                        return hasRewardImage ? (
+                          <div className="space-y-3">
+                            <div className="bg-white border border-green-300 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-medium mb-2">✅ Current Reward Image for Group {selectedGroup}:</p>
+                              <img
+                                src={groupQuestion.infoImage.data}
+                                alt="Success/Reward Image"
+                                className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                const updatedQuestion = {
+                                  ...groupQuestion,
+                                  infoImage: null
+                                };
+                                updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                // Update the editing element state too
+                                const updatedElement = { ...editingElement };
+                                if (updatedElement.content?.question?.groups?.[selectedGroup]) {
+                                  updatedElement.content.question.groups[selectedGroup][0] = updatedQuestion;
+                                  setEditingElement(updatedElement);
+                                }
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                            >
+                              🗑️ Remove Reward Image
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <div className="text-6xl mb-3">🎁</div>
+                            <p className="text-green-800 font-medium mb-2">No reward image set for Group {selectedGroup}</p>
+                            <p className="text-sm text-green-600 mb-4">Upload an image that students will see when they answer correctly!</p>
+                            <label className="cursor-pointer inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
+                              📁 Upload Success/Reward Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert('File size must be less than 5MB');
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      // Create or update the question for this group
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {
+                                        id: `${selectedElementId}_g${selectedGroup}`,
+                                        question: 'Question about this element...',
+                                        type: 'multiple_choice',
+                                        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                                        correctAnswer: 0,
+                                        hint: '',
+                                        info: 'Information revealed when solved...'
+                                      };
+                                      
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        infoImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      };
+                                      
+                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                      
+                                      // Update the editing element state too
+                                      const updatedElement = { ...editingElement };
+                                      if (!updatedElement.content) updatedElement.content = {};
+                                      if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                      if (!updatedElement.content.question.groups) updatedElement.content.question.groups = {};
+                                      updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                      setEditingElement(updatedElement);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info-only elements reward image */}
+                {editingElement.interactionType === 'info' && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-bold text-blue-800 mb-4">🖼️ Information Image</h3>
+                    <p className="text-sm text-blue-700 mb-4">
+                      This image will be shown alongside the information when students click on this element.
+                    </p>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      {editingElement.content?.infoImage ? (
+                        <div className="space-y-3">
+                          <div className="bg-white border border-blue-300 rounded-lg p-3">
+                            <p className="text-sm text-blue-800 font-medium mb-2">Current Information Image:</p>
+                            <img
+                              src={editingElement.content.infoImage.data}
+                              alt="Information Image"
+                              className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              const updated = {
+                                ...editingElement,
+                                content: { ...editingElement.content, infoImage: null }
+                              };
+                              setEditingElement(updated);
+                              updateElement(selectedElementId, updated);
+                            }}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                          >
+                            🗑️ Remove Information Image
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="text-6xl mb-3">🖼️</div>
+                          <p className="text-blue-800 font-medium mb-2">No information image set</p>
+                          <p className="text-sm text-blue-600 mb-4">Upload an image to show with the information!</p>
+                          <label className="cursor-pointer inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
+                            📁 Upload Information Image
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    alert('File size must be less than 5MB');
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const updated = {
+                                      ...editingElement,
+                                      content: { 
+                                        ...editingElement.content, 
+                                        infoImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      }
+                                    };
+                                    setEditingElement(updated);
+                                    updateElement(selectedElementId, updated);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex justify-between pt-4">
                   <button
