@@ -194,7 +194,6 @@ export default function InstructorInterface() {
       if (record.isCorrect) {
         summary.questionsCorrect++;
       } else {
-        // Track incorrect answers with details
         summary.incorrectAnswers.push({
           questionId: record.questionId,
           roomId: record.roomId,
@@ -205,7 +204,6 @@ export default function InstructorInterface() {
       }
       summary.rooms.add(record.roomId);
       
-      // Check if completed based on room progression
       if (record.roomId === 'lab' && record.questionId === 'final_question' && record.isCorrect) {
         summary.completed = true;
       }
@@ -293,7 +291,6 @@ export default function InstructorInterface() {
       setRoomImages(newRoomImages);
       localStorage.setItem('instructor-room-images', JSON.stringify(newRoomImages));
       
-      // Remove all elements for this wall
       const newElements = { ...roomElements };
       Object.keys(newElements).forEach(elementId => {
         if (newElements[elementId].wall === wall) {
@@ -350,7 +347,6 @@ export default function InstructorInterface() {
     
     setIsDrawing(false);
     
-    // Only create element if the drawing is large enough
     const width = Math.abs(currentDrawing.endX - currentDrawing.startX);
     const height = Math.abs(currentDrawing.endY - currentDrawing.startY);
     
@@ -360,7 +356,6 @@ export default function InstructorInterface() {
       return;
     }
     
-    // Create new element
     const elementId = `element_${Date.now()}`;
     const newElement = {
       id: elementId,
@@ -422,24 +417,18 @@ export default function InstructorInterface() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Only draw if image is loaded
     if (!image.complete || image.naturalWidth === 0) return;
     
     try {
-      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw background image
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       
-      // Draw existing elements
       Object.entries(roomElements).forEach(([elementId, element]) => {
         if (element.wall === selectedWall && element.region) {
           ctx.strokeStyle = selectedElementId === elementId ? '#ff0000' : '#00ff00';
           ctx.lineWidth = 2;
           ctx.strokeRect(element.region.x, element.region.y, element.region.width, element.region.height);
           
-          // Draw element name
           ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
           ctx.fillRect(element.region.x, element.region.y - 20, element.region.width, 20);
           ctx.fillStyle = 'white';
@@ -448,7 +437,6 @@ export default function InstructorInterface() {
         }
       });
       
-      // Draw current drawing
       if (currentDrawing) {
         ctx.strokeStyle = '#0000ff';
         ctx.lineWidth = 2;
@@ -469,7 +457,6 @@ export default function InstructorInterface() {
     
     const coords = getCanvasCoordinates(event);
     
-    // Check if click is on an existing element
     const clickedElement = Object.entries(roomElements).find(([elementId, element]) => {
       if (element.wall !== selectedWall) return false;
       
@@ -561,19 +548,12 @@ export default function InstructorInterface() {
     setFinalQuestionSettings(newFinalQuestions);
     localStorage.setItem('instructor-final-questions', JSON.stringify(newFinalQuestions));
     
-    // Also update game settings
     const newGameSettings = {
       ...gameSettings,
       finalQuestion: newFinalQuestions
     };
     setGameSettings(newGameSettings);
     localStorage.setItem('instructor-game-settings', JSON.stringify(newGameSettings));
-  };
-
-  const updateFeedbackSettings = (updates) => {
-    const newFeedbackSettings = { ...feedbackSettings, ...updates };
-    setFeedbackSettings(newFeedbackSettings);
-    localStorage.setItem('instructor-feedback-settings', JSON.stringify(newFeedbackSettings));
   };
 
   const updateQuestionFeedback = (questionId, feedbackData) => {
@@ -586,59 +566,6 @@ export default function InstructorInterface() {
     };
     setFeedbackSettings(newFeedbackSettings);
     localStorage.setItem('instructor-feedback-settings', JSON.stringify(newFeedbackSettings));
-  };
-
-  const generateStudentFeedback = (student) => {
-    const feedback = [];
-    const accuracyRate = student.accuracyRate;
-    
-    // Add general feedback based on performance
-    if (accuracyRate >= 90) {
-      feedback.push(feedbackSettings.generalFeedback.excellent);
-    } else if (accuracyRate >= 75) {
-      feedback.push(feedbackSettings.generalFeedback.good);
-    } else if (accuracyRate >= 60) {
-      feedback.push(feedbackSettings.generalFeedback.needs_improvement);
-    } else {
-      feedback.push(feedbackSettings.generalFeedback.poor);
-    }
-    
-    // Add specific feedback for incorrect answers
-    student.incorrectAnswers.forEach(incorrectAnswer => {
-      const questionFeedback = feedbackSettings.questionFeedback[incorrectAnswer.questionId];
-      if (questionFeedback) {
-        feedback.push(`${questionFeedback.topic}: ${questionFeedback.feedback}`);
-      }
-    });
-    
-    return feedback;
-  };
-
-  const exportStudentData = () => {
-    try {
-      const exportData = {
-        timestamp: new Date().toISOString(),
-        summary: studentProgress,
-        detailedData: studentData,
-        wordSettings: wordSettings,
-        totalStudents: studentProgress.length,
-        completionRate: studentProgress.length > 0 ? 
-          Math.round((studentProgress.filter(s => s.completed).length / studentProgress.length) * 100) : 0
-      };
-      
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `microbiology-lab-data-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      alert('Error exporting data. Please try again.');
-    }
   };
 
   const exportStudentDataCSV = () => {
@@ -691,7 +618,6 @@ export default function InstructorInterface() {
       localStorage.removeItem('solved-elements');
       localStorage.removeItem('word-scramble-success');
       
-      // Clear final question solved states
       const keys = Object.keys(localStorage);
       keys.forEach(key => {
         if (key.includes('_final_question_solved')) {
@@ -726,287 +652,6 @@ export default function InstructorInterface() {
     }
   };
 
-  const downloadGroupData = (groupNumber) => {
-    try {
-      // Get all elements that have content for this specific group
-      const groupSpecificElements = {};
-      
-      Object.entries(roomElements).forEach(([elementId, element]) => {
-        // Create a copy of the element
-        const elementCopy = { ...element };
-        
-        // If it has questions, only include the ones for this group
-        if (elementCopy.content?.question?.groups) {
-          const groupQuestion = elementCopy.content.question.groups[groupNumber];
-          if (groupQuestion) {
-            elementCopy.content = {
-              ...elementCopy.content,
-              question: {
-                groups: {
-                  [groupNumber]: groupQuestion
-                }
-              }
-            };
-            groupSpecificElements[elementId] = elementCopy;
-          }
-        } else if (elementCopy.interactionType === 'info') {
-          // Include info-only elements
-          groupSpecificElements[elementId] = elementCopy;
-        } else {
-          // Include non-interactive elements
-          groupSpecificElements[elementId] = elementCopy;
-        }
-      });
-      
-      const groupData = {
-        version: '2.0',
-        groupNumber: groupNumber,
-        timestamp: new Date().toISOString(),
-        
-        // Room setup data
-        roomImages: roomImages,
-        roomElements: groupSpecificElements,
-        
-        // Group-specific questions
-        ppeQuestion: ppeSettings.groups?.[groupNumber] || null,
-        finalQuestion: finalQuestionSettings.groups?.[groupNumber] || null,
-        
-        // Summary metadata
-        metadata: {
-          totalElements: Object.keys(groupSpecificElements).length,
-          interactiveElements: Object.values(groupSpecificElements).filter(el => 
-            ['info', 'question'].includes(el.interactionType)
-          ).length,
-          roomWalls: Object.keys(roomImages),
-          hasCustomQuestions: !!(ppeSettings.groups?.[groupNumber] || finalQuestionSettings.groups?.[groupNumber])
-        }
-      };
-      
-      const blob = new Blob([JSON.stringify(groupData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `microbiology-lab-group-${groupNumber}-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log(`✅ Downloaded data for Group ${groupNumber}`);
-      alert(`Group ${groupNumber} data downloaded successfully!\n\nIncludes:\n- ${Object.keys(roomImages).length} room images\n- ${Object.keys(groupSpecificElements).length} room elements\n- Group-specific questions\n- All images and revealed information`);
-    } catch (error) {
-      console.error('Error downloading group data:', error);
-      alert('Error downloading group data. Please try again.');
-    }
-  };
-
-  const downloadAllGroupsData = () => {
-    try {
-      const allGroupsData = {
-        version: '2.0',
-        timestamp: new Date().toISOString(),
-        description: 'Complete microbiology lab escape room data for all groups',
-        
-        // Core room data
-        roomImages: roomImages,
-        roomElements: roomElements,
-        
-        // Group-specific content
-        ppeSettings: ppeSettings,
-        finalQuestionSettings: finalQuestionSettings,
-        
-        // Configuration (included for complete backup)
-        gameSettings: gameSettings,
-        
-        // Comprehensive metadata
-        metadata: {
-          totalGroups: wordSettings.numGroups,
-          totalElements: Object.keys(roomElements).length,
-          interactiveElements: Object.values(roomElements).filter(el => 
-            ['info', 'question'].includes(el.interactionType)
-          ).length,
-          roomWalls: Object.keys(roomImages),
-          groupsWithCustomPPE: Object.keys(ppeSettings.groups || {}).length,
-          groupsWithCustomFinal: Object.keys(finalQuestionSettings.groups || {}).length,
-          totalImages: Object.values(roomImages).length + 
-                      Object.values(roomElements).reduce((count, element) => {
-                        let imageCount = 0;
-                        if (element.content?.infoImage) imageCount++;
-                        if (element.content?.question?.groups) {
-                          Object.values(element.content.question.groups).forEach(groupQuestions => {
-                            groupQuestions.forEach(q => {
-                              if (q.infoImage) imageCount++;
-                            });
-                          });
-                        }
-                        return count + imageCount;
-                      }, 0) +
-                      Object.values(ppeSettings.groups || {}).length +
-                      Object.values(finalQuestionSettings.groups || {}).reduce((count, questions) => {
-                        return count + questions.filter(q => q.infoImage).length;
-                      }, 0)
-        }
-      };
-      
-      const blob = new Blob([JSON.stringify(allGroupsData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `microbiology-lab-complete-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log('✅ Downloaded complete lab data');
-      alert(`Complete lab data downloaded successfully!\n\nIncludes:\n- ${Object.keys(roomImages).length} room background images\n- ${Object.keys(roomElements).length} interactive elements\n- Questions for ${Object.keys(ppeSettings.groups || {}).length} groups (PPE)\n- Questions for ${Object.keys(finalQuestionSettings.groups || {}).length} groups (Final)\n- ${allGroupsData.metadata.totalImages} total images\n- All revealed information and settings`);
-    } catch (error) {
-      console.error('Error downloading all groups data:', error);
-      alert('Error downloading all groups data. Please try again.');
-    }
-  };
-
-  const handleGroupDataUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.json')) {
-      alert('Please upload a JSON file');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        
-        // Validate data structure
-        if (!data.version) {
-          alert('Invalid file format. Please upload a valid lab data file.');
-          return;
-        }
-
-        // Handle different versions
-        if (data.version !== '2.0' && data.version !== '1.0') {
-          if (!confirm('This file appears to be from a different version. Do you want to try importing it anyway?')) {
-            return;
-          }
-        }
-
-        const isAllGroups = !data.groupNumber;
-        const confirmMessage = isAllGroups 
-          ? `Import complete lab setup?\n\nThis will replace:\n- All room images\n- All interactive elements\n- All group questions\n- All images and settings\n\nContinue?`
-          : `Import data for Group ${data.groupNumber}?\n\nThis will replace:\n- Room images (if included)\n- Interactive elements (if included)\n- Group ${data.groupNumber} questions\n- Associated images\n\nContinue?`;
-        
-        if (!confirm(confirmMessage)) {
-          return;
-        }
-
-        let importSummary = [];
-
-        // Import the data based on type
-        if (isAllGroups) {
-          // Import complete lab data
-          if (data.roomImages) {
-            setRoomImages(data.roomImages);
-            localStorage.setItem('instructor-room-images', JSON.stringify(data.roomImages));
-            importSummary.push(`✅ ${Object.keys(data.roomImages).length} room images`);
-          }
-          
-          if (data.roomElements) {
-            setRoomElements(data.roomElements);
-            localStorage.setItem('instructor-room-elements', JSON.stringify(data.roomElements));
-            const interactiveCount = Object.values(data.roomElements).filter(el => 
-              ['info', 'question'].includes(el.interactionType)
-            ).length;
-            importSummary.push(`✅ ${Object.keys(data.roomElements).length} elements (${interactiveCount} interactive)`);
-          }
-          
-          if (data.ppeSettings) {
-            setPpeSettings(data.ppeSettings);
-            localStorage.setItem('instructor-ppe-questions', JSON.stringify(data.ppeSettings));
-            importSummary.push(`✅ PPE questions for ${Object.keys(data.ppeSettings.groups || {}).length} groups`);
-          }
-          
-          if (data.finalQuestionSettings) {
-            setFinalQuestionSettings(data.finalQuestionSettings);
-            localStorage.setItem('instructor-final-questions', JSON.stringify(data.finalQuestionSettings));
-            importSummary.push(`✅ Final questions for ${Object.keys(data.finalQuestionSettings.groups || {}).length} groups`);
-          }
-          
-          if (data.gameSettings) {
-            setGameSettings(data.gameSettings);
-            localStorage.setItem('instructor-game-settings', JSON.stringify(data.gameSettings));
-            importSummary.push(`✅ Game settings`);
-          }
-
-        } else {
-          // Import specific group data
-          const groupNumber = data.groupNumber;
-          
-          // Import room images and elements (shared across groups)
-          if (data.roomImages) {
-            setRoomImages(data.roomImages);
-            localStorage.setItem('instructor-room-images', JSON.stringify(data.roomImages));
-            importSummary.push(`✅ ${Object.keys(data.roomImages).length} room images`);
-          }
-          
-          if (data.roomElements) {
-            setRoomElements(data.roomElements);
-            localStorage.setItem('instructor-room-elements', JSON.stringify(data.roomElements));
-            const interactiveCount = Object.values(data.roomElements).filter(el => 
-              ['info', 'question'].includes(el.interactionType)
-            ).length;
-            importSummary.push(`✅ ${Object.keys(data.roomElements).length} elements (${interactiveCount} interactive)`);
-          }
-          
-          // Import group-specific questions
-          if (data.ppeQuestion) {
-            const newPPESettings = {
-              ...ppeSettings,
-              groups: {
-                ...ppeSettings.groups,
-                [groupNumber]: data.ppeQuestion
-              }
-            };
-            setPpeSettings(newPPESettings);
-            localStorage.setItem('instructor-ppe-questions', JSON.stringify(newPPESettings));
-            importSummary.push(`✅ PPE question for Group ${groupNumber}`);
-          }
-          
-          if (data.finalQuestion) {
-            const newFinalSettings = {
-              ...finalQuestionSettings,
-              groups: {
-                ...finalQuestionSettings.groups,
-                [groupNumber]: data.finalQuestion
-              }
-            };
-            setFinalQuestionSettings(newFinalSettings);
-            localStorage.setItem('instructor-final-questions', JSON.stringify(newFinalSettings));
-            importSummary.push(`✅ Final question for Group ${groupNumber}`);
-          }
-        }
-
-        // Show success message with summary
-        const successMessage = isAllGroups 
-          ? `Complete lab data imported successfully!\n\n${importSummary.join('\n')}`
-          : `Group ${data.groupNumber} data imported successfully!\n\n${importSummary.join('\n')}`;
-        
-        alert(successMessage);
-
-        // Clear the file input
-        event.target.value = '';
-        
-      } catch (error) {
-        console.error('Error parsing uploaded file:', error);
-        alert('Error reading the uploaded file. Please make sure it\'s a valid JSON file exported from this system.');
-      }
-    };
-    
-    reader.readAsText(file);
-  };
-
   // Load image when room image changes
   useEffect(() => {
     if (roomImages[selectedWall] && imageRef.current) {
@@ -1025,10 +670,8 @@ export default function InstructorInterface() {
       image.onload = handleImageLoad;
       image.onerror = handleImageError;
       
-      // Set the image source
       image.src = roomImages[selectedWall].data;
       
-      // If image is already loaded, trigger redraw immediately
       if (image.complete && image.naturalWidth > 0) {
         handleImageLoad();
       }
@@ -1122,97 +765,6 @@ export default function InstructorInterface() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
 
-        {/* ENHANCED Group Data Management Section - Available on all tabs */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-          <h2 className="text-2xl font-bold text-white mb-4">📦 GROUP DATA BACKUP & RESTORE</h2>
-          <p className="text-purple-100 mb-4">Download and upload your room configurations for easy backup and sharing between different setups.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Individual Group Management */}
-            <div className="bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3">📥 Individual Group Data</h3>
-              <div className="flex flex-wrap gap-3 items-center mb-3">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-purple-100">Group:</label>
-                  <select
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                  >
-                    {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
-                      <option key={num} value={num}>Group {num}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <button
-                  onClick={() => downloadGroupData(selectedGroup)}
-                  className="px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-all font-medium text-sm border border-blue-700"
-                >
-                  📥 Download Group {selectedGroup}
-                </button>
-              </div>
-              <p className="text-sm text-purple-100">
-                Downloads room images, elements, and group-specific questions/images for a single group.
-              </p>
-            </div>
-            
-            {/* Complete Lab Management */}
-            <div className="bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3">🏗️ Complete Lab Data</h3>
-              <div className="flex flex-wrap gap-3 items-center mb-3">
-                <button
-                  onClick={() => downloadAllGroupsData()}
-                  className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all font-medium text-sm border border-green-600"
-                >
-                  📦 Download Everything
-                </button>
-                
-                <label className="cursor-pointer px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all font-medium text-sm border border-yellow-500">
-                  📤 Upload Lab Data
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleGroupDataUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-              <p className="text-sm text-purple-100">
-                Complete backup including all groups, room setup, questions, and images.
-              </p>
-            </div>
-          </div>
-          
-          {/* Data Summary */}
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
-              <div className="text-2xl font-bold text-white">{Object.keys(roomImages).length}</div>
-              <div className="text-sm text-purple-100">Room Images</div>
-            </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
-              <div className="text-2xl font-bold text-white">{Object.keys(roomElements).length}</div>
-              <div className="text-sm text-purple-100">Room Elements</div>
-            </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
-              <div className="text-2xl font-bold text-white">{Object.keys(ppeSettings.groups || {}).length}</div>
-              <div className="text-sm text-purple-100">PPE Groups</div>
-            </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
-              <div className="text-2xl font-bold text-white">{Object.keys(finalQuestionSettings.groups || {}).length}</div>
-              <div className="text-sm text-purple-100">Final Questions</div>
-            </div>
-          </div>
-          
-          <div className="mt-4 bg-white bg-opacity-10 rounded-lg p-3">
-            <p className="text-sm text-purple-100">
-              💡 <strong>Tip:</strong> Use individual group downloads to share specific configurations with colleagues, 
-              or download everything for complete backups before making major changes.
-            </p>
-          </div>
-        </div>
-
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
@@ -1242,7 +794,6 @@ export default function InstructorInterface() {
               </div>
             </div>
 
-            {/* Game Settings */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Game Completion Settings</h2>
               <div className="space-y-4">
@@ -1381,7 +932,6 @@ export default function InstructorInterface() {
                   />
                 </div>
                 
-                {/* Hidden image element for loading */}
                 <img
                   ref={imageRef}
                   alt="Room background"
@@ -1445,7 +995,6 @@ export default function InstructorInterface() {
         {/* Group Questions Tab */}
         {activeTab === 'group-questions' && (
           <div className="space-y-6">
-            {/* Group Selection */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Configure Questions by Group</h2>
               <div className="flex justify-between items-center mb-4">
@@ -1476,352 +1025,70 @@ export default function InstructorInterface() {
                     .filter(([id, element]) => ['info', 'question'].includes(element.interactionType))
                     .map(([elementId, element]) => (
                       <div key={elementId} className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-bold text-gray-700 mb-3">
-                          {element.defaultIcon} {element.name} ({element.wall} wall)
+                        <h4 className="font-bold text-gray-700 mb-3 flex items-center">
+                          <span className="mr-2">
+                            {element.defaultIcon || '🔍'}
+                          </span>
+                          {element.name} ({element.wall} wall)
+                          <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                            element.interactionType === 'question' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {element.interactionType}
+                          </span>
                         </h4>
                         
                         {element.interactionType === 'info' ? (
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Text
-                              </label>
-                              <textarea
-                                value={element.content?.info || ''}
-                                onChange={(e) => {
-                                  const updated = {
-                                    ...element,
-                                    content: { ...element.content, info: e.target.value }
-                                  };
-                                  updateElement(elementId, updated);
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Information revealed when clicked..."
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Image (Optional)
-                              </label>
-                              {element.content?.infoImage ? (
-                                <div className="space-y-2">
-                                  <img
-                                    src={element.content.infoImage.data}
-                                    alt="Information"
-                                    className="w-32 h-32 object-cover rounded border"
-                                  />
-                                  <button
-                                    onClick={() => {
-                                      const updated = {
-                                        ...element,
-                                        content: { ...element.content, infoImage: null }
-                                      };
-                                      updateElement(elementId, updated);
-                                    }}
-                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                                  >
-                                    Remove Image
-                                  </button>
-                                </div>
-                              ) : (
-                                <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                                  Upload Image
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                      const file = e.target.files[0];
-                                      if (file) {
-                                        if (file.size > 5 * 1024 * 1024) {
-                                          alert('File size must be less than 5MB');
-                                          return;
-                                        }
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                          const updated = {
-                                            ...element,
-                                            content: { 
-                                              ...element.content, 
-                                              infoImage: {
-                                                data: event.target.result,
-                                                name: file.name,
-                                                size: file.size,
-                                                lastModified: new Date().toISOString()
-                                              }
-                                            }
-                                          };
-                                          updateElement(elementId, updated);
-                                        };
-                                        reader.readAsDataURL(file);
-                                      }
-                                    }}
-                                    className="hidden"
-                                  />
-                                </label>
-                              )}
-                            </div>
+                          <div className="bg-green-50 p-4 rounded">
+                            <p className="text-green-700 text-sm mb-2">
+                              ℹ️ This element shows information directly (no question required)
+                            </p>
+                            <p className="text-green-600 text-xs">
+                              Configure this element's content in the Room Setup tab.
+                            </p>
                           </div>
                         ) : (
-                          <div className="space-y-4">
-                            {/* Question Text */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question
-                              </label>
-                              <textarea
-                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    id: `${elementId}_g${selectedGroup}`,
-                                    question: e.target.value,
-                                    type: currentQuestion.type || 'multiple_choice',
-                                    numOptions: currentQuestion.numOptions || 4,
-                                    options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-                                    correctAnswer: currentQuestion.correctAnswer || 0,
-                                    correctText: currentQuestion.correctText || '',
-                                    hint: currentQuestion.hint || '',
-                                    clue: currentQuestion.clue || '',
-                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
-                                    info: currentQuestion.info || '',
-                                    infoImage: currentQuestion.infoImage || null
-                                  };
-                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                          <div className="bg-blue-50 p-4 rounded">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-blue-800 font-medium">Question Configuration for Group {selectedGroup}</span>
+                              <button
+                                onClick={() => {
+                                  setEditingElement(element);
+                                  setSelectedElementId(elementId);
+                                  setShowElementModal(true);
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Enter question for this group..."
-                              />
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                              >
+                                ⚙️ Edit Questions
+                              </button>
                             </div>
                             
-                            {/* Question Type */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question Type
-                              </label>
-                              <select
-                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
-                                onChange={(e) => {
-                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    type: e.target.value,
-                                    options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
-                                    correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
-                                    correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
-                                  };
-                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="multiple_choice">Multiple Choice</option>
-                                <option value="text">Fill in the Blank</option>
-                              </select>
-                            </div>
-
-                            {/* Multiple Choice Options */}
-                            {element.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
-                              <>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Answer Options
-                                  </label>
-                                  <div className="space-y-2">
-                                    {(element.content?.question?.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
-                                      <div key={idx} className="flex items-center space-x-2">
-                                        <span className="text-sm font-medium text-gray-600 w-8">
-                                          {String.fromCharCode(65 + idx)}:
-                                        </span>
-                                        <input
-                                          type="text"
-                                          value={option}
-                                          onChange={(e) => {
-                                            const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                            const newOptions = [...(currentQuestion.options || [])];
-                                            newOptions[idx] = e.target.value;
-                                            const updatedQuestion = {
-                                              ...currentQuestion,
-                                              options: newOptions
-                                            };
-                                            updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                          }}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                                        />
-                                      </div>
-                                    ))}
+                            {(() => {
+                              const groupQuestion = element.content?.question?.groups?.[selectedGroup]?.[0];
+                              
+                              if (groupQuestion) {
+                                return (
+                                  <div className="space-y-2 text-sm">
+                                    <div><strong>Question:</strong> {groupQuestion.question || 'No question set'}</div>
+                                    <div><strong>Type:</strong> {groupQuestion.type || 'multiple_choice'}</div>
+                                    {groupQuestion.type === 'multiple_choice' && (
+                                      <div><strong>Correct Answer:</strong> {groupQuestion.options?.[groupQuestion.correctAnswer] || 'Not set'}</div>
+                                    )}
+                                    {groupQuestion.type === 'text' && (
+                                      <div><strong>Correct Answer:</strong> {groupQuestion.correctText || 'Not set'}</div>
+                                    )}
+                                    <div><strong>Has Reward Image:</strong> {groupQuestion.infoImage ? '✅ Yes' : '❌ No'}</div>
                                   </div>
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Correct Answer
-                                  </label>
-                                  <select
-                                    value={element.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
-                                    onChange={(e) => {
-                                      const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        correctAnswer: parseInt(e.target.value)
-                                      };
-                                      updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    {(element.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                                      <option key={idx} value={idx}>
-                                        {String.fromCharCode(65 + idx)}: {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </>
-                            )}
-
-                            {/* Text Answer */}
-                            {element.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Correct Answer (case-insensitive)
-                                </label>
-                                <input
-                                  type="text"
-                                  value={element.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
-                                  onChange={(e) => {
-                                    const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                    const updatedQuestion = {
-                                      ...currentQuestion,
-                                      correctText: e.target.value
-                                    };
-                                    updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Enter the correct answer..."
-                                />
-                              </div>
-                            )}
-
-                            {/* Hint */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Hint (Optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    hint: e.target.value
-                                  };
-                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Optional hint for students..."
-                              />
-                            </div>
-
-                            {/* Information Revealed When Correct */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Revealed When Correct
-                              </label>
-                              <textarea
-                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    info: e.target.value,
-                                    clue: e.target.value // Keep clue in sync
-                                  };
-                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Information revealed when student answers correctly..."
-                              />
-                            </div>
-
-                            {/* SUCCESS/REWARD Image - This is what students see when they answer correctly */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                🎁 Reward Image (Shown When Question Answered Correctly)
-                              </label>
-                              {element.content?.question?.groups?.[selectedGroup]?.[0]?.infoImage ? (
-                                <div className="space-y-2">
-                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                                    <p className="text-sm text-green-800 mb-2">✅ Students will see this image when they answer correctly:</p>
-                                    <img
-                                      src={element.content.question.groups[selectedGroup][0].infoImage.data}
-                                      alt="Success/Reward Image"
-                                      className="w-48 h-48 object-cover rounded border mx-auto"
-                                    />
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        infoImage: null
-                                      };
-                                      updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                    }}
-                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                                  >
-                                    Remove Reward Image
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                  <div className="text-center mb-3">
-                                    <div className="text-3xl mb-2">🎁</div>
-                                    <p className="text-blue-800 font-medium">No reward image set</p>
-                                    <p className="text-sm text-blue-600">Upload an image that students will see when they answer this question correctly</p>
-                                  </div>
-                                  <label className="cursor-pointer inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full text-center">
-                                    📁 Upload Success/Reward Image
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                          if (file.size > 5 * 1024 * 1024) {
-                                            alert('File size must be less than 5MB');
-                                            return;
-                                          }
-                                          const reader = new FileReader();
-                                          reader.onload = (event) => {
-                                            const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                            const updatedQuestion = {
-                                              ...currentQuestion,
-                                              infoImage: {
-                                                data: event.target.result,
-                                                name: file.name,
-                                                size: file.size,
-                                                lastModified: new Date().toISOString()
-                                              }
-                                            };
-                                            updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                          };
-                                          reader.readAsDataURL(file);
-                                        }
-                                      }}
-                                      className="hidden"
-                                    />
-                                  </label>
-                                </div>
-                              )}
-                              <p className="text-sm text-gray-500 mt-1">
-                                ✨ This image appears as a "reward" when students answer the question correctly
-                              </p>
-                            </div>
+                                );
+                              } else {
+                                return (
+                                  <p className="text-blue-600 text-sm">
+                                    ⚠️ No question configured for Group {selectedGroup}. Click "Edit Questions" to set up the question.
+                                  </p>
+                                );
+                              }
+                            })()}
                           </div>
                         )}
                       </div>
@@ -2206,7 +1473,6 @@ export default function InstructorInterface() {
         {/* Feedback Tab */}
         {activeTab === 'feedback' && (
           <div className="space-y-6">
-            {/* General Feedback Settings */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">General Performance Feedback</h2>
               <p className="text-gray-600 mb-4">
@@ -2220,12 +1486,13 @@ export default function InstructorInterface() {
                   </label>
                   <textarea
                     value={feedbackSettings.generalFeedback.excellent}
-                    onChange={(e) => updateFeedbackSettings({
+                    onChange={(e) => setFeedbackSettings(prev => ({
+                      ...prev,
                       generalFeedback: {
-                        ...feedbackSettings.generalFeedback,
+                        ...prev.generalFeedback,
                         excellent: e.target.value
                       }
-                    })}
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                     rows="3"
                   />
@@ -2237,12 +1504,13 @@ export default function InstructorInterface() {
                   </label>
                   <textarea
                     value={feedbackSettings.generalFeedback.good}
-                    onChange={(e) => updateFeedbackSettings({
+                    onChange={(e) => setFeedbackSettings(prev => ({
+                      ...prev,
                       generalFeedback: {
-                        ...feedbackSettings.generalFeedback,
+                        ...prev.generalFeedback,
                         good: e.target.value
                       }
-                    })}
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
                   />
@@ -2254,12 +1522,13 @@ export default function InstructorInterface() {
                   </label>
                   <textarea
                     value={feedbackSettings.generalFeedback.needs_improvement}
-                    onChange={(e) => updateFeedbackSettings({
+                    onChange={(e) => setFeedbackSettings(prev => ({
+                      ...prev,
                       generalFeedback: {
-                        ...feedbackSettings.generalFeedback,
+                        ...prev.generalFeedback,
                         needs_improvement: e.target.value
                       }
-                    })}
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     rows="3"
                   />
@@ -2271,12 +1540,13 @@ export default function InstructorInterface() {
                   </label>
                   <textarea
                     value={feedbackSettings.generalFeedback.poor}
-                    onChange={(e) => updateFeedbackSettings({
+                    onChange={(e) => setFeedbackSettings(prev => ({
+                      ...prev,
                       generalFeedback: {
-                        ...feedbackSettings.generalFeedback,
+                        ...prev.generalFeedback,
                         poor: e.target.value
                       }
-                    })}
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                     rows="3"
                   />
@@ -2327,88 +1597,8 @@ export default function InstructorInterface() {
                     </div>
                   </div>
                 ))}
-                
-                {/* Custom Question Feedback */}
-                <div className="border border-gray-200 rounded-lg p-4 bg-blue-50">
-                  <h3 className="font-bold text-blue-800 mb-2">Custom Question Feedback</h3>
-                  <p className="text-sm text-blue-700 mb-3">
-                    You can also add feedback for specific questions by their ID. Question IDs are shown in the student progress data.
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="flex space-x-3">
-                      <input
-                        type="text"
-                        placeholder="Question ID (e.g., element_123_g1)"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        id="custom-question-id"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Topic (e.g., Centrifuge Operation)"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        id="custom-question-topic"
-                      />
-                    </div>
-                    <textarea
-                      placeholder="Feedback for this specific question..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows="2"
-                      id="custom-question-feedback"
-                    />
-                    <button
-                      onClick={() => {
-                        const questionId = document.getElementById('custom-question-id').value;
-                        const topic = document.getElementById('custom-question-topic').value;
-                        const feedback = document.getElementById('custom-question-feedback').value;
-                        
-                        if (questionId && topic && feedback) {
-                          updateQuestionFeedback(questionId, { topic, feedback });
-                          document.getElementById('custom-question-id').value = '';
-                          document.getElementById('custom-question-topic').value = '';
-                          document.getElementById('custom-question-feedback').value = '';
-                        } else {
-                          alert('Please fill in all fields');
-                        }
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-                    >
-                      Add Custom Feedback
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
-
-            {/* Existing Custom Feedback */}
-            {Object.keys(feedbackSettings.questionFeedback).length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Configured Question Feedback</h2>
-                <div className="space-y-3">
-                  {Object.entries(feedbackSettings.questionFeedback).map(([questionId, feedback]) => (
-                    <div key={questionId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <h3 className="font-bold text-gray-800">{feedback.topic}</h3>
-                        <p className="text-sm text-gray-600">ID: {questionId}</p>
-                        <p className="text-sm text-gray-700 mt-1">{feedback.feedback}</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newFeedback = { ...feedbackSettings.questionFeedback };
-                          delete newFeedback[questionId];
-                          updateFeedbackSettings({
-                            questionFeedback: newFeedback
-                          });
-                        }}
-                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -2516,15 +1706,6 @@ export default function InstructorInterface() {
                           Accuracy
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rooms
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Incorrect Answers
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Generated Feedback
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -2548,42 +1729,6 @@ export default function InstructorInterface() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {student.accuracyRate}%
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {student.rooms.join(', ')}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                            {student.incorrectAnswers.length > 0 ? (
-                              <div className="space-y-1">
-                                {student.incorrectAnswers.slice(0, 3).map((incorrect, idx) => (
-                                  <div key={idx} className="text-xs">
-                                    <span className="font-medium text-red-600">{incorrect.questionId}:</span>
-                                    <span className="text-red-500 ml-1">"{incorrect.studentAnswer}"</span>
-                                  </div>
-                                ))}
-                                {student.incorrectAnswers.length > 3 && (
-                                  <div className="text-xs text-gray-400">
-                                    +{student.incorrectAnswers.length - 3} more
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-green-600">None</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                            <div className="space-y-1">
-                              {generateStudentFeedback(student).slice(0, 2).map((feedback, idx) => (
-                                <div key={idx} className="text-xs p-1 bg-blue-50 rounded">
-                                  {feedback}
-                                </div>
-                              ))}
-                              {generateStudentFeedback(student).length > 2 && (
-                                <div className="text-xs text-gray-400">
-                                  +{generateStudentFeedback(student).length - 2} more suggestions
-                                </div>
-                              )}
-                            </div>
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               student.completed 
@@ -2603,49 +1748,17 @@ export default function InstructorInterface() {
                 </div>
               )}
             </div>
-
-            {/* Statistics Summary */}
-            {studentProgress.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Statistics Summary</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="font-bold text-blue-800">Total Students</h4>
-                    <p className="text-2xl font-bold text-blue-600">{studentProgress.length}</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h4 className="font-bold text-green-800">Completed</h4>
-                    <p className="text-2xl font-bold text-green-600">
-                      {studentProgress.filter(s => s.completed).length}
-                    </p>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-4">
-                    <h4 className="font-bold text-yellow-800">In Progress</h4>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {studentProgress.filter(s => !s.completed).length}
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h4 className="font-bold text-purple-800">Completion Rate</h4>
-                    <p className="text-2xl font-bold text-purple-600">
-                      {studentProgress.length > 0 ? Math.round((studentProgress.filter(s => s.completed).length / studentProgress.length) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Element Configuration Modal */}
+      {/* Element Configuration Modal - COMPLETE VERSION WITH FULL QUESTION EDITING */}
       {showElementModal && editingElement && (
-  console.log("DEBUG: editingElement.interactionType =", editingElement.interactionType),
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-red-500">🚨 NEW CODE WORKING - Configure Element</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Configure Element</h2>
                 <button
                   onClick={() => {
                     setShowElementModal(false);
@@ -2658,7 +1771,7 @@ export default function InstructorInterface() {
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -2754,152 +1867,63 @@ export default function InstructorInterface() {
                   </label>
                 </div>
 
-                {/* REWARD IMAGE SECTION - Only show for question-type elements */}
-                {editingElement.interactionType === 'question' && (
+                {/* INFO ONLY ELEMENT CONFIGURATION */}
+                {editingElement.interactionType === 'info' && (
                   <div className="border-t pt-6 mt-6">
-                    <h3 className="text-lg font-bold text-green-800 mb-4">🎁 Success/Reward Image</h3>
-                    <p className="text-sm text-green-700 mb-4">
-                      This image will be shown to students when they answer the question correctly - like a reward or "unlock"!
+                    <h3 className="text-lg font-bold text-blue-800 mb-4">📋 Information Content</h3>
+                    <p className="text-sm text-blue-700 mb-4">
+                      This element will show information directly when clicked (no question required).
                     </p>
                     
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      {/* Check if there's already a reward image for the selected group */}
-                      {(() => {
-                        const groupQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0];
-                        const hasRewardImage = groupQuestion?.infoImage;
-                        
-                        return hasRewardImage ? (
-                          <div className="space-y-3">
-                            <div className="bg-white border border-green-300 rounded-lg p-3">
-                              <p className="text-sm text-green-800 font-medium mb-2">✅ Current Reward Image for Group {selectedGroup}:</p>
-                              <img
-                                src={groupQuestion.infoImage.data}
-                                alt="Success/Reward Image"
-                                className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
-                              />
-                            </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Text
+                        </label>
+                        <textarea
+                          value={editingElement.content?.info || ''}
+                          onChange={(e) => {
+                            const updated = {
+                              ...editingElement,
+                              content: { ...editingElement.content, info: e.target.value }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="4"
+                          placeholder="Information revealed when clicked..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Image (Optional)
+                        </label>
+                        {editingElement.content?.infoImage ? (
+                          <div className="space-y-2">
+                            <img
+                              src={editingElement.content.infoImage.data}
+                              alt="Information"
+                              className="w-48 h-48 object-cover rounded border"
+                            />
                             <button
                               onClick={() => {
-                                const updatedQuestion = {
-                                  ...groupQuestion,
-                                  infoImage: null
+                                const updated = {
+                                  ...editingElement,
+                                  content: { ...editingElement.content, infoImage: null }
                                 };
-                                updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                // Update the editing element state too
-                                const updatedElement = { ...editingElement };
-                                if (updatedElement.content?.question?.groups?.[selectedGroup]) {
-                                  updatedElement.content.question.groups[selectedGroup][0] = updatedQuestion;
-                                  setEditingElement(updatedElement);
-                                }
+                                setEditingElement(updated);
+                                updateElement(selectedElementId, updated);
                               }}
-                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
                             >
-                              🗑️ Remove Reward Image
+                              Remove Image
                             </button>
                           </div>
                         ) : (
-                          <div className="text-center">
-                            <div className="text-6xl mb-3">🎁</div>
-                            <p className="text-green-800 font-medium mb-2">No reward image set for Group {selectedGroup}</p>
-                            <p className="text-sm text-green-600 mb-4">Upload an image that students will see when they answer correctly!</p>
-                            <label className="cursor-pointer inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
-                              📁 Upload Success/Reward Image
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    if (file.size > 5 * 1024 * 1024) {
-                                      alert('File size must be less than 5MB');
-                                      return;
-                                    }
-                                    const reader = new FileReader();
-                                    reader.onload = (event) => {
-                                      // Create or update the question for this group
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {
-                                        id: `${selectedElementId}_g${selectedGroup}`,
-                                        question: 'Question about this element...',
-                                        type: 'multiple_choice',
-                                        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-                                        correctAnswer: 0,
-                                        hint: '',
-                                        info: 'Information revealed when solved...'
-                                      };
-                                      
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        infoImage: {
-                                          data: event.target.result,
-                                          name: file.name,
-                                          size: file.size,
-                                          lastModified: new Date().toISOString()
-                                        }
-                                      };
-                                      
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      
-                                      // Update the editing element state too
-                                      const updatedElement = { ...editingElement };
-                                      if (!updatedElement.content) updatedElement.content = {};
-                                      if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
-                                      if (!updatedElement.content.question.groups) updatedElement.content.question.groups = {};
-                                      updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
-                                      setEditingElement(updatedElement);
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-                {/* Info-only elements reward image */}
-                {editingElement.interactionType === 'info' && (
-                  <div className="border-t pt-6 mt-6">
-                    <h3 className="text-lg font-bold text-blue-800 mb-4">🖼️ Information Image</h3>
-                    <p className="text-sm text-blue-700 mb-4">
-                      This image will be shown alongside the information when students click on this element.
-                    </p>
-                    
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      {editingElement.content?.infoImage ? (
-                        <div className="space-y-3">
-                          <div className="bg-white border border-blue-300 rounded-lg p-3">
-                            <p className="text-sm text-blue-800 font-medium mb-2">Current Information Image:</p>
-                            <img
-                              src={editingElement.content.infoImage.data}
-                              alt="Information Image"
-                              className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
-                            />
-                          </div>
-                          <button
-                            onClick={() => {
-                              const updated = {
-                                ...editingElement,
-                                content: { ...editingElement.content, infoImage: null }
-                              };
-                              setEditingElement(updated);
-                              updateElement(selectedElementId, updated);
-                            }}
-                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
-                          >
-                            🗑️ Remove Information Image
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <div className="text-6xl mb-3">🖼️</div>
-                          <p className="text-blue-800 font-medium mb-2">No information image set</p>
-                          <p className="text-sm text-blue-600 mb-4">Upload an image to show with the information!</p>
-                          <label className="cursor-pointer inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
-                            📁 Upload Information Image
+                          <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Upload Image
                             <input
                               type="file"
                               accept="image/*"
@@ -2933,8 +1957,349 @@ export default function InstructorInterface() {
                               className="hidden"
                             />
                           </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* QUESTION ELEMENT CONFIGURATION */}
+                {editingElement.interactionType === 'question' && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-bold text-green-800 mb-4">❓ Question Configuration for Group {selectedGroup}</h3>
+                    <p className="text-sm text-green-700 mb-4">
+                      Students must answer this question correctly to receive the reward information and image.
+                    </p>
+                    
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 space-y-4">
+                      {/* Question Text */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Question
+                        </label>
+                        <textarea
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              id: `${selectedElementId}_g${selectedGroup}`,
+                              question: e.target.value,
+                              type: currentQuestion.type || 'multiple_choice',
+                              numOptions: currentQuestion.numOptions || 4,
+                              options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                              correctAnswer: currentQuestion.correctAnswer || 0,
+                              correctText: currentQuestion.correctText || '',
+                              hint: currentQuestion.hint || '',
+                              clue: currentQuestion.clue || '',
+                              randomizeAnswers: currentQuestion.randomizeAnswers || false,
+                              info: currentQuestion.info || '',
+                              infoImage: currentQuestion.infoImage || null
+                            };
+                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                            
+                            // Update editing element state
+                            const updatedElement = { ...editingElement };
+                            if (!updatedElement.content) updatedElement.content = {};
+                            if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                            updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                            setEditingElement(updatedElement);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                          placeholder="Enter question for this group..."
+                        />
+                      </div>
+                      
+                      {/* Question Type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Question Type
+                        </label>
+                        <select
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              type: e.target.value,
+                              options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
+                              correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
+                              correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
+                            };
+                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                            
+                            // Update editing element state
+                            const updatedElement = { ...editingElement };
+                            if (!updatedElement.content) updatedElement.content = {};
+                            if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                            updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                            setEditingElement(updatedElement);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="multiple_choice">Multiple Choice</option>
+                          <option value="text">Fill in the Blank</option>
+                        </select>
+                      </div>
+
+                      {/* Multiple Choice Options */}
+                      {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Answer Options
+                            </label>
+                            <div className="space-y-2">
+                              {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                                <div key={idx} className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium text-gray-600 w-8">
+                                    {String.fromCharCode(65 + idx)}:
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={option}
+                                    onChange={(e) => {
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                      const newOptions = [...(currentQuestion.options || [])];
+                                      newOptions[idx] = e.target.value;
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        options: newOptions
+                                      };
+                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                      
+                                      // Update editing element state
+                                      const updatedElement = { ...editingElement };
+                                      if (!updatedElement.content) updatedElement.content = {};
+                                      if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                      updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                      setEditingElement(updatedElement);
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Correct Answer
+                            </label>
+                            <select
+                              value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
+                              onChange={(e) => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  correctAnswer: parseInt(e.target.value)
+                                };
+                                updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                
+                                // Update editing element state
+                                const updatedElement = { ...editingElement };
+                                if (!updatedElement.content) updatedElement.content = {};
+                                if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                setEditingElement(updatedElement);
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
+                                <option key={idx} value={idx}>
+                                  {String.fromCharCode(65 + idx)}: {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Text Answer */}
+                      {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Correct Answer (case-insensitive)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
+                            onChange={(e) => {
+                              const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                              const updatedQuestion = {
+                                ...currentQuestion,
+                                correctText: e.target.value
+                              };
+                              updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                              
+                              // Update editing element state
+                              const updatedElement = { ...editingElement };
+                              if (!updatedElement.content) updatedElement.content = {};
+                              if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                              updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                              setEditingElement(updatedElement);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter the correct answer..."
+                          />
                         </div>
                       )}
+
+                      {/* Hint */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Hint (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              hint: e.target.value
+                            };
+                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                            
+                            // Update editing element state
+                            const updatedElement = { ...editingElement };
+                            if (!updatedElement.content) updatedElement.content = {};
+                            if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                            updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                            setEditingElement(updatedElement);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Optional hint for students..."
+                        />
+                      </div>
+
+                      {/* Information Revealed When Correct */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Revealed When Correct
+                        </label>
+                        <textarea
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              info: e.target.value,
+                              clue: e.target.value // Keep clue in sync
+                            };
+                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                            
+                            // Update editing element state
+                            const updatedElement = { ...editingElement };
+                            if (!updatedElement.content) updatedElement.content = {};
+                            if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                            updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                            setEditingElement(updatedElement);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                          placeholder="Information revealed when student answers correctly..."
+                        />
+                      </div>
+
+                      {/* SUCCESS/REWARD Image */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          🎁 Reward Image (Shown When Question Answered Correctly)
+                        </label>
+                        {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.infoImage ? (
+                          <div className="space-y-2">
+                            <div className="bg-white border border-green-300 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-medium mb-2">✅ Current Reward Image for Group {selectedGroup}:</p>
+                              <img
+                                src={editingElement.content.question.groups[selectedGroup][0].infoImage.data}
+                                alt="Success/Reward Image"
+                                className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  infoImage: null
+                                };
+                                updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                
+                                // Update editing element state
+                                const updatedElement = { ...editingElement };
+                                if (!updatedElement.content) updatedElement.content = {};
+                                if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                setEditingElement(updatedElement);
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                            >
+                              🗑️ Remove Reward Image
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="text-6xl mb-3">🎁</div>
+                            <p className="text-blue-800 font-medium mb-2">No reward image set for Group {selectedGroup}</p>
+                            <p className="text-sm text-blue-600 mb-4">Upload an image that students will see when they answer correctly!</p>
+                            <label className="cursor-pointer inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
+                              📁 Upload Success/Reward Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert('File size must be less than 5MB');
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {
+                                        id: `${selectedElementId}_g${selectedGroup}`,
+                                        question: 'Question about this element...',
+                                        type: 'multiple_choice',
+                                        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                                        correctAnswer: 0,
+                                        hint: '',
+                                        info: 'Information revealed when solved...'
+                                      };
+                                      
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        infoImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      };
+                                      
+                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                      
+                                      // Update editing element state
+                                      const updatedElement = { ...editingElement };
+                                      if (!updatedElement.content) updatedElement.content = {};
+                                      if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                      updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                      setEditingElement(updatedElement);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        )}
+                        <p className="text-sm text-gray-500 mt-1">
+                          ✨ This image appears as a "reward" when students answer the question correctly
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
