@@ -13,7 +13,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [isAlreadySolved, setIsAlreadySolved] = useState(false)
   const [solvedInfo, setSolvedInfo] = useState('')
   const [displayOptions, setDisplayOptions] = useState([])
-  const [debugInfo, setDebugInfo] = useState(null) // DEBUG: Add debug info state
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -32,7 +31,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     setShowHint(false)
     setIsAlreadySolved(false)
     setSolvedInfo('')
-    setDebugInfo(null) // DEBUG: Reset debug info
     
     // Check if this element was already solved
     const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
@@ -54,22 +52,11 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
       
-      // DEBUG: Set debug information
-      setDebugInfo({
-        elementId,
-        studentGroup,
-        questionType: question?.type,
-        options: question?.options,
-        correctAnswer: question?.correctAnswer,
-        correctText: question?.correctText,
-        answer: question?.answer,
-        questionData: question
-      })
-      
-      // Set up display options for multiple choice questions - NO SHUFFLING
+      // Set up display options for multiple choice questions
       if (question && question.type === 'multiple_choice') {
-        // Use the original options array directly - no shuffling
-        setDisplayOptions(question.options || [])
+        // Clean up options by trimming whitespace for display
+        const cleanedOptions = (question.options || []).map(option => option.trim())
+        setDisplayOptions(cleanedOptions)
       }
     } else if (element && element.interactionType === 'info') {
       setShowInfoOnly(true)
@@ -126,18 +113,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const isCorrect = checkAnswer(userAnswer, currentQuestion)
     setAttempts(prev => prev + 1)
     
-    // DEBUG: Console log for debugging
-    console.log('=== ANSWER CHECK DEBUG ===')
-    console.log('User Answer:', userAnswer)
-    console.log('Question Type:', currentQuestion.type)
-    console.log('Question Options:', currentQuestion.options)
-    console.log('Correct Answer Index:', currentQuestion.correctAnswer)
-    console.log('Correct Answer Text (from options):', currentQuestion.options?.[currentQuestion.correctAnswer])
-    console.log('Correct Text Field:', currentQuestion.correctText)
-    console.log('Answer Field:', currentQuestion.answer)
-    console.log('Is Correct:', isCorrect)
-    console.log('========================')
-    
     // Track the attempt
     const trackingId = `${elementId}_${currentQuestion.id}`
     trackAttempt('lab', trackingId, userAnswer, isCorrect)
@@ -167,26 +142,27 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const checkAnswer = (answer, question) => {
     if (!question || !answer) return false
     
+    // Trim both the user answer and any comparison strings
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // Method 1: Check using correctAnswer index
+      // Method 1: Check using correctAnswer index with trimmed comparison
       if (question.options && typeof question.correctAnswer === 'number') {
         const correctAnswerText = question.options[question.correctAnswer]
-        if (trimmedAnswer === correctAnswerText) {
+        if (correctAnswerText && trimmedAnswer === correctAnswerText.trim()) {
           return true
         }
       }
       
-      // Method 2: Check against answer field (legacy support)
-      if (question.answer && trimmedAnswer === question.answer) {
+      // Method 2: Check against answer field (legacy support) - also trimmed
+      if (question.answer && trimmedAnswer === question.answer.trim()) {
         return true
       }
       
-      // Method 3: Check if the answer field matches one of the options and use that index
+      // Method 3: Find the answer in options array (trimmed comparison)
       if (question.answer && question.options) {
-        const answerIndex = question.options.findIndex(opt => opt === question.answer)
-        if (answerIndex !== -1 && trimmedAnswer === question.options[answerIndex]) {
+        const matchingOption = question.options.find(opt => opt.trim() === question.answer.trim())
+        if (matchingOption && trimmedAnswer === matchingOption.trim()) {
           return true
         }
       }
@@ -194,12 +170,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     } else if (question.type === 'text') {
       // For text questions, check against correctText (case-insensitive)
       if (question.correctText) {
-        return question.correctText.toLowerCase() === trimmedAnswer.toLowerCase()
+        return question.correctText.trim().toLowerCase() === trimmedAnswer.toLowerCase()
       }
       
       // Fallback check against the answer field for backwards compatibility
       if (question.answer) {
-        return question.answer.toLowerCase() === trimmedAnswer.toLowerCase()
+        return question.answer.trim().toLowerCase() === trimmedAnswer.toLowerCase()
       }
     }
     
@@ -321,23 +297,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           ) : (
             <div className="space-y-6">
               
-              {/* DEBUG PANEL - Remove this in production */}
-              {debugInfo && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h3 className="font-bold text-red-800 mb-2">🐛 DEBUG INFO (Remove in production)</h3>
-                  <div className="text-xs text-red-700 space-y-1">
-                    <div><strong>Element ID:</strong> {debugInfo.elementId}</div>
-                    <div><strong>Student Group:</strong> {debugInfo.studentGroup}</div>
-                    <div><strong>Question Type:</strong> {debugInfo.questionType}</div>
-                    <div><strong>Options:</strong> {JSON.stringify(debugInfo.options)}</div>
-                    <div><strong>Correct Answer Index:</strong> {debugInfo.correctAnswer}</div>
-                    <div><strong>Correct Answer Text:</strong> {debugInfo.options?.[debugInfo.correctAnswer]}</div>
-                    <div><strong>Correct Text Field:</strong> {debugInfo.correctText}</div>
-                    <div><strong>Answer Field:</strong> {debugInfo.answer}</div>
-                  </div>
-                </div>
-              )}
-              
               {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-bold text-blue-800 mb-2">
@@ -407,12 +366,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                               className="mr-3 h-4 w-4 text-blue-600"
                             />
                             <span className="text-gray-700">{option}</span>
-                            {/* DEBUG: Show if this is the correct answer */}
-                            {debugInfo && index === debugInfo.correctAnswer && (
-                              <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-1 rounded">
-                                CORRECT ANSWER
-                              </span>
-                            )}
                           </label>
                         ))}
                       </div>
