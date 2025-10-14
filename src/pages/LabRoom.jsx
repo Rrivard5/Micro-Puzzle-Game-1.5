@@ -152,6 +152,11 @@ export default function LabRoom() {
     setActiveModal(null)
   }
 
+  // NEW: Handle clicking on discovered clue boxes to view details
+  const handleClueClick = (elementId) => {
+    navigate('/lab-notebook')
+  }
+
   const handleFinalQuestionClick = () => {
     if (finalQuestionSolved) {
       // If already solved, go directly to completion
@@ -434,7 +439,16 @@ export default function LabRoom() {
 
         {/* Enhanced Progress Indicator */}
         <div className="mb-6 bg-white bg-opacity-95 rounded-xl p-4 text-center shadow-xl border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-800 mb-2">🔍 Investigation Progress</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-bold text-gray-800">🔍 Investigation Progress</h3>
+            {/* NEW: Laboratory Notebook Button */}
+            <button
+              onClick={() => navigate('/lab-notebook')}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-all transform hover:scale-105 shadow-lg flex items-center"
+            >
+              📔 Lab Notebook
+            </button>
+          </div>
           <p className="text-sm text-gray-600 mb-3">
             Analyze all required equipment before attempting final diagnosis
           </p>
@@ -545,22 +559,37 @@ export default function LabRoom() {
           </div>
         </div>
 
-        {/* Discovered Clues Panel */}
+        {/* Discovered Clues Panel - NOW CLICKABLE */}
         {Object.keys(discoveredClues).length > 0 && (
           <div className="mt-8 bg-white bg-opacity-95 rounded-xl p-6 shadow-xl border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">📋 Investigation Results</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">📋 Investigation Results</h3>
+              <button
+                onClick={handleClueClick}
+                className="text-amber-600 hover:text-amber-700 text-sm font-medium underline"
+              >
+                📔 View in Lab Notebook
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(discoveredClues).map(([item, clue]) => {
                 const element = roomElements[item]
                 return (
-                  <div key={item} className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-md">
+                  <div 
+                    key={item} 
+                    onClick={() => handleClueClick(item)}
+                    className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-md cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all duration-200 transform hover:-translate-y-1"
+                  >
                     <h4 className="font-bold text-blue-800 mb-2 flex items-center">
                       <span className="mr-2">
                         {element?.defaultIcon || '🔍'}
                       </span>
                       {element?.name || item}
                     </h4>
-                    <p className="text-blue-700 text-sm">{clue}</p>
+                    <p className="text-blue-700 text-sm line-clamp-3">{clue}</p>
+                    <div className="mt-2 text-xs text-blue-600 font-medium">
+                      📔 Click to view in notebook
+                    </div>
                   </div>
                 )
               })}
@@ -739,6 +768,7 @@ export default function LabRoom() {
             <li>• <strong>Navigate:</strong> Use the turn buttons to look around the laboratory</li>
             <li>• <strong>Explore Carefully:</strong> Click on equipment and areas that look interactable</li>
             <li>• <strong>Solve Puzzles:</strong> Answer diagnostic questions to gather evidence</li>
+            <li>• <strong>Review Findings:</strong> Click investigation results or use Lab Notebook to review discoveries</li>
             <li>• <strong>Final Diagnosis:</strong> Click the red button to attempt your final diagnosis</li>
             <li>• <strong>Complete Treatment:</strong> Successfully diagnose the patient to proceed</li>
             <li>• <strong>Time Critical:</strong> The patient's condition is deteriorating - work quickly!</li>
