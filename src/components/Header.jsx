@@ -9,6 +9,7 @@ export default function Header() {
   const isComplete = location.pathname === '/complete'
   const isStudentInfo = location.pathname === '/student-info'
   const isInstructor = location.pathname === '/instructor'
+  const isPPERoom = location.pathname === '/ppe-room'
 
   // Don't show header on these pages
   if (isHome || isComplete || isStudentInfo || isInstructor) return null
@@ -27,8 +28,8 @@ export default function Header() {
             🧪 Microbiology Lab Escape Room
           </Link>
           
-          {/* Show navigation if student info exists */}
-          {hasStudentInfo && (
+          {/* Show navigation if student info exists AND not on PPE room */}
+          {hasStudentInfo && !isPPERoom && (
             <div className="flex items-center gap-4">
               <Link
                 to="/lab"
@@ -47,6 +48,13 @@ export default function Header() {
           {!hasStudentInfo && (
             <div className="text-amber-600 font-medium">
               Please complete student information to access the laboratory
+            </div>
+          )}
+          
+          {/* Show PPE completion message when on PPE room */}
+          {isPPERoom && hasStudentInfo && (
+            <div className="text-green-600 font-medium">
+              Complete PPE selection to proceed to laboratory
             </div>
           )}
         </div>
