@@ -1123,20 +1123,22 @@ export default function InstructorInterface() {
       <div className="max-w-7xl mx-auto px-4 py-6">
 
         {/* ENHANCED Group Data Management Section - Available on all tabs */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">📦 Enhanced Group Data Management</h2>
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+          <h2 className="text-2xl font-bold text-white mb-4">📦 GROUP DATA BACKUP & RESTORE</h2>
+          <p className="text-purple-100 mb-4">Download and upload your room configurations for easy backup and sharing between different setups.</p>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Individual Group Management */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-bold text-blue-800 mb-3">Individual Group Data</h3>
+            <div className="bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg p-4">
+              <h3 className="font-bold text-white mb-3">📥 Individual Group Data</h3>
               <div className="flex flex-wrap gap-3 items-center mb-3">
                 <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Group:</label>
+                  <label className="text-sm font-medium text-purple-100">Group:</label>
                   <select
                     value={selectedGroup}
                     onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                   >
                     {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
                       <option key={num} value={num}>Group {num}</option>
@@ -1146,28 +1148,28 @@ export default function InstructorInterface() {
                 
                 <button
                   onClick={() => downloadGroupData(selectedGroup)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-all font-medium text-sm border border-blue-700"
                 >
                   📥 Download Group {selectedGroup}
                 </button>
               </div>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-purple-100">
                 Downloads room images, elements, and group-specific questions/images for a single group.
               </p>
             </div>
             
             {/* Complete Lab Management */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="font-bold text-green-800 mb-3">Complete Lab Data</h3>
+            <div className="bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg p-4">
+              <h3 className="font-bold text-white mb-3">🏗️ Complete Lab Data</h3>
               <div className="flex flex-wrap gap-3 items-center mb-3">
                 <button
                   onClick={() => downloadAllGroupsData()}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all font-medium text-sm border border-green-600"
                 >
                   📦 Download Everything
                 </button>
                 
-                <label className="cursor-pointer px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium text-sm">
+                <label className="cursor-pointer px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all font-medium text-sm border border-yellow-500">
                   📤 Upload Lab Data
                   <input
                     type="file"
@@ -1177,30 +1179,37 @@ export default function InstructorInterface() {
                   />
                 </label>
               </div>
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-purple-100">
                 Complete backup including all groups, room setup, questions, and images.
               </p>
             </div>
           </div>
           
           {/* Data Summary */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-800">{Object.keys(roomImages).length}</div>
-              <div className="text-sm text-gray-600">Room Images</div>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
+              <div className="text-2xl font-bold text-white">{Object.keys(roomImages).length}</div>
+              <div className="text-sm text-purple-100">Room Images</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-800">{Object.keys(roomElements).length}</div>
-              <div className="text-sm text-gray-600">Room Elements</div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
+              <div className="text-2xl font-bold text-white">{Object.keys(roomElements).length}</div>
+              <div className="text-sm text-purple-100">Room Elements</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-800">{Object.keys(ppeSettings.groups || {}).length}</div>
-              <div className="text-sm text-gray-600">PPE Groups</div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
+              <div className="text-2xl font-bold text-white">{Object.keys(ppeSettings.groups || {}).length}</div>
+              <div className="text-sm text-purple-100">PPE Groups</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-800">{Object.keys(finalQuestionSettings.groups || {}).length}</div>
-              <div className="text-sm text-gray-600">Final Questions</div>
+            <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center border border-white border-opacity-30">
+              <div className="text-2xl font-bold text-white">{Object.keys(finalQuestionSettings.groups || {}).length}</div>
+              <div className="text-sm text-purple-100">Final Questions</div>
             </div>
+          </div>
+          
+          <div className="mt-4 bg-white bg-opacity-10 rounded-lg p-3">
+            <p className="text-sm text-purple-100">
+              💡 <strong>Tip:</strong> Use individual group downloads to share specific configurations with colleagues, 
+              or download everything for complete backups before making major changes.
+            </p>
           </div>
         </div>
 
@@ -1739,18 +1748,21 @@ export default function InstructorInterface() {
                               />
                             </div>
 
-                            {/* Information Image */}
+                            {/* SUCCESS/REWARD Image - This is what students see when they answer correctly */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Image (Optional)
+                                🎁 Reward Image (Shown When Question Answered Correctly)
                               </label>
                               {element.content?.question?.groups?.[selectedGroup]?.[0]?.infoImage ? (
                                 <div className="space-y-2">
-                                  <img
-                                    src={element.content.question.groups[selectedGroup][0].infoImage.data}
-                                    alt="Information"
-                                    className="w-32 h-32 object-cover rounded border"
-                                  />
+                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                    <p className="text-sm text-green-800 mb-2">✅ Students will see this image when they answer correctly:</p>
+                                    <img
+                                      src={element.content.question.groups[selectedGroup][0].infoImage.data}
+                                      alt="Success/Reward Image"
+                                      className="w-48 h-48 object-cover rounded border mx-auto"
+                                    />
+                                  </div>
                                   <button
                                     onClick={() => {
                                       const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
@@ -1762,45 +1774,52 @@ export default function InstructorInterface() {
                                     }}
                                     className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
                                   >
-                                    Remove Image
+                                    Remove Reward Image
                                   </button>
                                 </div>
                               ) : (
-                                <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                                  Upload Image
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                      const file = e.target.files[0];
-                                      if (file) {
-                                        if (file.size > 5 * 1024 * 1024) {
-                                          alert('File size must be less than 5MB');
-                                          return;
-                                        }
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                          const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                          const updatedQuestion = {
-                                            ...currentQuestion,
-                                            infoImage: {
-                                              data: event.target.result,
-                                              name: file.name,
-                                              size: file.size,
-                                              lastModified: new Date().toISOString()
-                                            }
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <div className="text-center mb-3">
+                                    <div className="text-3xl mb-2">🎁</div>
+                                    <p className="text-blue-800 font-medium">No reward image set</p>
+                                    <p className="text-sm text-blue-600">Upload an image that students will see when they answer this question correctly</p>
+                                  </div>
+                                  <label className="cursor-pointer inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full text-center">
+                                    📁 Upload Success/Reward Image
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                          if (file.size > 5 * 1024 * 1024) {
+                                            alert('File size must be less than 5MB');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onload = (event) => {
+                                            const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                            const updatedQuestion = {
+                                              ...currentQuestion,
+                                              infoImage: {
+                                                data: event.target.result,
+                                                name: file.name,
+                                                size: file.size,
+                                                lastModified: new Date().toISOString()
+                                              }
+                                            };
+                                            updateElementQuestion(elementId, selectedGroup, updatedQuestion);
                                           };
-                                          updateElementQuestion(elementId, selectedGroup, updatedQuestion);
-                                        };
-                                        reader.readAsDataURL(file);
-                                      }
-                                    }}
-                                    className="hidden"
-                                  />
-                                </label>
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
                               )}
                               <p className="text-sm text-gray-500 mt-1">
-                                Optional image shown alongside the success information
+                                ✨ This image appears as a "reward" when students answer the question correctly
                               </p>
                             </div>
                           </div>
