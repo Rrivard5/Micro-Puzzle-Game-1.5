@@ -52,10 +52,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
       
-      // Set up display options for multiple choice questions
+      // Set up display options for multiple choice questions - NO SHUFFLING
       if (question && question.type === 'multiple_choice') {
-        const options = getDisplayOptions(question)
-        setDisplayOptions(options)
+        // Use the original options array directly - no shuffling
+        setDisplayOptions(question.options || [])
       }
     } else if (element && element.interactionType === 'info') {
       setShowInfoOnly(true)
@@ -98,39 +98,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       hint: 'Look carefully at the details.',
       clue: 'Observation recorded successfully.',
       info: 'Analysis completed successfully!'
-    }
-  }
-
-  const getDisplayOptions = (question) => {
-    if (question.type !== 'multiple_choice' || !question.randomizeAnswers || !question.options) {
-      return question.options || []
-    }
-    
-    // Create a consistent seed based on student and question
-    const seed = `${studentInfo?.sessionId || 'default'}_${question.id}`
-    const random = seedRandom(seed)
-    
-    const shuffled = [...question.options]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    
-    return shuffled
-  }
-
-  // Simple seeded random number generator
-  const seedRandom = (seed) => {
-    let hash = 0
-    for (let i = 0; i < seed.length; i++) {
-      const char = seed.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32-bit integer
-    }
-    
-    return () => {
-      hash = (hash * 1103515245 + 12345) & 0x7fffffff
-      return hash / 0x7fffffff
     }
   }
 
@@ -177,19 +144,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // For multiple choice, we need to check the answer against the ORIGINAL options array
-      // Find which option the user selected
-      const selectedOptionIndex = displayOptions.findIndex(opt => opt === trimmedAnswer)
-      
-      if (selectedOptionIndex === -1) return false
-      
-      // Map back to original option to get the correct index
-      const originalOptionText = displayOptions[selectedOptionIndex]
-      const originalIndex = question.options.findIndex(opt => opt === originalOptionText)
-      
-      // Check if this original index matches the correctAnswer
-      return originalIndex === question.correctAnswer
-    } else {
+      // SIMPLIFIED: For multiple choice, check if the selected answer text matches the correct answer text
+      if (question.options && typeof question.correctAnswer === 'number') {
+        // Check if the selected answer matches the correct option by index
+        const correctAnswerText = question.options[question.correctAnswer]
+        return trimmedAnswer === correctAnswerText
+      } else if (question.answer) {
+        // Fallback: check against the answer field directly
+        return trimmedAnswer === question.answer
+      }
+    } else if (question.type === 'text') {
       // For text questions, check against correctText (case-insensitive)
       if (question.correctText) {
         return question.correctText.toLowerCase() === trimmedAnswer.toLowerCase()
