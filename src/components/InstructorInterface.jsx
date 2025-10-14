@@ -2645,7 +2645,7 @@ export default function InstructorInterface() {
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Configure Element</h2>
+                <h2 className="text-2xl font-bold text-red-500">🚨 NEW CODE WORKING - Configure Element</h2>
                 <button
                   onClick={() => {
                     setShowElementModal(false);
