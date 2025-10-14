@@ -376,6 +376,7 @@ export default function InstructorInterface() {
       },
       content: {
         info: 'Information revealed when clicked...',
+        infoImage: null, // Add this for info-only elements
         question: {
           groups: {
             1: [{
@@ -1092,6 +1093,359 @@ export default function InstructorInterface() {
                 Configure different questions and information for each group. Groups will only see content assigned to their specific group number.
               </p>
             </div>
+
+            {/* Room Elements Questions */}
+            {Object.keys(roomElements).length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Room Element Questions - Group {selectedGroup}</h3>
+                <div className="space-y-6">
+                  {Object.entries(roomElements)
+                    .filter(([id, element]) => ['info', 'question'].includes(element.interactionType))
+                    .map(([elementId, element]) => (
+                      <div key={elementId} className="border border-gray-200 rounded-lg p-4">
+                        <h4 className="font-bold text-gray-700 mb-3">
+                          {element.defaultIcon} {element.name} ({element.wall} wall)
+                        </h4>
+                        
+                        {element.interactionType === 'info' ? (
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Information Text
+                              </label>
+                              <textarea
+                                value={element.content?.info || ''}
+                                onChange={(e) => {
+                                  const updated = {
+                                    ...element,
+                                    content: { ...element.content, info: e.target.value }
+                                  };
+                                  updateElement(elementId, updated);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows="3"
+                                placeholder="Information revealed when clicked..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Information Image (Optional)
+                              </label>
+                              {element.content?.infoImage ? (
+                                <div className="space-y-2">
+                                  <img
+                                    src={element.content.infoImage.data}
+                                    alt="Information"
+                                    className="w-32 h-32 object-cover rounded border"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const updated = {
+                                        ...element,
+                                        content: { ...element.content, infoImage: null }
+                                      };
+                                      updateElement(elementId, updated);
+                                    }}
+                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                  >
+                                    Remove Image
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                  Upload Image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        if (file.size > 5 * 1024 * 1024) {
+                                          alert('File size must be less than 5MB');
+                                          return;
+                                        }
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          const updated = {
+                                            ...element,
+                                            content: { 
+                                              ...element.content, 
+                                              infoImage: {
+                                                data: event.target.result,
+                                                name: file.name,
+                                                size: file.size,
+                                                lastModified: new Date().toISOString()
+                                              }
+                                            }
+                                          };
+                                          updateElement(elementId, updated);
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {/* Question Text */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Question
+                              </label>
+                              <textarea
+                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
+                                onChange={(e) => {
+                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                  const updatedQuestion = {
+                                    ...currentQuestion,
+                                    id: `${elementId}_g${selectedGroup}`,
+                                    question: e.target.value,
+                                    type: currentQuestion.type || 'multiple_choice',
+                                    numOptions: currentQuestion.numOptions || 4,
+                                    options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                                    correctAnswer: currentQuestion.correctAnswer || 0,
+                                    correctText: currentQuestion.correctText || '',
+                                    hint: currentQuestion.hint || '',
+                                    clue: currentQuestion.clue || '',
+                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
+                                    info: currentQuestion.info || '',
+                                    infoImage: currentQuestion.infoImage || null
+                                  };
+                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows="3"
+                                placeholder="Enter question for this group..."
+                              />
+                            </div>
+                            
+                            {/* Question Type */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Question Type
+                              </label>
+                              <select
+                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
+                                onChange={(e) => {
+                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                  const updatedQuestion = {
+                                    ...currentQuestion,
+                                    type: e.target.value,
+                                    options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
+                                    correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
+                                    correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
+                                  };
+                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="multiple_choice">Multiple Choice</option>
+                                <option value="text">Fill in the Blank</option>
+                              </select>
+                            </div>
+
+                            {/* Multiple Choice Options */}
+                            {element.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Answer Options
+                                  </label>
+                                  <div className="space-y-2">
+                                    {(element.content?.question?.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                                      <div key={idx} className="flex items-center space-x-2">
+                                        <span className="text-sm font-medium text-gray-600 w-8">
+                                          {String.fromCharCode(65 + idx)}:
+                                        </span>
+                                        <input
+                                          type="text"
+                                          value={option}
+                                          onChange={(e) => {
+                                            const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                            const newOptions = [...(currentQuestion.options || [])];
+                                            newOptions[idx] = e.target.value;
+                                            const updatedQuestion = {
+                                              ...currentQuestion,
+                                              options: newOptions
+                                            };
+                                            updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                          }}
+                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Correct Answer
+                                  </label>
+                                  <select
+                                    value={element.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
+                                    onChange={(e) => {
+                                      const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        correctAnswer: parseInt(e.target.value)
+                                      };
+                                      updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    {(element.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
+                                      <option key={idx} value={idx}>
+                                        {String.fromCharCode(65 + idx)}: {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Text Answer */}
+                            {element.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Correct Answer (case-insensitive)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={element.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
+                                  onChange={(e) => {
+                                    const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                    const updatedQuestion = {
+                                      ...currentQuestion,
+                                      correctText: e.target.value
+                                    };
+                                    updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Enter the correct answer..."
+                                />
+                              </div>
+                            )}
+
+                            {/* Hint */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Hint (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
+                                onChange={(e) => {
+                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                  const updatedQuestion = {
+                                    ...currentQuestion,
+                                    hint: e.target.value
+                                  };
+                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Optional hint for students..."
+                              />
+                            </div>
+
+                            {/* Information Revealed When Correct */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Information Revealed When Correct
+                              </label>
+                              <textarea
+                                value={element.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
+                                onChange={(e) => {
+                                  const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                  const updatedQuestion = {
+                                    ...currentQuestion,
+                                    info: e.target.value,
+                                    clue: e.target.value // Keep clue in sync
+                                  };
+                                  updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows="3"
+                                placeholder="Information revealed when student answers correctly..."
+                              />
+                            </div>
+
+                            {/* Information Image */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Information Image (Optional)
+                              </label>
+                              {element.content?.question?.groups?.[selectedGroup]?.[0]?.infoImage ? (
+                                <div className="space-y-2">
+                                  <img
+                                    src={element.content.question.groups[selectedGroup][0].infoImage.data}
+                                    alt="Information"
+                                    className="w-32 h-32 object-cover rounded border"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        infoImage: null
+                                      };
+                                      updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                    }}
+                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                  >
+                                    Remove Image
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                  Upload Image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        if (file.size > 5 * 1024 * 1024) {
+                                          alert('File size must be less than 5MB');
+                                          return;
+                                        }
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          const currentQuestion = element.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                          const updatedQuestion = {
+                                            ...currentQuestion,
+                                            infoImage: {
+                                              data: event.target.result,
+                                              name: file.name,
+                                              size: file.size,
+                                              lastModified: new Date().toISOString()
+                                            }
+                                          };
+                                          updateElementQuestion(elementId, selectedGroup, updatedQuestion);
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </label>
+                              )}
+                              <p className="text-sm text-gray-500 mt-1">
+                                Optional image shown alongside the success information
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* PPE Questions */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -2015,495 +2369,6 @@ export default function InstructorInterface() {
                     Required for completion
                   </label>
                 </div>
-
-                {/* Content Configuration */}
-                {['info', 'question'].includes(editingElement.interactionType) && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Information Text
-                      </label>
-                      <textarea
-                        value={editingElement.content?.info || ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...editingElement,
-                            content: { ...editingElement.content, info: e.target.value }
-                          };
-                          setEditingElement(updated);
-                          updateElement(selectedElementId, updated);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows="3"
-                        placeholder="Information revealed when element is clicked or question is solved..."
-                      />
-                    </div>
-
-                    {/* Information Image Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Information Image (Optional)
-                      </label>
-                      {editingElement.content?.infoImage ? (
-                        <div className="space-y-2">
-                          <img
-                            src={editingElement.content.infoImage.data}
-                            alt="Information"
-                            className="w-32 h-32 object-cover rounded border"
-                          />
-                          <button
-                            onClick={() => {
-                              const updated = {
-                                ...editingElement,
-                                content: { ...editingElement.content, infoImage: null }
-                              };
-                              setEditingElement(updated);
-                              updateElement(selectedElementId, updated);
-                            }}
-                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                          >
-                            Remove Image
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                          Upload Image
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                if (file.size > 5 * 1024 * 1024) {
-                                  alert('File size must be less than 5MB');
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  const updated = {
-                                    ...editingElement,
-                                    content: { 
-                                      ...editingElement.content, 
-                                      infoImage: {
-                                        data: event.target.result,
-                                        name: file.name,
-                                        size: file.size,
-                                        lastModified: new Date().toISOString()
-                                      }
-                                    }
-                                  };
-                                  setEditingElement(updated);
-                                  updateElement(selectedElementId, updated);
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                      <p className="text-sm text-gray-500 mt-1">
-                        Optional image shown alongside the information text
-                      </p>
-                    </div>
-
-                    {editingElement.interactionType === 'question' && (
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Question Configuration
-                          </label>
-                          <div className="flex items-center space-x-2">
-                            <label className="text-sm text-gray-600">Group:</label>
-                            <select
-                              value={selectedGroup}
-                              onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                              className="px-2 py-1 border border-gray-300 rounded"
-                            >
-                              {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
-                                <option key={num} value={num}>Group {num}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="border rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-medium text-gray-700 mb-3">Group {selectedGroup} Question</h4>
-                          
-                          <div className="space-y-4">
-                            {/* Question Text */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question
-                              </label>
-                              <textarea
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    id: `${selectedElementId}_g${selectedGroup}`,
-                                    question: e.target.value,
-                                    type: currentQuestion.type || 'multiple_choice',
-                                    numOptions: currentQuestion.numOptions || 4,
-                                    options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-                                    correctAnswer: currentQuestion.correctAnswer || 0,
-                                    correctText: currentQuestion.correctText || '',
-                                    hint: currentQuestion.hint || '',
-                                    clue: currentQuestion.clue || '',
-                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
-                                    info: currentQuestion.info || '',
-                                    infoImage: currentQuestion.infoImage || null
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Enter question for this group..."
-                              />
-                            </div>
-                            
-                            {/* Question Type */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Question Type
-                              </label>
-                              <select
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    id: `${selectedElementId}_g${selectedGroup}`,
-                                    type: e.target.value,
-                                    question: currentQuestion.question || '',
-                                    numOptions: e.target.value === 'multiple_choice' ? (currentQuestion.numOptions || 4) : 0,
-                                    options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
-                                    correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
-                                    correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : '',
-                                    hint: currentQuestion.hint || '',
-                                    clue: currentQuestion.clue || '',
-                                    randomizeAnswers: currentQuestion.randomizeAnswers || false,
-                                    info: currentQuestion.info || '',
-                                    infoImage: currentQuestion.infoImage || null
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="multiple_choice">Multiple Choice</option>
-                                <option value="text">Fill in the Blank</option>
-                              </select>
-                            </div>
-
-                            {/* Multiple Choice Options */}
-                            {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
-                              <div className="space-y-3">
-                                {/* Number of Options */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Number of Options
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="2"
-                                    max="8"
-                                    value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.numOptions || 4}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const numOptions = parseInt(e.target.value) || 4;
-                                      const currentOptions = currentQuestion.options || [];
-                                      const newOptions = [...currentOptions];
-                                      
-                                      // Adjust array size
-                                      while (newOptions.length < numOptions) {
-                                        newOptions.push(`Option ${String.fromCharCode(65 + newOptions.length)}`);
-                                      }
-                                      while (newOptions.length > numOptions) {
-                                        newOptions.pop();
-                                      }
-                                      
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        numOptions,
-                                        options: newOptions,
-                                        correctAnswer: Math.min(currentQuestion.correctAnswer || 0, numOptions - 1)
-                                      };
-                                      
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-
-                                {/* Answer Options */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Answer Options
-                                  </label>
-                                  <div className="space-y-2">
-                                    {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                                      <div key={idx} className="flex items-center space-x-2">
-                                        <span className="text-sm font-medium text-gray-600 w-8">
-                                          {String.fromCharCode(65 + idx)}:
-                                        </span>
-                                        <input
-                                          type="text"
-                                          value={option}
-                                          onChange={(e) => {
-                                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                            const newOptions = [...(currentQuestion.options || [])];
-                                            newOptions[idx] = e.target.value;
-                                            const updatedQuestion = {
-                                              ...currentQuestion,
-                                              options: newOptions
-                                            };
-                                            updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                            setEditingElement(prev => ({
-                                              ...prev,
-                                              content: {
-                                                ...prev.content,
-                                                question: {
-                                                  ...prev.content.question,
-                                                  groups: {
-                                                    ...prev.content.question?.groups,
-                                                    [selectedGroup]: [updatedQuestion]
-                                                  }
-                                                }
-                                              }
-                                            }));
-                                          }}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Correct Answer */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Correct Answer
-                                  </label>
-                                  <select
-                                    value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        correctAnswer: parseInt(e.target.value)
-                                      };
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                                      <option key={idx} value={idx}>
-                                        {String.fromCharCode(65 + idx)}: {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                {/* Randomize Answers */}
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`randomize-${selectedGroup}`}
-                                    checked={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
-                                    onChange={(e) => {
-                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                      const updatedQuestion = {
-                                        ...currentQuestion,
-                                        randomizeAnswers: e.target.checked
-                                      };
-                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                      setEditingElement(prev => ({
-                                        ...prev,
-                                        content: {
-                                          ...prev.content,
-                                          question: {
-                                            ...prev.content.question,
-                                            groups: {
-                                              ...prev.content.question?.groups,
-                                              [selectedGroup]: [updatedQuestion]
-                                            }
-                                          }
-                                        }
-                                      }));
-                                    }}
-                                    className="rounded"
-                                  />
-                                  <label htmlFor={`randomize-${selectedGroup}`} className="text-sm text-gray-700">
-                                    Randomize answer order for each student
-                                  </label>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Text Answer */}
-                            {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Correct Answer
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
-                                  onChange={(e) => {
-                                    const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                    const updatedQuestion = {
-                                      ...currentQuestion,
-                                      correctText: e.target.value
-                                    };
-                                    updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                    setEditingElement(prev => ({
-                                      ...prev,
-                                      content: {
-                                        ...prev.content,
-                                        question: {
-                                          ...prev.content.question,
-                                          groups: {
-                                            ...prev.content.question?.groups,
-                                            [selectedGroup]: [updatedQuestion]
-                                          }
-                                        }
-                                      }
-                                    }));
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Enter the correct answer..."
-                                />
-                              </div>
-                            )}
-
-                            {/* Hint */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Hint (Optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    hint: e.target.value
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Optional hint for students..."
-                              />
-                            </div>
-
-                            {/* Clue/Info */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Information Revealed When Correct
-                              </label>
-                              <textarea
-                                value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
-                                onChange={(e) => {
-                                  const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
-                                  const updatedQuestion = {
-                                    ...currentQuestion,
-                                    info: e.target.value,
-                                    clue: e.target.value // Keep clue in sync with info
-                                  };
-                                  updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
-                                  setEditingElement(prev => ({
-                                    ...prev,
-                                    content: {
-                                      ...prev.content,
-                                      question: {
-                                        ...prev.content.question,
-                                        groups: {
-                                          ...prev.content.question?.groups,
-                                          [selectedGroup]: [updatedQuestion]
-                                        }
-                                      }
-                                    }
-                                  }));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows="3"
-                                placeholder="Information revealed when the student answers correctly..."
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Action Buttons */}
                 <div className="flex justify-between pt-4">
