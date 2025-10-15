@@ -889,8 +889,8 @@ export default function InstructorRoomEditor() {
         </div>
       )}
 
-      {/* Element Configuration Modal */}
-      {showElementModal && editingElement && (
+     {/* Element Configuration Modal */}
+      {showElementModal && editingElement && selectedElementId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
             <div className="p-6">
@@ -907,11 +907,690 @@ export default function InstructorRoomEditor() {
                   ×
                 </button>
               </div>
-              <p className="text-gray-600">Element configuration form would continue here...</p>
+
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Element Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingElement.name}
+                      onChange={(e) => {
+                        const updated = { ...editingElement, name: e.target.value };
+                        setEditingElement(updated);
+                        updateElement(selectedElementId, updated);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Element Type
+                    </label>
+                    <select
+                      value={editingElement.type}
+                      onChange={(e) => {
+                        const updated = { 
+                          ...editingElement, 
+                          type: e.target.value,
+                          defaultIcon: defaultIcons[e.target.value] || '📦'
+                        };
+                        setEditingElement(updated);
+                        updateElement(selectedElementId, updated);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {Object.entries(elementTypes).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Interaction Type
+                    </label>
+                    <select
+                      value={editingElement.interactionType}
+                      onChange={(e) => {
+                        const updated = { ...editingElement, interactionType: e.target.value };
+                        setEditingElement(updated);
+                        updateElement(selectedElementId, updated);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {Object.entries(interactionTypes).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Default Icon
+                    </label>
+                    <input
+                      type="text"
+                      value={editingElement.defaultIcon}
+                      onChange={(e) => {
+                        const updated = { ...editingElement, defaultIcon: e.target.value };
+                        setEditingElement(updated);
+                        updateElement(selectedElementId, updated);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter an emoji..."
+                    />
+                  </div>
+                </div>
+
+                {/* Content Category Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Content Category (for Feedback)
+                  </label>
+                  <select
+                    value={editingElement.contentCategory || ''}
+                    onChange={(e) => {
+                      const updated = { ...editingElement, contentCategory: e.target.value };
+                      setEditingElement(updated);
+                      updateElement(selectedElementId, updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">None - No automatic feedback</option>
+                    {Object.entries(contentCategories).map(([categoryId, category]) => (
+                      <option key={categoryId} value={categoryId}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Link this element to a content category for automatic feedback
+                  </p>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isRequired"
+                    checked={editingElement.isRequired}
+                    onChange={(e) => {
+                      const updated = { ...editingElement, isRequired: e.target.checked };
+                      setEditingElement(updated);
+                      updateElement(selectedElementId, updated);
+                    }}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-700">
+                    Required for completion
+                  </label>
+                </div>
+
+                {/* INFO ONLY ELEMENT CONFIGURATION */}
+                {editingElement.interactionType === 'info' && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-bold text-blue-800 mb-4">📋 Information Content</h3>
+                    <p className="text-sm text-blue-700 mb-4">
+                      This element will show information directly when clicked (no question required).
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Text
+                        </label>
+                        <textarea
+                          value={editingElement.content?.info || ''}
+                          onChange={(e) => {
+                            const updated = {
+                              ...editingElement,
+                              content: { ...editingElement.content, info: e.target.value }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="4"
+                          placeholder="Information revealed when clicked..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Image (Optional)
+                        </label>
+                        {editingElement.content?.infoImage ? (
+                          <div className="space-y-2">
+                            <img
+                              src={editingElement.content.infoImage.data}
+                              alt="Information"
+                              className="w-48 h-48 object-cover rounded border"
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = {
+                                  ...editingElement,
+                                  content: { ...editingElement.content, infoImage: null }
+                                };
+                                setEditingElement(updated);
+                                updateElement(selectedElementId, updated);
+                              }}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                            >
+                              Remove Image
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Upload Image
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    alert('File size must be less than 5MB');
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const updated = {
+                                      ...editingElement,
+                                      content: { 
+                                        ...editingElement.content, 
+                                        infoImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      }
+                                    };
+                                    setEditingElement(updated);
+                                    updateElement(selectedElementId, updated);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* QUESTION ELEMENT CONFIGURATION */}
+                {editingElement.interactionType === 'question' && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-bold text-green-800 mb-4">❓ Question Configuration for Group {selectedGroup}</h3>
+                    <p className="text-sm text-green-700 mb-4">
+                      Students must answer this question correctly to receive the reward information and image.
+                    </p>
+                    
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 space-y-4">
+                      {/* Question Text */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Question
+                        </label>
+                        <textarea
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.question || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              id: `${selectedElementId}_g${selectedGroup}`,
+                              question: e.target.value,
+                              type: currentQuestion.type || 'multiple_choice',
+                              options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                              correctAnswer: currentQuestion.correctAnswer || 0,
+                              correctText: currentQuestion.correctText || '',
+                              hint: currentQuestion.hint || '',
+                              info: currentQuestion.info || '',
+                              infoImage: currentQuestion.infoImage || null,
+                              randomizeAnswers: currentQuestion.randomizeAnswers || false
+                            };
+                            
+                            const updated = { 
+                              ...editingElement,
+                              content: {
+                                ...editingElement.content,
+                                question: {
+                                  ...editingElement.content?.question,
+                                  groups: {
+                                    ...editingElement.content?.question?.groups,
+                                    [selectedGroup]: [updatedQuestion]
+                                  }
+                                }
+                              }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                          placeholder="Enter question for this group..."
+                        />
+                      </div>
+                      
+                      {/* Question Type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Question Type
+                        </label>
+                        <select
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type || 'multiple_choice'}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              type: e.target.value,
+                              options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
+                              correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
+                              correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
+                            };
+                            
+                            const updated = { 
+                              ...editingElement,
+                              content: {
+                                ...editingElement.content,
+                                question: {
+                                  ...editingElement.content?.question,
+                                  groups: {
+                                    ...editingElement.content?.question?.groups,
+                                    [selectedGroup]: [updatedQuestion]
+                                  }
+                                }
+                              }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="multiple_choice">Multiple Choice</option>
+                          <option value="text">Fill in the Blank</option>
+                        </select>
+                      </div>
+
+                      {/* Multiple Choice Options */}
+                      {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Answer Options
+                            </label>
+                            <div className="space-y-2">
+                              {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                                <div key={idx} className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium text-gray-600 w-8">
+                                    {String.fromCharCode(65 + idx)}:
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={option}
+                                    onChange={(e) => {
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                      const newOptions = [...(currentQuestion.options || [])];
+                                      newOptions[idx] = e.target.value;
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        options: newOptions
+                                      };
+                                      
+                                      const updated = { 
+                                        ...editingElement,
+                                        content: {
+                                          ...editingElement.content,
+                                          question: {
+                                            ...editingElement.content?.question,
+                                            groups: {
+                                              ...editingElement.content?.question?.groups,
+                                              [selectedGroup]: [updatedQuestion]
+                                            }
+                                          }
+                                        }
+                                      };
+                                      setEditingElement(updated);
+                                      updateElement(selectedElementId, updated);
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Correct Answer
+                            </label>
+                            <select
+                              value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctAnswer || 0}
+                              onChange={(e) => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  correctAnswer: parseInt(e.target.value)
+                                };
+                                
+                                const updated = { 
+                                  ...editingElement,
+                                  content: {
+                                    ...editingElement.content,
+                                    question: {
+                                      ...editingElement.content?.question,
+                                      groups: {
+                                        ...editingElement.content?.question?.groups,
+                                        [selectedGroup]: [updatedQuestion]
+                                      }
+                                    }
+                                  }
+                                };
+                                setEditingElement(updated);
+                                updateElement(selectedElementId, updated);
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
+                                <option key={idx} value={idx}>
+                                  {String.fromCharCode(65 + idx)}: {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="randomize"
+                              checked={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
+                              onChange={(e) => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  randomizeAnswers: e.target.checked
+                                };
+                                
+                                const updated = { 
+                                  ...editingElement,
+                                  content: {
+                                    ...editingElement.content,
+                                    question: {
+                                      ...editingElement.content?.question,
+                                      groups: {
+                                        ...editingElement.content?.question?.groups,
+                                        [selectedGroup]: [updatedQuestion]
+                                      }
+                                    }
+                                  }
+                                };
+                                setEditingElement(updated);
+                                updateElement(selectedElementId, updated);
+                              }}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="randomize" className="ml-2 block text-sm text-gray-700">
+                              Randomize answer order for students
+                            </label>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Text Answer */}
+                      {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'text' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Correct Answer (case-insensitive)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.correctText || ''}
+                            onChange={(e) => {
+                              const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                              const updatedQuestion = {
+                                ...currentQuestion,
+                                correctText: e.target.value
+                              };
+                              
+                              const updated = { 
+                                ...editingElement,
+                                content: {
+                                  ...editingElement.content,
+                                  question: {
+                                    ...editingElement.content?.question,
+                                    groups: {
+                                      ...editingElement.content?.question?.groups,
+                                      [selectedGroup]: [updatedQuestion]
+                                    }
+                                  }
+                                }
+                              };
+                              setEditingElement(updated);
+                              updateElement(selectedElementId, updated);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter the correct answer..."
+                          />
+                        </div>
+                      )}
+
+                      {/* Hint */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Hint (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.hint || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              hint: e.target.value
+                            };
+                            
+                            const updated = { 
+                              ...editingElement,
+                              content: {
+                                ...editingElement.content,
+                                question: {
+                                  ...editingElement.content?.question,
+                                  groups: {
+                                    ...editingElement.content?.question?.groups,
+                                    [selectedGroup]: [updatedQuestion]
+                                  }
+                                }
+                              }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Optional hint for students..."
+                        />
+                      </div>
+
+                      {/* Information Revealed When Correct */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Information Revealed When Correct
+                        </label>
+                        <textarea
+                          value={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.info || ''}
+                          onChange={(e) => {
+                            const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                            const updatedQuestion = {
+                              ...currentQuestion,
+                              info: e.target.value
+                            };
+                            
+                            const updated = { 
+                              ...editingElement,
+                              content: {
+                                ...editingElement.content,
+                                question: {
+                                  ...editingElement.content?.question,
+                                  groups: {
+                                    ...editingElement.content?.question?.groups,
+                                    [selectedGroup]: [updatedQuestion]
+                                  }
+                                }
+                              }
+                            };
+                            setEditingElement(updated);
+                            updateElement(selectedElementId, updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                          placeholder="Information revealed when student answers correctly..."
+                        />
+                      </div>
+
+                      {/* SUCCESS/REWARD Image */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          🎁 Reward Image (Shown When Question Answered Correctly)
+                        </label>
+                        {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.infoImage ? (
+                          <div className="space-y-2">
+                            <div className="bg-white border border-green-300 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-medium mb-2">✅ Current Reward Image for Group {selectedGroup}:</p>
+                              <img
+                                src={editingElement.content.question.groups[selectedGroup][0].infoImage.data}
+                                alt="Success/Reward Image"
+                                className="w-48 h-48 object-cover rounded border mx-auto shadow-lg"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  infoImage: null
+                                };
+                                
+                                const updated = { 
+                                  ...editingElement,
+                                  content: {
+                                    ...editingElement.content,
+                                    question: {
+                                      ...editingElement.content?.question,
+                                      groups: {
+                                        ...editingElement.content?.question?.groups,
+                                        [selectedGroup]: [updatedQuestion]
+                                      }
+                                    }
+                                  }
+                                };
+                                setEditingElement(updated);
+                                updateElement(selectedElementId, updated);
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                            >
+                              🗑️ Remove Reward Image
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="text-6xl mb-3">🎁</div>
+                            <p className="text-blue-800 font-medium mb-2">No reward image set for Group {selectedGroup}</p>
+                            <p className="text-sm text-blue-600 mb-4">Upload an image that students will see when they answer correctly!</p>
+                            <label className="cursor-pointer inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
+                              📁 Upload Success/Reward Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert('File size must be less than 5MB');
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {
+                                        id: `${selectedElementId}_g${selectedGroup}`,
+                                        question: 'Question about this element...',
+                                        type: 'multiple_choice',
+                                        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                                        correctAnswer: 0,
+                                        hint: '',
+                                        info: 'Information revealed when solved...'
+                                      };
+                                      
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        infoImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      };
+                                      
+                                      const updated = { 
+                                        ...editingElement,
+                                        content: {
+                                          ...editingElement.content,
+                                          question: {
+                                            ...editingElement.content?.question,
+                                            groups: {
+                                              ...editingElement.content?.question?.groups,
+                                              [selectedGroup]: [updatedQuestion]
+                                            }
+                                          }
+                                        }
+                                      };
+                                      setEditingElement(updated);
+                                      updateElement(selectedElementId, updated);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        )}
+                        <p className="text-sm text-gray-500 mt-1">
+                          ✨ This image appears as a "reward" when students answer the question correctly
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-between pt-4 border-t">
+                  <button
+                    onClick={() => deleteElement(selectedElementId)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                  >
+                    Delete Element
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowElementModal(false);
+                      setEditingElement(null);
+                      setSelectedElementId(null);
+                    }}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
-    </div>
-  );
-}
