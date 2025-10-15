@@ -654,7 +654,7 @@ export default function InstructorInterface() {
     }
   };
 
-  // Export/Import Functions - FIXED TO INCLUDE FINAL QUESTIONS
+  // Export/Import Functions
   const exportSettings = async () => {
     setIsExporting(true);
     try {
@@ -667,7 +667,7 @@ export default function InstructorInterface() {
           wordSettings,
           gameSettings,
           ppeSettings,
-          finalQuestionSettings, // THIS WAS MISSING!
+          finalQuestionSettings,
           feedbackSettings
         }
       };
@@ -797,169 +797,6 @@ export default function InstructorInterface() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  // HELPER FUNCTIONS FOR NEW FEATURES
-  const addMultipleChoiceOption = (elementId, groupNumber) => {
-    const element = roomElements[elementId];
-    if (!element) return;
-    
-    const currentQuestion = element.content?.question?.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || ['Option A', 'Option B'];
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: (currentOptions.length + 1),
-      options: [...currentOptions, `Option ${String.fromCharCode(65 + currentOptions.length)}`]
-    };
-    
-    updateElementQuestion(elementId, groupNumber, updatedQuestion);
-    
-    // Update editing element state
-    const updatedElement = { ...editingElement };
-    if (!updatedElement.content) updatedElement.content = {};
-    if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
-    updatedElement.content.question.groups[groupNumber] = [updatedQuestion];
-    setEditingElement(updatedElement);
-  };
-
-  const removeMultipleChoiceOption = (elementId, groupNumber, optionIndex) => {
-    const element = roomElements[elementId];
-    if (!element) return;
-    
-    const currentQuestion = element.content?.question?.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || [];
-    
-    if (currentOptions.length <= 2) {
-      alert('Questions must have at least 2 options');
-      return;
-    }
-    
-    const newOptions = currentOptions.filter((_, index) => index !== optionIndex);
-    
-    // Adjust correct answer if needed
-    let newCorrectAnswer = currentQuestion.correctAnswer || 0;
-    if (newCorrectAnswer >= optionIndex && newCorrectAnswer > 0) {
-      newCorrectAnswer = Math.max(0, newCorrectAnswer - 1);
-    } else if (newCorrectAnswer >= newOptions.length) {
-      newCorrectAnswer = newOptions.length - 1;
-    }
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: newOptions.length,
-      options: newOptions,
-      correctAnswer: newCorrectAnswer
-    };
-    
-    updateElementQuestion(elementId, groupNumber, updatedQuestion);
-    
-    // Update editing element state
-    const updatedElement = { ...editingElement };
-    if (!updatedElement.content) updatedElement.content = {};
-    if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
-    updatedElement.content.question.groups[groupNumber] = [updatedQuestion];
-    setEditingElement(updatedElement);
-  };
-
-  const toggleRandomizeAnswers = (elementId, groupNumber) => {
-    const element = roomElements[elementId];
-    if (!element) return;
-    
-    const currentQuestion = element.content?.question?.groups?.[groupNumber]?.[0] || {};
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      randomizeAnswers: !currentQuestion.randomizeAnswers
-    };
-    
-    updateElementQuestion(elementId, groupNumber, updatedQuestion);
-    
-    // Update editing element state
-    const updatedElement = { ...editingElement };
-    if (!updatedElement.content) updatedElement.content = {};
-    if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
-    updatedElement.content.question.groups[groupNumber] = [updatedQuestion];
-    setEditingElement(updatedElement);
-  };
-
-  // Similar helper functions for PPE and Final questions
-  const addPPEOption = (groupNumber) => {
-    const currentQuestion = ppeSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || ['Option A', 'Option B'];
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: (currentOptions.length + 1),
-      options: [...currentOptions, `Option ${String.fromCharCode(65 + currentOptions.length)}`]
-    };
-    
-    updatePPEQuestion(groupNumber, updatedQuestion);
-  };
-
-  const removePPEOption = (groupNumber, optionIndex) => {
-    const currentQuestion = ppeSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || [];
-    
-    if (currentOptions.length <= 2) {
-      alert('Questions must have at least 2 options');
-      return;
-    }
-    
-    const newOptions = currentOptions.filter((_, index) => index !== optionIndex);
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: newOptions.length,
-      options: newOptions,
-      answer: currentOptions.length > optionIndex && currentQuestion.answer === currentOptions[optionIndex] 
-        ? newOptions[0] || '' 
-        : currentQuestion.answer
-    };
-    
-    updatePPEQuestion(groupNumber, updatedQuestion);
-  };
-
-  const addFinalQuestionOption = (groupNumber) => {
-    const currentQuestion = finalQuestionSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || ['Option A', 'Option B'];
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: (currentOptions.length + 1),
-      options: [...currentOptions, `Option ${String.fromCharCode(65 + currentOptions.length)}`]
-    };
-    
-    updateFinalQuestion(groupNumber, updatedQuestion);
-  };
-
-  const removeFinalQuestionOption = (groupNumber, optionIndex) => {
-    const currentQuestion = finalQuestionSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || [];
-    
-    if (currentOptions.length <= 2) {
-      alert('Questions must have at least 2 options');
-      return;
-    }
-    
-    const newOptions = currentOptions.filter((_, index) => index !== optionIndex);
-    
-    // Adjust correct answer if needed
-    let newCorrectAnswer = currentQuestion.correctAnswer || 0;
-    if (newCorrectAnswer >= optionIndex && newCorrectAnswer > 0) {
-      newCorrectAnswer = Math.max(0, newCorrectAnswer - 1);
-    } else if (newCorrectAnswer >= newOptions.length) {
-      newCorrectAnswer = newOptions.length - 1;
-    }
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      numOptions: newOptions.length,
-      options: newOptions,
-      correctAnswer: newCorrectAnswer
-    };
-    
-    updateFinalQuestion(groupNumber, updatedQuestion);
   };
 
   if (!isAuthenticated) {
@@ -1180,7 +1017,7 @@ export default function InstructorInterface() {
                   <li>• Upload settings at the start of new semesters to reuse configurations</li>
                   <li>• Share settings files with colleagues to collaborate on lab designs</li>
                   <li>• Always download current settings before uploading new ones</li>
-                  <li>• Settings files include room images, questions, final questions, and all configurations</li>
+                  <li>• Settings files include room images, questions, and all configurations</li>
                 </ul>
               </div>
             </div>
@@ -1465,11 +1302,7 @@ export default function InstructorInterface() {
                                     <div><strong>Question:</strong> {groupQuestion.question || 'No question set'}</div>
                                     <div><strong>Type:</strong> {groupQuestion.type || 'multiple_choice'}</div>
                                     {groupQuestion.type === 'multiple_choice' && (
-                                      <>
-                                        <div><strong>Options:</strong> {groupQuestion.options?.length || 0} choices</div>
-                                        <div><strong>Correct Answer:</strong> {groupQuestion.options?.[groupQuestion.correctAnswer] || 'Not set'}</div>
-                                        <div><strong>Randomize Order:</strong> {groupQuestion.randomizeAnswers ? '✅ Yes' : '❌ No'}</div>
-                                      </>
+                                      <div><strong>Correct Answer:</strong> {groupQuestion.options?.[groupQuestion.correctAnswer] || 'Not set'}</div>
                                     )}
                                     {groupQuestion.type === 'text' && (
                                       <div><strong>Correct Answer:</strong> {groupQuestion.correctText || 'Not set'}</div>
@@ -1513,8 +1346,7 @@ export default function InstructorInterface() {
                         options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
                         answer: currentQuestion.answer || 'Option A',
                         hint: currentQuestion.hint || '',
-                        clue: currentQuestion.clue || '',
-                        randomizeAnswers: currentQuestion.randomizeAnswers || false
+                        clue: currentQuestion.clue || ''
                       };
                       updatePPEQuestion(selectedGroup, updatedQuestion);
                     }}
@@ -1536,8 +1368,7 @@ export default function InstructorInterface() {
                         ...currentQuestion,
                         type: e.target.value,
                         options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
-                        answer: currentQuestion.answer || (e.target.value === 'multiple_choice' ? 'Option A' : ''),
-                        randomizeAnswers: currentQuestion.randomizeAnswers || false
+                        answer: currentQuestion.answer || (e.target.value === 'multiple_choice' ? 'Option A' : '')
                       };
                       updatePPEQuestion(selectedGroup, updatedQuestion);
                     }}
@@ -1549,120 +1380,57 @@ export default function InstructorInterface() {
                 </div>
 
                 {ppeSettings.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Answer Options
-                        <button
-                          onClick={() => addPPEOption(selectedGroup)}
-                          className="ml-2 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
-                        >
-                          + Add Option
-                        </button>
-                      </label>
-                      <div className="space-y-2">
-                        {(ppeSettings.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
-                          <div key={idx} className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-600 w-8">
-                              {String.fromCharCode(65 + idx)}:
-                            </span>
-                            <input
-                              type="text"
-                              value={option}
-                              onChange={(e) => {
-                                const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
-                                const newOptions = [...(currentQuestion.options || [])];
-                                newOptions[idx] = e.target.value;
-                                const updatedQuestion = {
-                                  ...currentQuestion,
-                                  options: newOptions
-                                };
-                                updatePPEQuestion(selectedGroup, updatedQuestion);
-                              }}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                            />
-                            {(ppeSettings.groups?.[selectedGroup]?.[0]?.options || []).length > 2 && (
-                              <button
-                                onClick={() => removePPEOption(selectedGroup, idx)}
-                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Correct Answer
-                      </label>
-                      <select
-                        value={ppeSettings.groups?.[selectedGroup]?.[0]?.answer || ''}
-                        onChange={(e) => {
-                          const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
-                          const updatedQuestion = {
-                            ...currentQuestion,
-                            answer: e.target.value
-                          };
-                          updatePPEQuestion(selectedGroup, updatedQuestion);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select correct answer...</option>
-                        {(ppeSettings.groups?.[selectedGroup]?.[0]?.options || []).map((option, idx) => (
-                          <option key={idx} value={option}>
-                            {String.fromCharCode(65 + idx)}: {option}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`ppe-randomize-${selectedGroup}`}
-                        checked={ppeSettings.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
-                        onChange={(e) => {
-                          const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
-                          const updatedQuestion = {
-                            ...currentQuestion,
-                            randomizeAnswers: e.target.checked
-                          };
-                          updatePPEQuestion(selectedGroup, updatedQuestion);
-                        }}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`ppe-randomize-${selectedGroup}`} className="ml-2 block text-sm text-gray-700">
-                        Randomize answer order for students
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {ppeSettings.groups?.[selectedGroup]?.[0]?.type === 'text' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Correct Answer
+                      Answer Options
                     </label>
-                    <input
-                      type="text"
-                      value={ppeSettings.groups?.[selectedGroup]?.[0]?.answer || ''}
-                      onChange={(e) => {
-                        const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
-                        const updatedQuestion = {
-                          ...currentQuestion,
-                          answer: e.target.value
-                        };
-                        updatePPEQuestion(selectedGroup, updatedQuestion);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter the correct answer..."
-                    />
+                    <div className="space-y-2">
+                      {(ppeSettings.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                        <div key={idx} className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-600 w-8">
+                            {String.fromCharCode(65 + idx)}:
+                          </span>
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) => {
+                              const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
+                              const newOptions = [...(currentQuestion.options || [])];
+                              newOptions[idx] = e.target.value;
+                              const updatedQuestion = {
+                                ...currentQuestion,
+                                options: newOptions
+                              };
+                              updatePPEQuestion(selectedGroup, updatedQuestion);
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Correct Answer
+                  </label>
+                  <input
+                    type="text"
+                    value={ppeSettings.groups?.[selectedGroup]?.[0]?.answer || ''}
+                    onChange={(e) => {
+                      const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
+                      const updatedQuestion = {
+                        ...currentQuestion,
+                        answer: e.target.value
+                      };
+                      updatePPEQuestion(selectedGroup, updatedQuestion);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter the correct answer..."
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1708,8 +1476,7 @@ export default function InstructorInterface() {
                         correctText: currentQuestion.correctText || '',
                         hint: currentQuestion.hint || '',
                         info: currentQuestion.info || '',
-                        infoImage: currentQuestion.infoImage || null,
-                        randomizeAnswers: currentQuestion.randomizeAnswers || false
+                        infoImage: currentQuestion.infoImage || null
                       };
                       updateFinalQuestion(selectedGroup, updatedQuestion);
                     }}
@@ -1732,8 +1499,7 @@ export default function InstructorInterface() {
                         type: e.target.value,
                         options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
                         correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
-                        correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : '',
-                        randomizeAnswers: currentQuestion.randomizeAnswers || false
+                        correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
                       };
                       updateFinalQuestion(selectedGroup, updatedQuestion);
                     }}
@@ -1749,12 +1515,6 @@ export default function InstructorInterface() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Answer Options
-                        <button
-                          onClick={() => addFinalQuestionOption(selectedGroup)}
-                          className="ml-2 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
-                        >
-                          + Add Option
-                        </button>
                       </label>
                       <div className="space-y-2">
                         {(finalQuestionSettings.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
@@ -1778,14 +1538,6 @@ export default function InstructorInterface() {
                               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder={`Option ${String.fromCharCode(65 + idx)}`}
                             />
-                            {(finalQuestionSettings.groups?.[selectedGroup]?.[0]?.options || []).length > 2 && (
-                              <button
-                                onClick={() => removeFinalQuestionOption(selectedGroup, idx)}
-                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                ✕
-                              </button>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -1813,26 +1565,6 @@ export default function InstructorInterface() {
                           </option>
                         ))}
                       </select>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`final-randomize-${selectedGroup}`}
-                        checked={finalQuestionSettings.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
-                        onChange={(e) => {
-                          const currentQuestion = finalQuestionSettings.groups?.[selectedGroup]?.[0] || {};
-                          const updatedQuestion = {
-                            ...currentQuestion,
-                            randomizeAnswers: e.target.checked
-                          };
-                          updateFinalQuestion(selectedGroup, updatedQuestion);
-                        }}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`final-randomize-${selectedGroup}`} className="ml-2 block text-sm text-gray-700">
-                        Randomize answer order for students
-                      </label>
                     </div>
                   </>
                 )}
@@ -2248,7 +1980,7 @@ export default function InstructorInterface() {
         )}
       </div>
 
-      {/* Element Configuration Modal - ENHANCED WITH NEW FEATURES */}
+      {/* Element Configuration Modal */}
       {showElementModal && editingElement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
@@ -2459,7 +2191,7 @@ export default function InstructorInterface() {
                   </div>
                 )}
 
-                {/* QUESTION ELEMENT CONFIGURATION - ENHANCED */}
+                {/* QUESTION ELEMENT CONFIGURATION */}
                 {editingElement.interactionType === 'question' && (
                   <div className="border-t pt-6 mt-6">
                     <h3 className="text-lg font-bold text-green-800 mb-4">❓ Question Configuration for Group {selectedGroup}</h3>
@@ -2521,8 +2253,7 @@ export default function InstructorInterface() {
                               type: e.target.value,
                               options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
                               correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
-                              correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : '',
-                              randomizeAnswers: currentQuestion.randomizeAnswers || false
+                              correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
                             };
                             updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
                             
@@ -2540,18 +2271,12 @@ export default function InstructorInterface() {
                         </select>
                       </div>
 
-                      {/* Multiple Choice Options - ENHANCED */}
+                      {/* Multiple Choice Options */}
                       {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.type === 'multiple_choice' && (
                         <>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Answer Options
-                              <button
-                                onClick={() => addMultipleChoiceOption(selectedElementId, selectedGroup)}
-                                className="ml-2 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
-                              >
-                                + Add Option
-                              </button>
                             </label>
                             <div className="space-y-2">
                               {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
@@ -2582,14 +2307,6 @@ export default function InstructorInterface() {
                                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder={`Option ${String.fromCharCode(65 + idx)}`}
                                   />
-                                  {(editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.options || []).length > 2 && (
-                                    <button
-                                      onClick={() => removeMultipleChoiceOption(selectedElementId, selectedGroup, idx)}
-                                      className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
                                 </div>
                               ))}
                             </div>
@@ -2624,20 +2341,6 @@ export default function InstructorInterface() {
                                 </option>
                               ))}
                             </select>
-                          </div>
-
-                          {/* NEW: Randomize Answers Option */}
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              id={`randomize-${selectedElementId}-${selectedGroup}`}
-                              checked={editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.randomizeAnswers || false}
-                              onChange={(e) => toggleRandomizeAnswers(selectedElementId, selectedGroup)}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`randomize-${selectedElementId}-${selectedGroup}`} className="ml-2 block text-sm text-gray-700">
-                              Randomize answer order for students
-                            </label>
                           </div>
                         </>
                       )}
@@ -2791,8 +2494,7 @@ export default function InstructorInterface() {
                                         options: ['Option A', 'Option B', 'Option C', 'Option D'],
                                         correctAnswer: 0,
                                         hint: '',
-                                        info: 'Information revealed when solved...',
-                                        randomizeAnswers: false
+                                        info: 'Information revealed when solved...'
                                       };
                                       
                                       const updatedQuestion = {
@@ -2846,7 +2548,7 @@ export default function InstructorInterface() {
                     }}
                     className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all"
                   >
-                                    Close
+                    Close
                   </button>
                 </div>
               </div>
