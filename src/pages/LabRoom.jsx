@@ -228,9 +228,21 @@ export default function LabRoom() {
   }
 
   const getFinalQuestion = () => {
+    // Load final questions from localStorage directly to ensure we have the latest data
+    const savedFinalQuestions = localStorage.getItem('instructor-final-questions')
+    let finalQuestionData = {}
+    
+    if (savedFinalQuestions) {
+      try {
+        finalQuestionData = JSON.parse(savedFinalQuestions)
+      } catch (error) {
+        console.error('Error parsing final questions:', error)
+      }
+    }
+    
     // Get group-specific question or fall back to group 1
     const groupNumber = studentInfo?.groupNumber || 1
-    const groupQuestion = finalQuestionSettings.groups?.[groupNumber] || finalQuestionSettings.groups?.[1]
+    const groupQuestion = finalQuestionData.groups?.[groupNumber] || finalQuestionData.groups?.[1]
     
     if (groupQuestion && groupQuestion.length > 0) {
       return groupQuestion[0]
