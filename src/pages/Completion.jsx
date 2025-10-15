@@ -26,27 +26,64 @@ export default function Completion() {
       return
     }
     
+    console.log('=== LETTER ASSIGNMENT DEBUG ===')
+    console.log('Student Group Number:', studentInfo.groupNumber)
+    
     // Get the group's assigned letter from instructor settings
-    const instructorSettings = localStorage.getItem('instructor-word-settings')
+    const instructorSettingsRaw = localStorage.getItem('instructor-word-settings')
+    console.log('Raw instructor settings:', instructorSettingsRaw)
+    
     let assignedLetter = null
     
-    if (instructorSettings) {
+    if (instructorSettingsRaw) {
       try {
-        const settings = JSON.parse(instructorSettings)
-        const groupLetters = settings.groupLetters || {}
-        assignedLetter = groupLetters[studentInfo.groupNumber]
+        const settings = JSON.parse(instructorSettingsRaw)
+        console.log('Parsed settings:', settings)
+        console.log('Target word:', settings.targetWord)
+        console.log('Number of groups:', settings.numGroups)
+        console.log('All group letters:', settings.groupLetters)
         
-        console.log('Word Settings:', settings)
-        console.log('Group Letters:', groupLetters)
-        console.log('Assigned letter for group', studentInfo.groupNumber, ':', assignedLetter)
+        const groupLetters = settings.groupLetters || {}
+        
+        // Try to get letter for this specific group
+        assignedLetter = groupLetters[studentInfo.groupNumber]
+        console.log(`Letter for group ${studentInfo.groupNumber}:`, assignedLetter)
+        
+        // If no letter found, check if groupLetters object is empty
+        if (!assignedLetter && Object.keys(groupLetters).length === 0) {
+          console.error('ERROR: groupLetters object is EMPTY! Word settings may not be properly configured.')
+          console.log('Attempting to generate letters now...')
+          
+          // Try to auto-generate if we have the target word
+          if (settings.targetWord) {
+            const letters = settings.targetWord.toUpperCase().split('')
+            const numGroups = settings.numGroups || 15
+            
+            // Create expanded array by repeating letters
+            const expandedLetters = []
+            for (let i = 0; i < numGroups; i++) {
+              expandedLetters.push(letters[i % letters.length])
+            }
+            
+            // Assign the letter for this group (no shuffle, just direct assignment)
+            assignedLetter = expandedLetters[(studentInfo.groupNumber - 1) % expandedLetters.length]
+            console.log('AUTO-GENERATED letter:', assignedLetter)
+          }
+        }
+        
       } catch (error) {
         console.error('Error parsing instructor settings:', error)
       }
+    } else {
+      console.error('ERROR: No instructor-word-settings found in localStorage!')
     }
     
-    if (!assignedLetter) {
-      console.error(`No letter assigned for group ${studentInfo.groupNumber}. Instructor must configure word settings.`)
-      assignedLetter = '?' 
+    if (!assignedLetter || assignedLetter === '?') {
+      console.error(`❌ FAILED: No valid letter assigned for group ${studentInfo.groupNumber}`)
+      console.error('Instructor must configure word settings in the Instructor Portal → Game Settings')
+      assignedLetter = '?'
+    } else {
+      console.log(`✅ SUCCESS: Group ${studentInfo.groupNumber} assigned letter "${assignedLetter}"`)
     }
     
     setGroupLetter(assignedLetter)
@@ -60,6 +97,7 @@ export default function Completion() {
       if (existingProgress) {
         try {
           classProgress = JSON.parse(existingProgress)
+          console.log('Existing class progress:', classProgress)
         } catch (error) {
           console.error('Error parsing existing class progress:', error)
           classProgress = []
@@ -85,19 +123,23 @@ export default function Completion() {
         classProgress.sort((a, b) => a.group - b.group)
         
         localStorage.setItem('class-letters-progress', JSON.stringify(classProgress))
-        console.log(`✅ Group ${studentInfo.groupNumber} completion recorded with letter "${assignedLetter}"`)
+        console.log(`✅ Saved to class progress: Group ${studentInfo.groupNumber} with letter "${assignedLetter}"`)
         console.log('Updated class progress:', classProgress)
       } else {
-        console.log(`Group ${studentInfo.groupNumber} already recorded`)
+        console.log(`Group ${studentInfo.groupNumber} already recorded with letter "${classProgress[existingGroupIndex].letter}"`)
         setGroupLetter(classProgress[existingGroupIndex].letter)
       }
     } else {
-      console.error(`❌ Cannot record completion for group ${studentInfo.groupNumber} - no letter assigned by instructor`)
+      console.error(`❌ Cannot save to class progress - invalid letter: "${assignedLetter}"`)
     }
+    
+    console.log('=== END DEBUG ===')
   }
 
   const getDisplayLetter = () => {
-    return groupLetter || finalLetter || 'M'
+    const letter = groupLetter || finalLetter || '?'
+    console.log('Displaying letter:', letter)
+    return letter
   }
 
   const isPlayingInClass = studentInfo?.playingContext === 'class'
@@ -154,6 +196,16 @@ export default function Completion() {
                 This letter is your team's piece of the final research puzzle!
               </p>
             </div>
+            
+            {/* Debug info - only shows if letter is ? */}
+            {getDisplayLetter() === '?' && (
+              <div className="bg-red-500 bg-opacity-80 rounded-lg p-4 mb-4">
+                <p className="text-white font-semibold text-sm">
+                  ⚠️ INSTRUCTOR: Word settings not configured. Please go to Instructor Portal → Game Settings to set up the word scramble.
+                </p>
+              </div>
+            )}
+            
             <div className="bg-yellow-600 bg-opacity-50 rounded-lg p-4 mb-4">
               <p className="text-yellow-100 font-semibold">
                 🎓 Work with your class to solve the word scramble using all groups' letters!
