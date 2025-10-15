@@ -17,6 +17,7 @@ export default function LabRoom() {
     completionMode: 'final_question',
     finalQuestion: null
   })
+  const [finalQuestionSettings, setFinalQuestionSettings] = useState({})
   const [elementStates, setElementStates] = useState({})
   const [showFinalQuestion, setShowFinalQuestion] = useState(false)
   const [finalQuestionAnswer, setFinalQuestionAnswer] = useState('')
@@ -35,6 +36,7 @@ export default function LabRoom() {
     startRoomTimer('lab')
     loadRoomData()
     loadGameSettings()
+    loadFinalQuestionSettings()
     checkFinalQuestionStatus()
   }, [studentInfo])
 
@@ -111,6 +113,18 @@ export default function LabRoom() {
     }
   }
 
+  const loadFinalQuestionSettings = () => {
+    const savedFinalQuestions = localStorage.getItem('instructor-final-questions')
+    if (savedFinalQuestions) {
+      try {
+        const settings = JSON.parse(savedFinalQuestions)
+        setFinalQuestionSettings(settings)
+      } catch (error) {
+        console.error('Error loading final question settings:', error)
+      }
+    }
+  }
+
   const handleElementClick = (elementId, event) => {
     const element = roomElements[elementId]
     if (!element) return
@@ -177,6 +191,7 @@ export default function LabRoom() {
     const finalQuestion = getFinalQuestion()
     if (!finalQuestion) {
       console.error('No final question configured')
+      setFinalQuestionFeedback({ type: 'error', message: 'No final question is configured. Please contact your instructor.' })
       return
     }
 
@@ -206,18 +221,15 @@ export default function LabRoom() {
   }
 
   const getFinalQuestion = () => {
-    const settings = gameSettings.finalQuestion
-    if (!settings) return null
-
     // Get group-specific question or fall back to group 1
     const groupNumber = studentInfo?.groupNumber || 1
-    const groupQuestion = settings.groups?.[groupNumber] || settings.groups?.[1]
+    const groupQuestion = finalQuestionSettings.groups?.[groupNumber] || finalQuestionSettings.groups?.[1]
     
     if (groupQuestion && groupQuestion.length > 0) {
       return groupQuestion[0]
     }
 
-    // Default final question
+    // Default final question if none configured
     return {
       id: 'final_question_default',
       question: 'Based on your laboratory analysis, what is your final diagnosis for the patient?',
