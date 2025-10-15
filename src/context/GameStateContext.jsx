@@ -13,31 +13,31 @@ export const GameProvider = ({ children }) => {
 
   // Load saved progress from localStorage on mount
   useEffect(() => {
-    const savedProgress = localStorage.getItem('microbiology-lab-progress')
-    if (savedProgress) {
-      try {
-        const parsed = JSON.parse(savedProgress)
-        setLabCompleted(parsed.labCompleted || false)
-        setDiscoveredClues(parsed.discoveredClues || {})
-        setFinalLetter(parsed.finalLetter || null)
-        setCurrentProgress(parsed.currentProgress || 0)
-        setAttemptTracking(parsed.attemptTracking || {})
-        setRoomTimers(parsed.roomTimers || {})
-      } catch (e) {
-        console.log('Could not load saved progress')
-      }
+  const savedProgress = localStorage.getItem('microbiology-lab-progress')
+  if (savedProgress) {
+    try {
+      const parsed = JSON.parse(savedProgress)
+      setLabCompleted(parsed.labCompleted || false)
+      setDiscoveredClues(parsed.discoveredClues || {})
+      setFinalLetter(parsed.finalLetter || null)
+      setCurrentProgress(parsed.currentProgress || 0)
+      setAttemptTracking(parsed.attemptTracking || {})
+      setRoomTimers(parsed.roomTimers || {})
+    } catch (e) {
+      console.error('Could not load saved progress:', e)
     }
+  }
 
-    // Load student info
-    const savedStudentInfo = localStorage.getItem('current-student-info')
-    if (savedStudentInfo) {
-      try {
-        setStudentInfo(JSON.parse(savedStudentInfo))
-      } catch (e) {
-        console.log('Could not load student info')
-      }
+  // Load student info if not already set
+  const savedStudentInfo = localStorage.getItem('current-student-info')
+  if (savedStudentInfo && !studentInfo) {
+    try {
+      setStudentInfo(JSON.parse(savedStudentInfo))
+    } catch (e) {
+      console.error('Could not load student info:', e)
     }
-  }, [])
+  }
+}, []) // Only run once on mount
 
   // Save progress to localStorage whenever state changes
   useEffect(() => {
