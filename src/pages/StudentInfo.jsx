@@ -42,34 +42,34 @@ export default function StudentInfo() {
     return Object.keys(newErrors).length === 0;
   };
 
-const handleSubmit = (e) => {
-  e.preventDefault();
-  
-  if (validateForm()) {
-    setIsSubmitting(true);
+  const handleSubmit = (e) => {
+    e.preventDefault();
     
-    const studentInfo = {
-      ...studentData,
-      sessionId: Date.now(),
-      startTime: new Date().toISOString()
-    };
-    
-    // Save to localStorage FIRST
-    localStorage.setItem('current-student-info', JSON.stringify(studentInfo));
-    
-    // Set in context
-    setStudentInfo(studentInfo);
-    
-    // Clear any previous game data (but NOT current-student-info)
-    localStorage.removeItem('microbiology-lab-progress');
-    
-    // Navigate to PPE Room - reduced timeout for better UX
-    setTimeout(() => {
-      setIsSubmitting(false);
-      navigate('/ppe-room');
-    }, 100);
-  }
-};
+    if (validateForm()) {
+      setIsSubmitting(true);
+      
+      const studentInfo = {
+        ...studentData,
+        sessionId: Date.now(),
+        startTime: new Date().toISOString()
+      };
+      
+      // Save to localStorage FIRST
+      localStorage.setItem('current-student-info', JSON.stringify(studentInfo));
+      
+      // Set in context
+      setStudentInfo(studentInfo);
+      
+      // Clear any previous game data (but NOT current-student-info)
+      localStorage.removeItem('microbiology-lab-progress');
+      
+      // Navigate to PPE Room - reduced timeout for better UX
+      setTimeout(() => {
+        setIsSubmitting(false);
+        navigate('/ppe-room');
+      }, 100);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -84,6 +84,16 @@ const handleSubmit = (e) => {
         ...prev,
         [name]: ''
       }));
+    }
+  };
+
+  const clearAllData = async () => {
+    if (confirm('This will clear all cached images and data. Continue?')) {
+      localStorage.clear();
+      // Also clear IndexedDB
+      const { clearAllImages } = await import('../utils/imageStorage');
+      await clearAllImages();
+      window.location.reload();
     }
   };
 
@@ -256,15 +266,6 @@ const handleSubmit = (e) => {
           </button>
         </form>
         
-const clearAllData = async () => {
-  if (confirm('This will clear all cached images and data. Continue?')) {
-    localStorage.clear();
-    // Also clear IndexedDB
-    const { clearAllImages } = await import('../utils/imageStorage');
-    await clearAllImages();
-    window.location.reload();
-  }
-};
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>
             By entering the laboratory, you agree to follow all safety protocols 
