@@ -35,6 +35,10 @@ export default function Completion() {
         const settings = JSON.parse(instructorSettings)
         const groupLetters = settings.groupLetters || {}
         assignedLetter = groupLetters[studentInfo.groupNumber]
+        
+        console.log('Word Settings:', settings)
+        console.log('Group Letters:', groupLetters)
+        console.log('Assigned letter for group', studentInfo.groupNumber, ':', assignedLetter)
       } catch (error) {
         console.error('Error parsing instructor settings:', error)
       }
@@ -47,43 +51,48 @@ export default function Completion() {
     
     setGroupLetter(assignedLetter)
     
-    // Load existing class progress
-    let classProgress = []
-    const existingProgress = localStorage.getItem('class-letters-progress')
-    
-    if (existingProgress) {
-      try {
-        classProgress = JSON.parse(existingProgress)
-      } catch (error) {
-        console.error('Error parsing existing class progress:', error)
-        classProgress = []
-      }
-    }
-    
-    // Check if this group has already been recorded
-    const existingGroupIndex = classProgress.findIndex(
-      item => item.group === studentInfo.groupNumber
-    )
-    
-    if (existingGroupIndex === -1 && assignedLetter !== '?') {
-      // Add this group's completion
-      const completionRecord = {
-        group: studentInfo.groupNumber,
-        letter: assignedLetter,
-        completedAt: new Date().toISOString(),
-        studentName: studentInfo.name,
-        sessionId: studentInfo.sessionId
+    // Only save if we have a valid letter (not ?)
+    if (assignedLetter && assignedLetter !== '?') {
+      // Load existing class progress
+      let classProgress = []
+      const existingProgress = localStorage.getItem('class-letters-progress')
+      
+      if (existingProgress) {
+        try {
+          classProgress = JSON.parse(existingProgress)
+        } catch (error) {
+          console.error('Error parsing existing class progress:', error)
+          classProgress = []
+        }
       }
       
-      classProgress.push(completionRecord)
-      classProgress.sort((a, b) => a.group - b.group)
+      // Check if this group has already been recorded
+      const existingGroupIndex = classProgress.findIndex(
+        item => item.group === studentInfo.groupNumber
+      )
       
-      localStorage.setItem('class-letters-progress', JSON.stringify(classProgress))
-      console.log(`✅ Group ${studentInfo.groupNumber} completion recorded with letter "${assignedLetter}"`)
-    } else if (assignedLetter === '?') {
-      console.error(`❌ Cannot record completion for group ${studentInfo.groupNumber} - no letter assigned by instructor`)
+      if (existingGroupIndex === -1) {
+        // Add this group's completion
+        const completionRecord = {
+          group: studentInfo.groupNumber,
+          letter: assignedLetter,
+          completedAt: new Date().toISOString(),
+          studentName: studentInfo.name,
+          sessionId: studentInfo.sessionId
+        }
+        
+        classProgress.push(completionRecord)
+        classProgress.sort((a, b) => a.group - b.group)
+        
+        localStorage.setItem('class-letters-progress', JSON.stringify(classProgress))
+        console.log(`✅ Group ${studentInfo.groupNumber} completion recorded with letter "${assignedLetter}"`)
+        console.log('Updated class progress:', classProgress)
+      } else {
+        console.log(`Group ${studentInfo.groupNumber} already recorded`)
+        setGroupLetter(classProgress[existingGroupIndex].letter)
+      }
     } else {
-      setGroupLetter(classProgress[existingGroupIndex].letter)
+      console.error(`❌ Cannot record completion for group ${studentInfo.groupNumber} - no letter assigned by instructor`)
     }
   }
 
