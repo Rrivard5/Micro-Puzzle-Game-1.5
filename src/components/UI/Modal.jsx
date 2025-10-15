@@ -13,6 +13,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [isAlreadySolved, setIsAlreadySolved] = useState(false)
   const [solvedInfo, setSolvedInfo] = useState('')
   const [displayOptions, setDisplayOptions] = useState([])
+  const [answerMapping, setAnswerMapping] = useState([]) // NEW: For tracking original indices
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -52,11 +53,28 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
       
-      // Set up display options for multiple choice questions
+      // Set up display options for multiple choice questions - WITH RANDOMIZATION
       if (question && question.type === 'multiple_choice') {
-        // Clean up options by trimming whitespace for display
         const cleanedOptions = (question.options || []).map(option => option.trim())
-        setDisplayOptions(cleanedOptions)
+        
+        // Check if randomization is enabled for this question
+        if (question.randomizeAnswers) {
+          // Create array of indices and shuffle them
+          const indices = cleanedOptions.map((_, index) => index)
+          for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]]
+          }
+          
+          // Create shuffled options and mapping
+          const shuffledOptions = indices.map(originalIndex => cleanedOptions[originalIndex])
+          setDisplayOptions(shuffledOptions)
+          setAnswerMapping(indices) // Track original indices
+        } else {
+          // No randomization - use original order
+          setDisplayOptions(cleanedOptions)
+          setAnswerMapping(cleanedOptions.map((_, index) => index)) // 1:1 mapping
+        }
       }
     } else if (element && element.interactionType === 'info') {
       setShowInfoOnly(true)
@@ -98,7 +116,8 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       correctText: 'observed',
       hint: 'Look carefully at the details.',
       clue: 'Observation recorded successfully.',
-      info: 'Analysis completed successfully!'
+      info: 'Analysis completed successfully!',
+      randomizeAnswers: false
     }
   }
 
@@ -146,24 +165,38 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // Method 1: Check using correctAnswer index with trimmed comparison
-      if (question.options && typeof question.correctAnswer === 'number') {
-        const correctAnswerText = question.options[question.correctAnswer]
-        if (correctAnswerText && trimmedAnswer === correctAnswerText.trim()) {
+      // NEW: Handle randomized answers
+      if (question.randomizeAnswers && answerMapping.length > 0) {
+        // Find which display option was selected
+        const selectedDisplayIndex = displayOptions.findIndex(option => option === trimmedAnswer)
+        if (selectedDisplayIndex === -1) return false
+        
+        // Map back to original index
+        const originalIndex = answerMapping[selectedDisplayIndex]
+        
+        // Check if original index matches correct answer
+        return originalIndex === question.correctAnswer
+      } else {
+        // Original logic for non-randomized questions
+        // Method 1: Check using correctAnswer index with trimmed comparison
+        if (question.options && typeof question.correctAnswer === 'number') {
+          const correctAnswerText = question.options[question.correctAnswer]
+          if (correctAnswerText && trimmedAnswer === correctAnswerText.trim()) {
+            return true
+          }
+        }
+        
+        // Method 2: Check against answer field (legacy support) - also trimmed
+        if (question.answer && trimmedAnswer === question.answer.trim()) {
           return true
         }
-      }
-      
-      // Method 2: Check against answer field (legacy support) - also trimmed
-      if (question.answer && trimmedAnswer === question.answer.trim()) {
-        return true
-      }
-      
-      // Method 3: Find the answer in options array (trimmed comparison)
-      if (question.answer && question.options) {
-        const matchingOption = question.options.find(opt => opt.trim() === question.answer.trim())
-        if (matchingOption && trimmedAnswer === matchingOption.trim()) {
-          return true
+        
+        // Method 3: Find the answer in options array (trimmed comparison)
+        if (question.answer && question.options) {
+          const matchingOption = question.options.find(opt => opt.trim() === question.answer.trim())
+          if (matchingOption && trimmedAnswer === matchingOption.trim()) {
+            return true
+          }
         }
       }
       
