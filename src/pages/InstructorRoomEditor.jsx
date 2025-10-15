@@ -1164,7 +1164,8 @@ export default function InstructorRoomEditor() {
                               clue: currentQuestion.clue || '',
                               randomizeAnswers: currentQuestion.randomizeAnswers || false,
                               info: currentQuestion.info || '',
-                              infoImage: currentQuestion.infoImage || null
+                              infoImage: currentQuestion.infoImage || null,
+                              questionImage: currentQuestion.questionImage || null
                             };
                             updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
                             
@@ -1179,6 +1180,101 @@ export default function InstructorRoomEditor() {
                           rows="3"
                           placeholder="Enter question for this group..."
                         />
+                      </div>
+
+                      {/* Question Image (embedded in the question) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          📷 Question Image (Optional - Shown WITH the Question)
+                        </label>
+                        {editingElement.content?.question?.groups?.[selectedGroup]?.[0]?.questionImage ? (
+                          <div className="space-y-2">
+                            <div className="bg-white border border-blue-300 rounded-lg p-3">
+                              <p className="text-sm text-blue-800 font-medium mb-2">✅ Current Question Image for Group {selectedGroup}:</p>
+                              <img
+                                src={editingElement.content.question.groups[selectedGroup][0].questionImage.data}
+                                alt="Question Image"
+                                className="w-64 h-auto object-contain rounded border mx-auto shadow-lg"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {};
+                                const updatedQuestion = {
+                                  ...currentQuestion,
+                                  questionImage: null
+                                };
+                                updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                
+                                const updatedElement = { ...editingElement };
+                                if (!updatedElement.content) updatedElement.content = {};
+                                if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                setEditingElement(updatedElement);
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all"
+                            >
+                              🗑️ Remove Question Image
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="text-4xl mb-2">📷</div>
+                            <p className="text-blue-800 font-medium mb-2">No question image set for Group {selectedGroup}</p>
+                            <p className="text-sm text-blue-600 mb-4">Upload an image to display alongside the question (e.g., microscope image, culture plate, diagram)</p>
+                            <label className="cursor-pointer inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all font-medium">
+                              📁 Upload Question Image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      alert('File size must be less than 5MB');
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const currentQuestion = editingElement.content?.question?.groups?.[selectedGroup]?.[0] || {
+                                        id: `${selectedElementId}_g${selectedGroup}`,
+                                        question: 'Question about this element...',
+                                        type: 'multiple_choice',
+                                        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                                        correctAnswer: 0,
+                                        hint: '',
+                                        info: 'Information revealed when solved...'
+                                      };
+                                      
+                                      const updatedQuestion = {
+                                        ...currentQuestion,
+                                        questionImage: {
+                                          data: event.target.result,
+                                          name: file.name,
+                                          size: file.size,
+                                          lastModified: new Date().toISOString()
+                                        }
+                                      };
+                                      
+                                      updateElementQuestion(selectedElementId, selectedGroup, updatedQuestion);
+                                      
+                                      const updatedElement = { ...editingElement };
+                                      if (!updatedElement.content) updatedElement.content = {};
+                                      if (!updatedElement.content.question) updatedElement.content.question = { groups: {} };
+                                      updatedElement.content.question.groups[selectedGroup] = [updatedQuestion];
+                                      setEditingElement(updatedElement);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        )}
+                        <p className="text-sm text-gray-500 mt-1">
+                          📷 This image appears WITH the question to provide visual context (e.g., "What bacterial shape is shown?")
+                        </p>
                       </div>
                       
                       {/* Question Type */}
