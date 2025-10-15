@@ -210,11 +210,14 @@ const checkAnswer = (answer, question) => {
     }))
   }
 
-  const proceedToLab = () => {
-    if (allPpeCorrect) {
-      navigate('/lab')
-    }
+const proceedToLab = () => {
+  if (allPpeCorrect) {
+    // Use window.location for more reliable navigation
+    window.location.href = '/lab';
+  } else {
+    alert('Please select appropriate PPE for all categories before entering the laboratory.');
   }
+}
 
   const getIncorrectSelections = () => {
     return Object.entries(selectedItems).filter(([category, selectedItem]) => {
