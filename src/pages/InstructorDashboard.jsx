@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useInstructorAuth } from '../context/InstructorAuthContext';
 
 export default function InstructorDashboard() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, isLoading, login, logout } = useInstructorAuth();
   const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const navigate = useNavigate();
+  
   const [dashboardStats, setDashboardStats] = useState({
     roomImages: 0,
     roomElements: 0,
@@ -19,12 +23,22 @@ export default function InstructorDashboard() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = () => {
-    if (password === 'microbiology2024') {
-      setIsAuthenticated(true);
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const success = login(password);
+    if (success) {
       setPassword('');
+      setLoginError('');
     } else {
-      alert('Incorrect password');
+      setLoginError('Incorrect password');
+      setPassword('');
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to logout from the instructor portal?')) {
+      logout();
+      navigate('/');
     }
   };
 
@@ -130,6 +144,17 @@ export default function InstructorDashboard() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center p-6">
@@ -144,14 +169,22 @@ export default function InstructorDashboard() {
             </p>
           </div>
           
-          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <form onSubmit={handleLogin}>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setLoginError('');
+              }}
               placeholder="Enter instructor password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 ${
+                loginError ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {loginError && (
+              <p className="text-red-600 text-sm mb-3">{loginError}</p>
+            )}
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all"
@@ -200,6 +233,13 @@ export default function InstructorDashboard() {
               >
                 👀 View Student Interface
               </Link>
+              
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+              >
+                🚪 Logout
+              </button>
             </div>
           </div>
         </div>
@@ -437,6 +477,8 @@ export default function InstructorDashboard() {
             Password: microbiology2024
             <span className="mx-2">•</span>
             <Link to="/debug" className="hover:text-blue-600 underline">Debug Interface</Link>
+            <span className="mx-2">•</span>
+            <button onClick={handleLogout} className="hover:text-blue-600 underline">Logout</button>
           </p>
         </div>
       </div>
