@@ -1868,3 +1868,4 @@ export default function InstructorRoomEditor() {
     </div>
   </div>
 )}
+</div>
