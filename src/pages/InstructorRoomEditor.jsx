@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useInstructorAuth } from '../context/InstructorAuthContext';
+import { compressImage } from '../utils/imageCompression';
 
 // PPE Question Configuration Component
 function PPEQuestionConfig({ selectedGroup }) {
@@ -495,46 +496,51 @@ export default function InstructorRoomEditor() {
   };
 
   // Image upload functionality
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const handleImageUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload only image files');
-      return;
-    }
+  if (!file.type.startsWith('image/')) {
+    alert('Please upload only image files');
+    return;
+  }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
-      return;
-    }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File size must be less than 10MB');
+    return;
+  }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const newRoomImages = {
-        ...roomImages,
-        [selectedWall]: {
-          data: e.target.result,
-          name: file.name,
-          size: file.size,
-          lastModified: new Date().toISOString()
-        }
-      };
-      setRoomImages(newRoomImages);
-      
-      // Load image onto canvas
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, 800, 600);
-        drawExistingElements();
-      };
-      img.src = e.target.result;
+  try {
+    // Compress the image
+    const compressedDataUrl = await compressImage(file, 0.5);
+    
+    const newRoomImages = {
+      ...roomImages,
+      [selectedWall]: {
+        data: compressedDataUrl,
+        name: file.name,
+        size: compressedDataUrl.length, // compressed size
+        lastModified: new Date().toISOString()
+      }
     };
-    reader.readAsDataURL(file);
-  };
+    setRoomImages(newRoomImages);
+    localStorage.setItem('instructor-room-images', JSON.stringify(newRoomImages));
+    
+    // Load image onto canvas
+    const img = new Image();
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, 800, 600);
+      drawExistingElements();
+    };
+    img.src = compressedDataUrl;
+  } catch (error) {
+    console.error('Error compressing image:', error);
+    alert('Error processing image. Please try a smaller file.');
+  }
+};
 
   const removeRoomImage = (wall) => {
     if (confirm('Are you sure you want to remove this room image and all its elements?')) {
