@@ -4,7 +4,6 @@ import { useInstructorAuth } from '../context/InstructorAuthContext';
 
 export default function InstructorSettings() {
   const { isAuthenticated, isLoading } = useInstructorAuth();
-  const [activeTab, setActiveTab] = useState('word-scramble');
   const [isSaving, setIsSaving] = useState(false);
 
   // Word scramble settings
@@ -13,25 +12,6 @@ export default function InstructorSettings() {
     numGroups: 15,
     groupLetters: {}
   });
-
-  // PPE settings
-  const [ppeSettings, setPpeSettings] = useState({
-    groups: {}
-  });
-
-  // Final question settings
-  const [finalQuestionSettings, setFinalQuestionSettings] = useState({
-    groups: {}
-  });
-
-  // Game completion settings
-  const [gameSettings, setGameSettings] = useState({
-    completionMode: 'all',
-    finalElementId: '',
-    requireAllElements: true
-  });
-
-  const [selectedGroup, setSelectedGroup] = useState(1);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -47,24 +27,6 @@ export default function InstructorSettings() {
         setWordSettings(JSON.parse(savedWordSettings));
       } else {
         setDefaultWordSettings();
-      }
-
-      // Load PPE settings
-      const savedPPESettings = localStorage.getItem('instructor-ppe-questions');
-      if (savedPPESettings) {
-        setPpeSettings(JSON.parse(savedPPESettings));
-      }
-
-      // Load final question settings
-      const savedFinalQuestions = localStorage.getItem('instructor-final-questions');
-      if (savedFinalQuestions) {
-        setFinalQuestionSettings(JSON.parse(savedFinalQuestions));
-      }
-
-      // Load game settings
-      const savedGameSettings = localStorage.getItem('instructor-game-settings');
-      if (savedGameSettings) {
-        setGameSettings(JSON.parse(savedGameSettings));
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -112,12 +74,9 @@ export default function InstructorSettings() {
     setIsSaving(true);
     try {
       localStorage.setItem('instructor-word-settings', JSON.stringify(wordSettings));
-      localStorage.setItem('instructor-ppe-questions', JSON.stringify(ppeSettings));
-      localStorage.setItem('instructor-final-questions', JSON.stringify(finalQuestionSettings));
-      localStorage.setItem('instructor-game-settings', JSON.stringify(gameSettings));
       
       await new Promise(resolve => setTimeout(resolve, 500));
-      alert('All settings saved successfully!');
+      alert('Settings saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
       alert('Error saving settings. Please try again.');
@@ -135,101 +94,6 @@ export default function InstructorSettings() {
     }
     
     setWordSettings(newSettings);
-  };
-
-  // PPE question functions
-  const updatePPEQuestion = (groupNumber, question) => {
-    const updatedSettings = {
-      ...ppeSettings,
-      groups: {
-        ...ppeSettings.groups,
-        [groupNumber]: [question]
-      }
-    };
-    setPpeSettings(updatedSettings);
-  };
-
-  const addPPEOption = (groupNumber) => {
-    const currentQuestion = ppeSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || ['Option A', 'Option B'];
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      options: [...currentOptions, `Option ${String.fromCharCode(65 + currentOptions.length)}`]
-    };
-    
-    updatePPEQuestion(groupNumber, updatedQuestion);
-  };
-
-  const removePPEOption = (groupNumber, optionIndex) => {
-    const currentQuestion = ppeSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || [];
-    
-    if (currentOptions.length <= 2) {
-      alert('Questions must have at least 2 options');
-      return;
-    }
-    
-    const newOptions = currentOptions.filter((_, index) => index !== optionIndex);
-    const updatedQuestion = {
-      ...currentQuestion,
-      options: newOptions,
-      answer: currentQuestion.answer === currentOptions[optionIndex] ? newOptions[0] || '' : currentQuestion.answer
-    };
-    
-    updatePPEQuestion(groupNumber, updatedQuestion);
-  };
-
-  // Final question functions
-  const updateFinalQuestion = (groupNumber, question) => {
-    const updatedSettings = {
-      ...finalQuestionSettings,
-      groups: {
-        ...finalQuestionSettings.groups,
-        [groupNumber]: [question]
-      }
-    };
-    setFinalQuestionSettings(updatedSettings);
-  };
-
-  const addFinalQuestionOption = (groupNumber) => {
-    const currentQuestion = finalQuestionSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || ['Option A', 'Option B'];
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      options: [...currentOptions, `Option ${String.fromCharCode(65 + currentOptions.length)}`]
-    };
-    
-    updateFinalQuestion(groupNumber, updatedQuestion);
-  };
-
-  const removeFinalQuestionOption = (groupNumber, optionIndex) => {
-    const currentQuestion = finalQuestionSettings.groups?.[groupNumber]?.[0] || {};
-    const currentOptions = currentQuestion.options || [];
-    
-    if (currentOptions.length <= 2) {
-      alert('Questions must have at least 2 options');
-      return;
-    }
-    
-    const newOptions = currentOptions.filter((_, index) => index !== optionIndex);
-    
-    // Adjust correct answer if needed
-    let newCorrectAnswer = currentQuestion.correctAnswer || 0;
-    if (newCorrectAnswer >= optionIndex && newCorrectAnswer > 0) {
-      newCorrectAnswer = Math.max(0, newCorrectAnswer - 1);
-    } else if (newCorrectAnswer >= newOptions.length) {
-      newCorrectAnswer = newOptions.length - 1;
-    }
-    
-    const updatedQuestion = {
-      ...currentQuestion,
-      options: newOptions,
-      correctAnswer: newCorrectAnswer
-    };
-    
-    updateFinalQuestion(groupNumber, updatedQuestion);
   };
 
   if (isLoading) {
@@ -271,7 +135,7 @@ export default function InstructorSettings() {
               <h1 className="text-2xl font-bold text-gray-800">
                 ⚙️ Game Settings Configuration
               </h1>
-              <p className="text-gray-600">Configure gameplay mechanics and questions</p>
+              <p className="text-gray-600">Configure word scramble challenge</p>
             </div>
             
             <div className="flex gap-3">
@@ -291,36 +155,9 @@ export default function InstructorSettings() {
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
               >
-                {isSaving ? 'Saving...' : '💾 Save All Settings'}
+                {isSaving ? 'Saving...' : '💾 Save Settings'}
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex space-x-8">
-            {[
-              { id: 'word-scramble', name: '🧩 Word Scramble', desc: 'Target word and group letters' },
-              { id: 'ppe-questions', name: '🥽 PPE Questions', desc: 'Safety room questions' },
-              { id: 'final-questions', name: '🎯 Final Questions', desc: 'Diagnosis questions' },
-              { id: 'completion', name: '🏁 Completion Rules', desc: 'Game completion settings' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-2 border-b-2 font-medium text-sm transition-all ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <div>{tab.name}</div>
-                <div className="text-xs text-gray-400">{tab.desc}</div>
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -328,139 +165,83 @@ export default function InstructorSettings() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         
-        {/* Word Scramble Tab */}
-        {activeTab === 'word-scramble' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🧩 Word Scramble Configuration</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Word (Solution)
-                  </label>
-                  <input
-                    type="text"
-                    value={wordSettings.targetWord}
-                    onChange={(e) => updateWordSettings('targetWord', e.target.value.toUpperCase())}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter the target word..."
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    This is the word students will need to unscramble
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Number of Student Groups
-                  </label>
-                  <input
-                    type="number"
-                    value={wordSettings.numGroups}
-                    onChange={(e) => updateWordSettings('numGroups', parseInt(e.target.value) || 1)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="1"
-                    max="50"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Each group will receive one letter when they complete the laboratory
-                  </p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-bold text-blue-800 mb-2">Letter Assignments Preview</h3>
-                  <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
-                    {Object.entries(wordSettings.groupLetters).map(([group, letter]) => (
-                      <div key={group} className="bg-white border border-blue-300 rounded p-2 text-center">
-                        <div className="text-xs text-gray-600">Group {group}</div>
-                        <div className="text-lg font-bold text-blue-600">{letter}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-blue-600 text-sm mt-2">
-                    Letters are automatically distributed and shuffled among groups
-                  </p>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h3 className="font-bold text-yellow-800 mb-2">💡 How It Works</h3>
-                  <ul className="text-yellow-700 text-sm space-y-1">
-                    <li>• Each group completes the laboratory to earn their assigned letter</li>
-                    <li>• Letters from the target word are distributed among all groups</li>
-                    <li>• If there are more groups than letters, letters are repeated</li>
-                    <li>• Students work together to unscramble the final word</li>
-                    <li>• Change the target word or number of groups to regenerate assignments</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PPE Questions Tab - Continuing with same structure... */}
-        {activeTab === 'ppe-questions' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🥽 PPE Safety Questions</h2>
-              <div className="flex justify-between items-center mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Configure Question for Group:
+        {/* Word Scramble Section */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">🧩 Word Scramble Configuration</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Target Word (Solution)
                 </label>
-                <select
-                  value={selectedGroup}
-                  onChange={(e) => setSelectedGroup(parseInt(e.target.value))}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {Array.from({length: wordSettings.numGroups}, (_, i) => i + 1).map(num => (
-                    <option key={num} value={num}>Group {num}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <h3 className="font-bold text-red-800 mb-2">🔒 PPE Room Access Question</h3>
-                <p className="text-red-700 text-sm">
-                  Students must answer this safety question correctly to access their PPE locker and proceed to the laboratory.
+                <input
+                  type="text"
+                  value={wordSettings.targetWord}
+                  onChange={(e) => updateWordSettings('targetWord', e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter the target word..."
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  This is the word students will need to unscramble
                 </p>
               </div>
 
-              {/* PPE Question configuration fields continue with same structure as original... */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Question Text
-                  </label>
-                  <textarea
-                    value={ppeSettings.groups?.[selectedGroup]?.[0]?.question || ''}
-                    onChange={(e) => {
-                      const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
-                      const updatedQuestion = {
-                        ...currentQuestion,
-                        id: `ppe_g${selectedGroup}`,
-                        question: e.target.value,
-                        type: currentQuestion.type || 'multiple_choice',
-                        options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-                        answer: currentQuestion.answer || '',
-                        hint: currentQuestion.hint || '',
-                        randomizeAnswers: currentQuestion.randomizeAnswers || false
-                      };
-                      updatePPEQuestion(selectedGroup, updatedQuestion);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="3"
-                    placeholder="Enter PPE safety question for this group..."
-                  />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Number of Student Groups
+                </label>
+                <input
+                  type="number"
+                  value={wordSettings.numGroups}
+                  onChange={(e) => updateWordSettings('numGroups', parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                  max="50"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Each group will receive one letter when they complete the laboratory
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-bold text-blue-800 mb-2">Letter Assignments Preview</h3>
+                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                  {Object.entries(wordSettings.groupLetters).map(([group, letter]) => (
+                    <div key={group} className="bg-white border border-blue-300 rounded p-2 text-center">
+                      <div className="text-xs text-gray-600">Group {group}</div>
+                      <div className="text-lg font-bold text-blue-600">{letter}</div>
+                    </div>
+                  ))}
                 </div>
-                
-                {/* Continue with rest of PPE configuration... */}
+                <p className="text-blue-600 text-sm mt-2">
+                  Letters are automatically distributed and shuffled among groups
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h3 className="font-bold text-yellow-800 mb-2">💡 How It Works</h3>
+                <ul className="text-yellow-700 text-sm space-y-1">
+                  <li>• Each group completes the laboratory to earn their assigned letter</li>
+                  <li>• Letters from the target word are distributed among all groups</li>
+                  <li>• If there are more groups than letters, letters are repeated</li>
+                  <li>• Students work together to unscramble the final word</li>
+                  <li>• Change the target word or number of groups to regenerate assignments</li>
+                </ul>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Final Questions and Completion tabs continue with same structure... */}
-        
+          {/* Info Box */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
+            <h3 className="font-bold text-purple-800 mb-3">📌 Additional Settings Locations</h3>
+            <div className="space-y-2 text-purple-700">
+              <p>• <strong>PPE Questions & Final Questions:</strong> Configure these in the <Link to="/instructor/rooms" className="text-purple-600 underline font-semibold">Room Setup</Link> page under "Group Questions" for each group</p>
+              <p>• <strong>Room Elements & Interactive Areas:</strong> Set up in the <Link to="/instructor/rooms" className="text-purple-600 underline font-semibold">Room Setup</Link> page</p>
+              <p>• <strong>Student Progress:</strong> View in the <Link to="/instructor/progress" className="text-purple-600 underline font-semibold">Student Progress</Link> page</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
