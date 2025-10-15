@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useInstructorAuth } from '../context/InstructorAuthContext';
 
@@ -7,6 +7,8 @@ export default function InstructorDashboard() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+  const [isImporting, setIsImporting] = useState(false);
   
   const [dashboardStats, setDashboardStats] = useState({
     roomImages: 0,
@@ -44,23 +46,13 @@ export default function InstructorDashboard() {
 
   const loadDashboardStats = () => {
     try {
-      // Load room images
       const roomImages = JSON.parse(localStorage.getItem('instructor-room-images') || '{}');
-      
-      // Load room elements
       const roomElements = JSON.parse(localStorage.getItem('instructor-room-elements') || '{}');
-      
-      // Load content categories
       const contentCategories = JSON.parse(localStorage.getItem('instructor-content-categories') || '{}');
-      
-      // Load word settings for student groups
       const wordSettings = JSON.parse(localStorage.getItem('instructor-word-settings') || '{"numGroups": 15}');
-      
-      // Load student progress data
       const studentData = JSON.parse(localStorage.getItem('instructor-student-data') || '[]');
       const uniqueStudents = new Set(studentData.map(record => `${record.sessionId}_${record.name}`)).size;
       
-      // Count configured questions
       const questionsCount = Object.values(roomElements).reduce((count, element) => {
         if (element.interactionType === 'question' && element.content?.question?.groups) {
           return count + Object.keys(element.content.question.groups).length;
@@ -118,10 +110,95 @@ export default function InstructorDashboard() {
     }
   };
 
+  const handleSettingsUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      alert('Please select a JSON settings file');
+      return;
+    }
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const importData = JSON.parse(e.target.result);
+        
+        if (!importData.settings) {
+          throw new Error('Invalid settings file format');
+        }
+
+        if (!confirm('This will replace all current settings. Are you sure you want to continue?')) {
+          setIsImporting(false);
+          event.target.value = '';
+          return;
+        }
+
+        const settings = importData.settings;
+        
+        if (settings.roomImages) {
+          localStorage.setItem('instructor-room-images', JSON.stringify(settings.roomImages));
+        }
+        
+        if (settings.roomElements) {
+          localStorage.setItem('instructor-room-elements', JSON.stringify(settings.roomElements));
+        }
+        
+        if (settings.contentCategories) {
+          localStorage.setItem('instructor-content-categories', JSON.stringify(settings.contentCategories));
+        }
+        
+        if (settings.wordSettings) {
+          localStorage.setItem('instructor-word-settings', JSON.stringify(settings.wordSettings));
+        }
+        
+        if (settings.gameSettings) {
+          localStorage.setItem('instructor-game-settings', JSON.stringify(settings.gameSettings));
+        }
+        
+        if (settings.ppeSettings) {
+          localStorage.setItem('instructor-ppe-questions', JSON.stringify(settings.ppeSettings));
+        }
+        
+        if (settings.finalQuestionSettings) {
+          localStorage.setItem('instructor-final-questions', JSON.stringify(settings.finalQuestionSettings));
+        }
+        
+        if (settings.feedbackSettings) {
+          localStorage.setItem('instructor-feedback-settings', JSON.stringify(settings.feedbackSettings));
+        }
+
+        // Reload dashboard stats
+        loadDashboardStats();
+
+        alert(`Settings imported successfully! ${importData.exportDate ? `(Exported on ${new Date(importData.exportDate).toLocaleDateString()})` : ''}`);
+      } catch (error) {
+        console.error('Error importing settings:', error);
+        alert('Error importing settings. Please check the file format and try again.');
+      } finally {
+        setIsImporting(false);
+        event.target.value = '';
+      }
+    };
+    
+    reader.onerror = () => {
+      alert('Error reading file. Please try again.');
+      setIsImporting(false);
+      event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+  };
+
+  const triggerSettingsUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   const clearAllData = () => {
     if (confirm('⚠️ WARNING: This will delete ALL instructor settings and student data. This cannot be undone. Are you absolutely sure?')) {
       if (confirm('Last chance! This will permanently delete everything. Continue?')) {
-        // Clear all instructor data
         const instructorKeys = [
           'instructor-room-images',
           'instructor-room-elements', 
@@ -136,7 +213,6 @@ export default function InstructorDashboard() {
         
         instructorKeys.forEach(key => localStorage.removeItem(key));
         
-        // Refresh stats
         loadDashboardStats();
         
         alert('✅ All instructor data has been cleared.');
@@ -208,6 +284,15 @@ export default function InstructorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Hidden file input for settings upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleSettingsUpload}
+        className="hidden"
+      />
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -224,7 +309,19 @@ export default function InstructorDashboard() {
                 onClick={exportAllSettings}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
               >
-                📥 Export All Settings
+                📥 Download Settings
+              </button>
+              
+              <button
+                onClick={triggerSettingsUpload}
+                disabled={isImporting}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  isImporting 
+                    ? 'bg-gray-400 cursor-not-allowed text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {isImporting ? 'Uploading...' : '📤 Upload Settings'}
               </button>
               
               <Link
@@ -416,7 +513,18 @@ export default function InstructorDashboard() {
                 onClick={exportAllSettings}
                 className="w-full px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm transition-all"
               >
-                📥 Export All Settings
+                📥 Download All Settings
+              </button>
+              <button
+                onClick={triggerSettingsUpload}
+                disabled={isImporting}
+                className={`w-full px-3 py-2 rounded text-sm transition-all ${
+                  isImporting
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {isImporting ? 'Uploading...' : '📤 Upload Settings'}
               </button>
               <button
                 onClick={() => window.open('/debug', '_blank')}
