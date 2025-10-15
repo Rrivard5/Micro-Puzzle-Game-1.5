@@ -25,38 +25,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   }, [isOpen, elementId, studentGroup])
 
   const loadContent = async () => {
-  setIsLoading(true);
-    const element = await getRoomElement(elementId);
-  setElementContent(element);
-  
-  if (element && element.interactionType === 'question') {
-    const question = await getElementQuestion(elementId, studentGroup);
-    
-    // Load question image if it exists
-    if (question?.questionImage?.key) {
-      try {
-        const imageData = await getImage(question.questionImage.key);
-        question.questionImage.data = imageData;
-      } catch (error) {
-        console.error('Error loading question image:', error);
-      }
-    }
-    
-    // Load reward image if it exists
-    if (question?.infoImage?.key) {
-      try {
-        const imageData = await getImage(question.infoImage.key);
-        question.infoImage.data = imageData;
-      } catch (error) {
-        console.error('Error loading reward image:', error);
-      }
-    }
-    
-    setCurrentQuestion(question);
-  }
-  
-  setIsLoading(false);
-};
+    setIsLoading(true);
     setShowInfoOnly(false)
     setUserAnswer('')
     setFeedback(null)
