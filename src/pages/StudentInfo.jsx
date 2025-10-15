@@ -60,14 +60,14 @@ export default function StudentInfo() {
       // Set in context
       setStudentInfo(studentInfo);
       
-      // Clear any previous game data (but NOT current-student-info)
+      // Clear any previous game data
       localStorage.removeItem('microbiology-lab-progress');
+      localStorage.removeItem('solved-elements');
       
-      // Navigate to PPE Room - reduced timeout for better UX
+      // Use window.location for a hard navigation to ensure localStorage is read
       setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/ppe-room');
-      }, 100);
+        window.location.href = '/ppe-room';
+      }, 200);
     }
   };
 
@@ -84,16 +84,6 @@ export default function StudentInfo() {
         ...prev,
         [name]: ''
       }));
-    }
-  };
-
-  const clearAllData = async () => {
-    if (confirm('This will clear all cached images and data. Continue?')) {
-      localStorage.clear();
-      // Also clear IndexedDB
-      const { clearAllImages } = await import('../utils/imageStorage');
-      await clearAllImages();
-      window.location.reload();
     }
   };
 
