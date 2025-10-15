@@ -255,7 +255,16 @@ const handleSubmit = (e) => {
             )}
           </button>
         </form>
-
+        
+const clearAllData = async () => {
+  if (confirm('This will clear all cached images and data. Continue?')) {
+    localStorage.clear();
+    // Also clear IndexedDB
+    const { clearAllImages } = await import('../utils/imageStorage');
+    await clearAllImages();
+    window.location.reload();
+  }
+};
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>
             By entering the laboratory, you agree to follow all safety protocols 
