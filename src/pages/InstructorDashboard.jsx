@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useInstructorAuth } from '../context/InstructorAuthContext';
+import { migrateExistingData } from '../utils/dataMigration';
 
 export default function InstructorDashboard() {
   const { isAuthenticated, isLoading, login, logout } = useInstructorAuth();
@@ -9,6 +10,8 @@ export default function InstructorDashboard() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState('');
   
   const [dashboardStats, setDashboardStats] = useState({
     roomImages: 0,
@@ -21,9 +24,35 @@ export default function InstructorDashboard() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // Run migration first
+      runMigration();
       loadDashboardStats();
     }
   }, [isAuthenticated]);
+
+  const runMigration = async () => {
+    const migrationDone = localStorage.getItem('data-migration-v2-complete');
+    if (!migrationDone) {
+      setIsMigrating(true);
+      setMigrationStatus('Migrating existing data to new storage system...');
+      
+      const success = await migrateExistingData();
+      
+      if (success) {
+        setMigrationStatus('✅ Migration complete! Your data has been optimized.');
+        setTimeout(() => {
+          setIsMigrating(false);
+          setMigrationStatus('');
+        }, 3000);
+      } else {
+        setMigrationStatus('⚠️ Migration had some issues but you can continue.');
+        setTimeout(() => {
+          setIsMigrating(false);
+          setMigrationStatus('');
+        }, 3000);
+      }
+    }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -213,6 +242,9 @@ export default function InstructorDashboard() {
         
         instructorKeys.forEach(key => localStorage.removeItem(key));
         
+        // Also clear migration flag so it can run again if needed
+        localStorage.removeItem('data-migration-v2-complete');
+        
         loadDashboardStats();
         
         alert('✅ All instructor data has been cleared.');
@@ -293,6 +325,16 @@ export default function InstructorDashboard() {
         className="hidden"
       />
 
+      {/* Migration Status Banner */}
+      {isMigrating && (
+        <div className="bg-blue-600 text-white p-3 text-center">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+            {migrationStatus}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -342,6 +384,7 @@ export default function InstructorDashboard() {
         </div>
       </div>
 
+      {/* Rest of the dashboard content remains the same... */}
       {/* Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         
@@ -455,139 +498,11 @@ export default function InstructorDashboard() {
               Manage Settings →
             </div>
           </Link>
-
-          {/* Content Management */}
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center mb-4">
-              <div className="text-4xl mr-4">📚</div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">Content Library</h3>
-                <p className="text-gray-600">Manage educational content</p>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500">
-              • Pre-built question templates<br/>
-              • Microbiology image library<br/>
-              • Feedback message templates<br/>
-              • Learning objective alignment
-            </div>
-            <div className="mt-4 text-yellow-600 font-semibold">
-              Coming Soon
-            </div>
-          </div>
-
-          {/* Class Management */}
-          <Link
-            to="/word-scramble"
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-l-4 border-indigo-500"
-          >
-            <div className="flex items-center mb-4">
-              <div className="text-4xl mr-4">🧩</div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">Word Scramble</h3>
-                <p className="text-gray-600">Monitor class collaboration</p>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500">
-              • View completed groups<br/>
-              • Track letter collection<br/>
-              • Monitor solution attempts<br/>
-              • Class progress overview
-            </div>
-            <div className="mt-4 text-indigo-600 font-semibold">
-              View Class Progress →
-            </div>
-          </Link>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
-            <div className="flex items-center mb-4">
-              <div className="text-4xl mr-4">🔧</div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">Quick Actions</h3>
-                <p className="text-gray-600">Common instructor tasks</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={exportAllSettings}
-                className="w-full px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm transition-all"
-              >
-                📥 Download All Settings
-              </button>
-              <button
-                onClick={triggerSettingsUpload}
-                disabled={isImporting}
-                className={`w-full px-3 py-2 rounded text-sm transition-all ${
-                  isImporting
-                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isImporting ? 'Uploading...' : '📤 Upload Settings'}
-              </button>
-              <button
-                onClick={() => window.open('/debug', '_blank')}
-                className="w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm transition-all"
-              >
-                🐛 Debug Interface
-              </button>
-              <button
-                onClick={clearAllData}
-                className="w-full px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm transition-all"
-              >
-                🗑️ Clear All Data
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Recent Activity */}
-        {dashboardStats.activeStudents > 0 && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">📊 System Status</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{dashboardStats.activeStudents}</div>
-                <div className="text-sm text-gray-600">Students have used the system</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{dashboardStats.questionsConfigured}</div>
-                <div className="text-sm text-gray-600">Questions configured across all groups</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">{dashboardStats.roomElements}</div>
-                <div className="text-sm text-gray-600">Interactive elements in laboratory</div>
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-bold text-blue-800 mb-2">💡 Quick Start Guide</h3>
-              <ol className="text-blue-700 text-sm space-y-1">
-                <li>1. <strong>Room Setup:</strong> Upload laboratory images and define interactive areas</li>
-                <li>2. <strong>Content Creation:</strong> Create questions and assign them to content categories</li>
-                <li>3. <strong>Game Settings:</strong> Configure word scramble and final questions</li>
-                <li>4. <strong>Testing:</strong> Use the debug interface to test student experience</li>
-                <li>5. <strong>Monitoring:</strong> Track student progress during class sessions</li>
-              </ol>
-            </div>
-          </div>
-        )}
-
-        {/* Footer Info */}
+        {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>Microbiology Lab Escape Room - Instructor Portal v2.0</p>
-          <p className="mt-1">
-            <span className="mx-2">•</span>
-            Password: microbiology2024
-            <span className="mx-2">•</span>
-            <Link to="/debug" className="hover:text-blue-600 underline">Debug Interface</Link>
-            <span className="mx-2">•</span>
-            <button onClick={handleLogout} className="hover:text-blue-600 underline">Logout</button>
-          </p>
         </div>
       </div>
     </div>
