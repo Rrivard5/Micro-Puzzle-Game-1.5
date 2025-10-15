@@ -360,7 +360,7 @@ export default function InstructorDashboard() {
             <div className="mt-4 text-indigo-600 font-semibold">
               View Class Progress →
             </div>
-          </div>
+          </Link>
 
           {/* Quick Actions */}
           <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
