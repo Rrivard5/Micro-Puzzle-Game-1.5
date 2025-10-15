@@ -11,6 +11,8 @@ import { GameProvider } from './context/GameStateContext'
 import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import InstructorDebug from './components/InstructorDebug'
+import InstructorDashboard from './pages/InstructorDashboard'
+import InstructorRoomEditor from './pages/InstructorRoomEditor'
 
 export default function App() {
   return (
@@ -66,7 +68,10 @@ export default function App() {
               <Route path="/word-scramble" element={<WordScramble />} />
               
               {/* Instructor Interface */}
-              <Route path="/instructor" element={<InstructorRoomEditor />} />
+              <Route path="/instructor" element={<InstructorDashboard />} />
+              <Route path="/instructor/rooms" element={<InstructorRoomEditor />} />
+              <Route path="/instructor/progress" element={<div>Student Progress - Coming Soon</div>} />
+              <Route path="/instructor/settings" element={<div>Game Settings - Coming Soon</div>} />
               <Route path="/debug" element={<InstructorDebug />} />
             </Routes>
           </main>
