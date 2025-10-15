@@ -158,13 +158,48 @@ export default function PPERoom() {
     }
   }
 
-  const checkAnswer = (answer, question) => {
-    if (question.type === 'multiple_choice') {
-      return question.answer === answer.trim()
-    } else {
-      return question.answer.toLowerCase() === answer.trim().toLowerCase()
+const checkAnswer = (answer, question) => {
+  if (!question || !answer) return false;
+  
+  const trimmedAnswer = answer.trim();
+  
+  if (question.type === 'multiple_choice') {
+    // Try multiple methods to check the answer
+    
+    // Method 1: Direct comparison with answer field
+    if (question.answer && trimmedAnswer === question.answer.trim()) {
+      return true;
     }
+    
+    // Method 2: Check if the answer is in the options and matches correctAnswer index
+    if (question.options && typeof question.correctAnswer === 'number') {
+      const correctOption = question.options[question.correctAnswer];
+      if (correctOption && trimmedAnswer === correctOption.trim()) {
+        return true;
+      }
+    }
+    
+    // Method 3: Find matching option and check if it's the correct one
+    if (question.options && question.answer) {
+      const answerIndex = question.options.findIndex(opt => opt.trim() === trimmedAnswer);
+      const correctIndex = question.options.findIndex(opt => opt.trim() === question.answer.trim());
+      if (answerIndex !== -1 && answerIndex === correctIndex) {
+        return true;
+      }
+    }
+    
+    return false;
+  } else {
+    // For text questions
+    if (question.correctText) {
+      return question.correctText.trim().toLowerCase() === trimmedAnswer.toLowerCase();
+    }
+    if (question.answer) {
+      return question.answer.trim().toLowerCase() === trimmedAnswer.toLowerCase();
+    }
+    return false;
   }
+}
 
   const selectClothing = (category, itemKey) => {
     if (!lockerOpen) return
