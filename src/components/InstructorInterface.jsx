@@ -2846,7 +2846,14 @@ export default function InstructorInterface() {
                     }}
                     className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all"
                   >
-                    Close
+                                    Close
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
