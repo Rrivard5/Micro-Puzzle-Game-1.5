@@ -2,6 +2,343 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useInstructorAuth } from '../context/InstructorAuthContext';
 
+// PPE Question Configuration Component
+function PPEQuestionConfig({ selectedGroup }) {
+  const [ppeSettings, setPpeSettings] = useState({ groups: {} });
+
+  useEffect(() => {
+    loadPPESettings();
+  }, []);
+
+  const loadPPESettings = () => {
+    const saved = localStorage.getItem('instructor-ppe-questions');
+    if (saved) {
+      try {
+        setPpeSettings(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading PPE settings:', error);
+      }
+    }
+  };
+
+  const updatePPEQuestion = (groupNumber, question) => {
+    const updated = {
+      ...ppeSettings,
+      groups: {
+        ...ppeSettings.groups,
+        [groupNumber]: [question]
+      }
+    };
+    setPpeSettings(updated);
+    localStorage.setItem('instructor-ppe-questions', JSON.stringify(updated));
+  };
+
+  const currentQuestion = ppeSettings.groups?.[selectedGroup]?.[0] || {};
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">🥽 PPE Room Question - Group {selectedGroup}</h2>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <p className="text-red-700 text-sm">
+          Students must answer this safety question correctly to access their PPE locker before entering the lab.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Question Text</label>
+          <textarea
+            value={currentQuestion.question || ''}
+            onChange={(e) => {
+              const updated = {
+                ...currentQuestion,
+                id: `ppe_g${selectedGroup}`,
+                question: e.target.value,
+                type: currentQuestion.type || 'multiple_choice',
+                options: currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+                answer: currentQuestion.answer || '',
+                hint: currentQuestion.hint || ''
+              };
+              updatePPEQuestion(selectedGroup, updated);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="3"
+            placeholder="Enter PPE safety question..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+          <select
+            value={currentQuestion.type || 'multiple_choice'}
+            onChange={(e) => {
+              const updated = {
+                ...currentQuestion,
+                type: e.target.value,
+                options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
+                answer: currentQuestion.answer || ''
+              };
+              updatePPEQuestion(selectedGroup, updated);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="multiple_choice">Multiple Choice</option>
+            <option value="text">Text Answer</option>
+          </select>
+        </div>
+
+        {currentQuestion.type === 'multiple_choice' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+            <div className="space-y-2">
+              {(currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                <input
+                  key={idx}
+                  type="text"
+                  value={option}
+                  onChange={(e) => {
+                    const newOptions = [...(currentQuestion.options || [])];
+                    newOptions[idx] = e.target.value;
+                    updatePPEQuestion(selectedGroup, { ...currentQuestion, options: newOptions });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+          <input
+            type="text"
+            value={currentQuestion.answer || ''}
+            onChange={(e) => updatePPEQuestion(selectedGroup, { ...currentQuestion, answer: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter the correct answer..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
+          <input
+            type="text"
+            value={currentQuestion.hint || ''}
+            onChange={(e) => updatePPEQuestion(selectedGroup, { ...currentQuestion, hint: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Optional hint..."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Final Question Configuration Component
+function FinalQuestionConfig({ selectedGroup }) {
+  const [finalSettings, setFinalSettings] = useState({ groups: {} });
+
+  useEffect(() => {
+    loadFinalSettings();
+  }, []);
+
+  const loadFinalSettings = () => {
+    const saved = localStorage.getItem('instructor-final-questions');
+    if (saved) {
+      try {
+        setFinalSettings(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading final settings:', error);
+      }
+    }
+  };
+
+  const updateFinalQuestion = (groupNumber, question) => {
+    const updated = {
+      ...finalSettings,
+      groups: {
+        ...finalSettings.groups,
+        [groupNumber]: [question]
+      }
+    };
+    setFinalSettings(updated);
+    localStorage.setItem('instructor-final-questions', JSON.stringify(updated));
+  };
+
+  const currentQuestion = finalSettings.groups?.[selectedGroup]?.[0] || {};
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">🎯 Final Diagnosis Question - Group {selectedGroup}</h2>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <p className="text-green-700 text-sm">
+          This is the final question students must answer to complete the investigation and treat the patient.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Question Text</label>
+          <textarea
+            value={currentQuestion.question || ''}
+            onChange={(e) => {
+              const updated = {
+                ...currentQuestion,
+                id: `final_g${selectedGroup}`,
+                question: e.target.value,
+                type: currentQuestion.type || 'text',
+                options: currentQuestion.options || [],
+                correctAnswer: currentQuestion.correctAnswer || 0,
+                correctText: currentQuestion.correctText || '',
+                hint: currentQuestion.hint || '',
+                info: currentQuestion.info || '',
+                infoImage: currentQuestion.infoImage || null
+              };
+              updateFinalQuestion(selectedGroup, updated);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="3"
+            placeholder="Enter final diagnosis question..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Question Type</label>
+          <select
+            value={currentQuestion.type || 'text'}
+            onChange={(e) => {
+              const updated = {
+                ...currentQuestion,
+                type: e.target.value,
+                options: e.target.value === 'multiple_choice' ? (currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']) : [],
+                correctAnswer: e.target.value === 'multiple_choice' ? (currentQuestion.correctAnswer || 0) : 0,
+                correctText: e.target.value === 'text' ? (currentQuestion.correctText || '') : ''
+              };
+              updateFinalQuestion(selectedGroup, updated);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="text">Text Answer</option>
+            <option value="multiple_choice">Multiple Choice</option>
+          </select>
+        </div>
+
+        {currentQuestion.type === 'multiple_choice' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+              <div className="space-y-2">
+                {(currentQuestion.options || ['Option A', 'Option B', 'Option C', 'Option D']).map((option, idx) => (
+                  <input
+                    key={idx}
+                    type="text"
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...(currentQuestion.options || [])];
+                      newOptions[idx] = e.target.value;
+                      updateFinalQuestion(selectedGroup, { ...currentQuestion, options: newOptions });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+              <select
+                value={currentQuestion.correctAnswer || 0}
+                onChange={(e) => updateFinalQuestion(selectedGroup, { ...currentQuestion, correctAnswer: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {(currentQuestion.options || []).map((option, idx) => (
+                  <option key={idx} value={idx}>{String.fromCharCode(65 + idx)}: {option}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {currentQuestion.type === 'text' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Correct Answer</label>
+            <input
+              type="text"
+              value={currentQuestion.correctText || ''}
+              onChange={(e) => updateFinalQuestion(selectedGroup, { ...currentQuestion, correctText: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter correct answer..."
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Hint (Optional)</label>
+          <input
+            type="text"
+            value={currentQuestion.hint || ''}
+            onChange={(e) => updateFinalQuestion(selectedGroup, { ...currentQuestion, hint: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Optional hint..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Success Information</label>
+          <textarea
+            value={currentQuestion.info || ''}
+            onChange={(e) => updateFinalQuestion(selectedGroup, { ...currentQuestion, info: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="3"
+            placeholder="Information shown when answered correctly..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Success Image (Optional)</label>
+          {currentQuestion.infoImage ? (
+            <div className="space-y-2">
+              <img src={currentQuestion.infoImage.data} alt="Success" className="w-32 h-32 object-cover rounded border" />
+              <button
+                onClick={() => updateFinalQuestion(selectedGroup, { ...currentQuestion, infoImage: null })}
+                className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+              >
+                Remove Image
+              </button>
+            </div>
+          ) : (
+            <label className="cursor-pointer inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+              Upload Image
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file && file.size <= 5 * 1024 * 1024) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      updateFinalQuestion(selectedGroup, {
+                        ...currentQuestion,
+                        infoImage: { data: event.target.result, name: file.name, size: file.size, lastModified: new Date().toISOString() }
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  } else if (file) {
+                    alert('File size must be less than 5MB');
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InstructorRoomEditor() {
   const { isAuthenticated, isLoading } = useInstructorAuth();
 
@@ -633,6 +970,12 @@ export default function InstructorRoomEditor() {
             </p>
           </div>
         </div>
+
+        {/* PPE Room Question Configuration */}
+        <PPEQuestionConfig selectedGroup={selectedGroup} />
+
+        {/* Final Diagnosis Question Configuration */}
+        <FinalQuestionConfig selectedGroup={selectedGroup} />
 
         {/* Image Upload Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
