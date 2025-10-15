@@ -42,35 +42,34 @@ export default function StudentInfo() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+const handleSubmit = (e) => {
+  e.preventDefault();
+  
+  if (validateForm()) {
+    setIsSubmitting(true);
     
-    if (validateForm()) {
-      setIsSubmitting(true);
-      
-      const studentInfo = {
-        ...studentData,
-        sessionId: Date.now(),
-        startTime: new Date().toISOString()
-      };
-      
-      // Clear any previous game data
-      localStorage.removeItem('microbiology-lab-progress');
-      localStorage.removeItem('current-student-info');
-      
-      // Save to localStorage
-      localStorage.setItem('current-student-info', JSON.stringify(studentInfo));
-      
-      // Set in context
-      setStudentInfo(studentInfo);
-      
-      // Navigate to PPE Room first
-      setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/ppe-room');
-      }, 500);
-    }
-  };
+    const studentInfo = {
+      ...studentData,
+      sessionId: Date.now(),
+      startTime: new Date().toISOString()
+    };
+    
+    // Save to localStorage FIRST
+    localStorage.setItem('current-student-info', JSON.stringify(studentInfo));
+    
+    // Set in context
+    setStudentInfo(studentInfo);
+    
+    // Clear any previous game data (but NOT current-student-info)
+    localStorage.removeItem('microbiology-lab-progress');
+    
+    // Navigate to PPE Room - reduced timeout for better UX
+    setTimeout(() => {
+      setIsSubmitting(false);
+      navigate('/ppe-room');
+    }, 100);
+  }
+};
 
   const handleChange = (e) => {
     const { name, value } = e.target;
