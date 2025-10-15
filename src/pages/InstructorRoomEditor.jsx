@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useInstructorAuth } from '../context/InstructorAuthContext';
+import { saveImage, getImage, deleteImage } from '../utils/imageStorage';
 import { compressImage } from '../utils/imageCompression';
 
 // PPE Question Configuration Component
@@ -496,7 +497,7 @@ export default function InstructorRoomEditor() {
   };
 
   // Image upload functionality
-  const handleImageUpload = async (event) => {
+const handleImageUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
 
@@ -514,12 +515,17 @@ export default function InstructorRoomEditor() {
     // Compress the image
     const compressedDataUrl = await compressImage(file, 0.5);
     
+    // Store image in IndexedDB (not localStorage!)
+    const imageKey = `room-image-${selectedWall}`;
+    await saveImage(imageKey, compressedDataUrl);
+    
+    // Only save metadata in localStorage
     const newRoomImages = {
       ...roomImages,
       [selectedWall]: {
-        data: compressedDataUrl,
+        key: imageKey, // reference to IndexedDB
         name: file.name,
-        size: compressedDataUrl.length, // compressed size
+        hasImage: true,
         lastModified: new Date().toISOString()
       }
     };
@@ -537,11 +543,49 @@ export default function InstructorRoomEditor() {
     };
     img.src = compressedDataUrl;
   } catch (error) {
-    console.error('Error compressing image:', error);
+    console.error('Error processing image:', error);
     alert('Error processing image. Please try a smaller file.');
   }
 };
-
+  
+const loadRoomData = async () => {
+  // Load room image metadata
+  const savedImages = localStorage.getItem('instructor-room-images');
+  if (savedImages) {
+    try {
+      const imageMetadata = JSON.parse(savedImages);
+      setRoomImages(imageMetadata);
+      
+      // Load the current wall's image from IndexedDB if it exists
+      if (imageMetadata[selectedWall]?.key) {
+        const imageData = await getImage(imageMetadata[selectedWall].key);
+        if (imageData && canvasRef.current) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, 800, 600);
+            drawExistingElements();
+          };
+          img.src = imageData;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading room images:', error);
+    }
+  }
+  
+  // Load room elements (keep in localStorage - they're small)
+  const savedElements = localStorage.getItem('instructor-room-elements');
+  if (savedElements) {
+    try {
+      setRoomElements(JSON.parse(savedElements));
+    } catch (error) {
+      console.error('Error loading room elements:', error);
+    }
+  }
+};
   const removeRoomImage = (wall) => {
     if (confirm('Are you sure you want to remove this room image and all its elements?')) {
       const newRoomImages = { ...roomImages };
