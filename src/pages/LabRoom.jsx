@@ -164,9 +164,16 @@ export default function LabRoom() {
     }))
 
     setActiveModal(null)
+
+    // Check if any elements should be revealed based on this solution
+    Object.entries(roomElements).forEach(([otherId, otherElement]) => {
+      if (otherElement.revealedBy === elementId) {
+        setRevealedElements(prev => ({ ...prev, [otherId]: true }))
+      }
+    })
   }
 
-  // NEW: Handle clicking on discovered clue boxes to view details
+  // Handle clicking on discovered clue boxes to view details
   const handleClueClick = (elementId) => {
     navigate('/lab-notebook')
   }
@@ -453,7 +460,7 @@ export default function LabRoom() {
         <div className="mb-6 bg-white bg-opacity-95 rounded-xl p-4 text-center shadow-xl border border-gray-200">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-bold text-gray-800">🔍 Investigation Progress</h3>
-            {/* NEW: Laboratory Notebook Button */}
+            {/* Laboratory Notebook Button */}
             <button
               onClick={() => navigate('/lab-notebook')}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-all transform hover:scale-105 shadow-lg flex items-center"
@@ -571,7 +578,7 @@ export default function LabRoom() {
           </div>
         </div>
 
-        {/* Discovered Clues Panel - NOW CLICKABLE */}
+        {/* Discovered Clues Panel - CLICKABLE */}
         {Object.keys(discoveredClues).length > 0 && (
           <div className="mt-8 bg-white bg-opacity-95 rounded-xl p-6 shadow-xl border border-gray-200">
             <div className="flex justify-between items-center mb-4">
