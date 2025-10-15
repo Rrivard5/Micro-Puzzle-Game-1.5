@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameStateContext'
 import Modal from '../components/UI/Modal'
+import { getImage } from '../utils/imageStorage';
 
 export default function LabRoom() {
   const [discoveredClues, setDiscoveredClues] = useState({})
@@ -47,23 +48,55 @@ export default function LabRoom() {
     setFinalQuestionSolved(isSolved)
   }
 
-  const loadRoomData = () => {
-    // Load room images
-    const savedImages = localStorage.getItem('instructor-room-images')
-    if (savedImages) {
+const loadRoomData = async () => {
+  // Load room image metadata (not actual images!)
+  const savedImages = localStorage.getItem('instructor-room-images');
+  if (savedImages) {
+    try {
+      setRoomImages(JSON.parse(savedImages));
+    } catch (error) {
+      console.error('Error loading room images:', error);
+    }
+  }
+  
+  // Load room elements
+  const savedElements = localStorage.getItem('instructor-room-elements');
+  if (savedElements) {
+    try {
+      const elements = JSON.parse(savedElements);
+      // Don't load images for questions yet - only metadata
+      setRoomElements(elements);
+    } catch (error) {
+      console.error('Error loading room elements:', error);
+    }
+  }
+};
+
+// Add new effect to load current wall image when wall changes:
+useEffect(() => {
+  const loadCurrentWallImage = async () => {
+    const wallKey = wallKeys[currentWall];
+    const imageMetadata = roomImages[wallKey];
+    
+    if (imageMetadata?.key) {
       try {
-        setRoomImages(JSON.parse(savedImages))
+        const imageData = await getImage(imageMetadata.key);
+        // Store in state for rendering
+        setRoomImages(prev => ({
+          ...prev,
+          [wallKey]: {
+            ...prev[wallKey],
+            data: imageData
+          }
+        }));
       } catch (error) {
-        console.error('Error loading room images:', error)
+        console.error('Error loading wall image:', error);
       }
     }
-    
-    // Load room elements
-    const savedElements = localStorage.getItem('instructor-room-elements')
-    if (savedElements) {
-      try {
-        const elements = JSON.parse(savedElements)
-        setRoomElements(elements)
+  };
+  
+  loadCurrentWallImage();
+}, [currentWall]);
         
         // Initialize element states and check solved status
         const initialStates = {}
