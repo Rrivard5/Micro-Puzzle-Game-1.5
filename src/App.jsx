@@ -13,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import InstructorDebug from './components/InstructorDebug'
 import InstructorDashboard from './pages/InstructorDashboard'
 import InstructorRoomEditor from './pages/InstructorRoomEditor'
+import InstructorProgress from './pages/InstructorProgress'
 
 export default function App() {
   return (
@@ -70,7 +71,7 @@ export default function App() {
               {/* Instructor Interface */}
               <Route path="/instructor" element={<InstructorDashboard />} />
               <Route path="/instructor/rooms" element={<InstructorRoomEditor />} />
-              <Route path="/instructor/progress" element={<div>Student Progress - Coming Soon</div>} />
+              <Route path="/instructor/progress" element={<InstructorProgress />} />
               <Route path="/instructor/settings" element={<div>Game Settings - Coming Soon</div>} />
               <Route path="/debug" element={<InstructorDebug />} />
             </Routes>
