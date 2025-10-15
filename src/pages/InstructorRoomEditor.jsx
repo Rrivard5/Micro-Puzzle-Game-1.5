@@ -1868,3 +1868,125 @@ export default function InstructorRoomEditor() {
     </div>
   </div>
 )}
+      {/* Content Category Manager Modal */}
+      {showCategoryManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">📚 Content Categories Manager</h2>
+                <button
+                  onClick={() => setShowCategoryManager(false)}
+                  className="text-white hover:text-gray-300 text-3xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <h3 className="font-bold text-purple-800 mb-4">Add New Content Category</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category ID
+                    </label>
+                    <input
+                      type="text"
+                      value={newCategoryForm.id}
+                      onChange={(e) => setNewCategoryForm(prev => ({ ...prev, id: e.target.value }))}
+                      placeholder="e.g., gram_staining"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newCategoryForm.name}
+                      onChange={(e) => setNewCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g., Gram Staining"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={newCategoryForm.description}
+                    onChange={(e) => setNewCategoryForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    rows="2"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Correct Answer Feedback
+                    </label>
+                    <textarea
+                      value={newCategoryForm.correctFeedback}
+                      onChange={(e) => setNewCategoryForm(prev => ({ ...prev, correctFeedback: e.target.value }))}
+                      placeholder="Feedback for correct answers..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      rows="3"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Incorrect Answer Feedback
+                    </label>
+                    <textarea
+                      value={newCategoryForm.incorrectFeedback}
+                      onChange={(e) => setNewCategoryForm(prev => ({ ...prev, incorrectFeedback: e.target.value }))}
+                      placeholder="Feedback for incorrect answers..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      rows="3"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={addContentCategory}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  ➕ Add Category
+                </button>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4">Existing Categories</h3>
+                <div className="space-y-4">
+                  {Object.entries(contentCategories).map(([categoryId, category]) => (
+                    <div key={categoryId} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-gray-800">{category.name}</h4>
+                          <p className="text-sm text-gray-600">ID: {categoryId}</p>
+                        </div>
+                        <button
+                          onClick={() => deleteContentCategory(categoryId)}
+                          className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
