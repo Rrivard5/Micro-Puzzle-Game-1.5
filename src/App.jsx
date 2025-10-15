@@ -66,7 +66,7 @@ export default function App() {
               <Route path="/word-scramble" element={<WordScramble />} />
               
               {/* Instructor Interface */}
-              <Route path="/instructor" element={<InstructorInterface />} />
+              <Route path="/instructor" element={<InstructorRoomEditor />} />
               <Route path="/debug" element={<InstructorDebug />} />
             </Routes>
           </main>
