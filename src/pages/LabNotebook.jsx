@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameStateContext'
+import { getImage } from '../utils/imageStorage'
 
 export default function LabNotebook() {
   const [notebookEntries, setNotebookEntries] = useState([])
   const [roomElements, setRoomElements] = useState({})
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showEntryModal, setShowEntryModal] = useState(false)
+  const [loadedImage, setLoadedImage] = useState(null)
   
   const navigate = useNavigate()
   const { studentInfo } = useGame()
@@ -41,7 +43,7 @@ export default function LabNotebook() {
         return {
           elementId,
           info,
-          timestamp: new Date().toISOString(), // Could be improved to store actual timestamps
+          timestamp: new Date().toISOString(),
           type: 'equipment_analysis'
         }
       })
@@ -59,8 +61,44 @@ export default function LabNotebook() {
     }
   }
 
-  const handleEntryClick = (entry) => {
+  const handleEntryClick = async (entry) => {
     setSelectedEntry(entry)
+    setLoadedImage(null) // Reset image
+    
+    // Load the image for this entry
+    const element = roomElements[entry.elementId]
+    if (element) {
+      try {
+        let imageData = null
+        
+        if (element.interactionType === 'question') {
+          const groupNumber = studentInfo?.groupNumber || 1
+          const question = element.content?.question?.groups?.[groupNumber]?.[0] 
+            || element.content?.question?.groups?.[1]?.[0]
+          
+          if (question?.infoImage) {
+            if (question.infoImage.imageKey) {
+              imageData = await getImage(question.infoImage.imageKey)
+            } else if (question.infoImage.data) {
+              imageData = question.infoImage.data
+            }
+          }
+        } else if (element.interactionType === 'info') {
+          if (element.content?.infoImage) {
+            if (element.content.infoImage.imageKey) {
+              imageData = await getImage(element.content.infoImage.imageKey)
+            } else if (element.content.infoImage.data) {
+              imageData = element.content.infoImage.data
+            }
+          }
+        }
+        
+        setLoadedImage(imageData)
+      } catch (error) {
+        console.error('Error loading entry image:', error)
+      }
+    }
+    
     setShowEntryModal(true)
   }
 
@@ -221,7 +259,10 @@ export default function LabNotebook() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowEntryModal(false)}
+                    onClick={() => {
+                      setShowEntryModal(false)
+                      setLoadedImage(null)
+                    }}
                     className="text-white hover:text-gray-300 text-3xl font-bold"
                   >
                     ×
@@ -246,43 +287,19 @@ export default function LabNotebook() {
                   </div>
                 </div>
 
-                {/* Show associated images if available */}
-                {(() => {
-                  // Try to get the reward image from the solved question
-                  const element = roomElements[selectedEntry.elementId]
-                  if (element?.interactionType === 'question') {
-                    const groupNumber = studentInfo?.groupNumber || 1
-                    const question = element.content?.question?.groups?.[groupNumber]?.[0] || element.content?.question?.groups?.[1]?.[0]
-                    if (question?.infoImage) {
-                      return (
-                        <div className="mb-6">
-                          <h4 className="font-bold text-gray-800 mb-3">🖼️ Investigation Evidence</h4>
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                            <img
-                              src={question.infoImage.data}
-                              alt={`${selectedEntry.elementId} investigation results`}
-                              className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                            />
-                          </div>
-                        </div>
-                      )
-                    }
-                  } else if (element?.content?.infoImage) {
-                    return (
-                      <div className="mb-6">
-                        <h4 className="font-bold text-gray-800 mb-3">🖼️ Investigation Evidence</h4>
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <img
-                            src={element.content.infoImage.data}
-                            alt={`${selectedEntry.elementId} analysis`}
-                            className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                          />
-                        </div>
-                      </div>
-                    )
-                  }
-                  return null
-                })()}
+                {/* Show image if loaded */}
+                {loadedImage && (
+                  <div className="mb-6">
+                    <h4 className="font-bold text-gray-800 mb-3">🖼️ Investigation Evidence</h4>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <img
+                        src={loadedImage}
+                        alt={`${selectedEntry.elementId} investigation results`}
+                        className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Equipment Details */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -309,7 +326,10 @@ export default function LabNotebook() {
 
                 <div className="flex justify-center mt-6">
                   <button
-                    onClick={() => setShowEntryModal(false)}
+                    onClick={() => {
+                      setShowEntryModal(false)
+                      setLoadedImage(null)
+                    }}
                     className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-bold transition-all"
                   >
                     Close Entry
