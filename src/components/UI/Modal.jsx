@@ -14,7 +14,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [isAlreadySolved, setIsAlreadySolved] = useState(false)
   const [solvedInfo, setSolvedInfo] = useState('')
   const [displayOptions, setDisplayOptions] = useState([])
-  const [answerMapping, setAnswerMapping] = useState([]) // NEW: For tracking original indices
+  const [answerMapping, setAnswerMapping] = useState([])
+  
+  // NEW: State for loaded images
+  const [loadedInfoImage, setLoadedInfoImage] = useState(null)
   
   const { trackAttempt, studentInfo } = useGame()
 
@@ -22,7 +25,80 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     if (isOpen && elementId) {
       loadContent()
     }
+    
+    // Cleanup when modal closes
+    return () => {
+      setLoadedInfoImage(null)
+    }
   }, [isOpen, elementId, studentGroup])
+
+  // NEW: Load images when question changes
+  useEffect(() => {
+    const loadQuestionImages = async () => {
+      if (currentQuestion?.infoImage) {
+        try {
+          let imageData = null;
+          
+          // Check if it's the new format (with imageKey)
+          if (currentQuestion.infoImage.imageKey) {
+            imageData = await getImage(currentQuestion.infoImage.imageKey);
+          } 
+          // Fallback for old format (direct data)
+          else if (currentQuestion.infoImage.data) {
+            imageData = currentQuestion.infoImage.data;
+          }
+          
+          setLoadedInfoImage(imageData);
+        } catch (error) {
+          console.error('Error loading question info image:', error);
+          setLoadedInfoImage(null);
+        }
+      } else {
+        setLoadedInfoImage(null);
+      }
+    };
+    
+    loadQuestionImages();
+  }, [currentQuestion]);
+
+  // NEW: Load images for already solved elements
+  useEffect(() => {
+    const loadSolvedElementImages = async () => {
+      if (isAlreadySolved && elementContent) {
+        try {
+          let imageData = null;
+          
+          if (elementContent.interactionType === 'question') {
+            const question = elementContent.content?.question?.groups?.[studentGroup]?.[0] 
+              || elementContent.content?.question?.groups?.[1]?.[0];
+            
+            if (question?.infoImage) {
+              if (question.infoImage.imageKey) {
+                imageData = await getImage(question.infoImage.imageKey);
+              } else if (question.infoImage.data) {
+                imageData = question.infoImage.data;
+              }
+            }
+          } else if (elementContent.interactionType === 'info') {
+            if (elementContent.content?.infoImage) {
+              if (elementContent.content.infoImage.imageKey) {
+                imageData = await getImage(elementContent.content.infoImage.imageKey);
+              } else if (elementContent.content.infoImage.data) {
+                imageData = elementContent.content.infoImage.data;
+              }
+            }
+          }
+          
+          setLoadedInfoImage(imageData);
+        } catch (error) {
+          console.error('Error loading solved element image:', error);
+          setLoadedInfoImage(null);
+        }
+      }
+    };
+    
+    loadSolvedElementImages();
+  }, [isAlreadySolved, elementContent, studentGroup]);
 
   const loadContent = async () => {
     setIsLoading(true);
@@ -33,6 +109,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     setShowHint(false)
     setIsAlreadySolved(false)
     setSolvedInfo('')
+    setLoadedInfoImage(null) // Reset loaded image
     
     // Check if this element was already solved
     const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
@@ -166,7 +243,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // NEW: Handle randomized answers
+      // Handle randomized answers
       if (question.randomizeAnswers && answerMapping.length > 0) {
         // Find which display option was selected
         const selectedDisplayIndex = displayOptions.findIndex(option => option === trimmedAnswer)
@@ -251,6 +328,11 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     onSolved(elementId, solvedInfo)
   }
 
+  const handleClose = () => {
+    setLoadedInfoImage(null) // Clean up image when closing
+    onClose()
+  }
+
   if (!isOpen) return null
 
   return (
@@ -261,7 +343,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">{title}</h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-white hover:text-gray-300 text-3xl font-bold"
             >
               ×
@@ -292,34 +374,15 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
               </div>
 
               {/* Show image if it exists */}
-              {(() => {
-                const element = elementContent
-                if (element?.interactionType === 'question') {
-                  const question = element.content?.question?.groups?.[studentGroup]?.[0] || element.content?.question?.groups?.[1]?.[0]
-                  if (question?.infoImage) {
-                    return (
-                      <div className="mb-4">
-                        <img
-                          src={question.infoImage.data}
-                          alt={`${elementId} diagnostic results`}
-                          className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                        />
-                      </div>
-                    )
-                  }
-                } else if (element?.content?.infoImage) {
-                  return (
-                    <div className="mb-4">
-                      <img
-                        src={element.content.infoImage.data}
-                        alt={`${elementId} analysis`}
-                        className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                      />
-                    </div>
-                  )
-                }
-                return null
-              })()}
+              {loadedInfoImage && (
+                <div className="mb-4">
+                  <img
+                    src={loadedInfoImage}
+                    alt={`${elementId} diagnostic results`}
+                    className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
+                  />
+                </div>
+              )}
 
               <button
                 onClick={handleAlreadySolvedClose}
@@ -354,10 +417,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                   </div>
 
                   {/* Info Image */}
-                  {elementContent?.content?.infoImage && (
+                  {loadedInfoImage && (
                     <div className="mb-4">
                       <img
-                        src={elementContent.content.infoImage.data}
+                        src={loadedInfoImage}
                         alt={`${elementContent.name} analysis`}
                         className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                       />
@@ -455,10 +518,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                       </div>
 
                       {/* Info Image */}
-                      {currentQuestion.infoImage && (
+                      {loadedInfoImage && (
                         <div className="mb-4">
                           <img
-                            src={currentQuestion.infoImage.data}
+                            src={loadedInfoImage}
                             alt={`${elementId} diagnostic results`}
                             className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                           />
