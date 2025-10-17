@@ -1,6 +1,7 @@
+// src/components/UI/Modal.jsx - UPDATED with proper image lifecycle
 import { useState, useEffect } from 'react'
 import { useGame } from '../../context/GameStateContext'
-import { getImage } from '../../utils/imageStorage';
+import imageLifecycle from '../../utils/imageLifecycleManager'
 
 export default function Modal({ isOpen, onClose, title, elementId, studentGroup, onSolved }) {
   const [currentQuestion, setCurrentQuestion] = useState(null)
@@ -16,80 +17,85 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const [displayOptions, setDisplayOptions] = useState([])
   const [answerMapping, setAnswerMapping] = useState([])
   
-  // NEW: State for loaded images
+  // 🆕 Image states - only loaded when needed
   const [loadedInfoImage, setLoadedInfoImage] = useState(null)
+  const [currentImageKeys, setCurrentImageKeys] = useState([])
   
   const { trackAttempt, studentInfo } = useGame()
+
+  // 🆕 CLEANUP: Unload images when modal closes
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Modal closing - cleaning up images');
+      imageLifecycle.unloadImages(currentImageKeys);
+      setLoadedInfoImage(null);
+      setCurrentImageKeys([]);
+    };
+  }, [currentImageKeys]);
 
   useEffect(() => {
     if (isOpen && elementId) {
       loadContent()
     }
-    
-    // Cleanup when modal closes
-    return () => {
-      setLoadedInfoImage(null)
-    }
   }, [isOpen, elementId, studentGroup])
 
-  // NEW: Load images when question changes
+  // 🆕 Load question image ONLY when question changes
   useEffect(() => {
-    const loadQuestionImages = async () => {
-      if (currentQuestion?.infoImage) {
+    const loadQuestionImage = async () => {
+      if (currentQuestion?.infoImage?.imageKey) {
         try {
-          let imageData = null;
+          const imageData = await imageLifecycle.loadImage(
+            currentQuestion.infoImage.imageKey,
+            `modal-question-${elementId}`
+          );
           
-          // Check if it's the new format (with imageKey)
-          if (currentQuestion.infoImage.imageKey) {
-            imageData = await getImage(currentQuestion.infoImage.imageKey);
-          } 
-          // Fallback for old format (direct data)
-          else if (currentQuestion.infoImage.data) {
-            imageData = currentQuestion.infoImage.data;
+          if (imageData) {
+            setLoadedInfoImage(imageData);
+            setCurrentImageKeys(prev => [...prev, currentQuestion.infoImage.imageKey]);
           }
-          
-          setLoadedInfoImage(imageData);
         } catch (error) {
-          console.error('Error loading question info image:', error);
+          console.error('Error loading question image:', error);
           setLoadedInfoImage(null);
         }
+      } else if (currentQuestion?.infoImage?.data) {
+        // Fallback for old format
+        setLoadedInfoImage(currentQuestion.infoImage.data);
       } else {
         setLoadedInfoImage(null);
       }
     };
     
-    loadQuestionImages();
-  }, [currentQuestion]);
+    if (currentQuestion) {
+      loadQuestionImage();
+    }
+  }, [currentQuestion, elementId]);
 
-  // NEW: Load images for already solved elements
+  // 🆕 Load image for already-solved elements
   useEffect(() => {
-    const loadSolvedElementImages = async () => {
+    const loadSolvedElementImage = async () => {
       if (isAlreadySolved && elementContent) {
         try {
-          let imageData = null;
+          let imageKey = null;
           
           if (elementContent.interactionType === 'question') {
             const question = elementContent.content?.question?.groups?.[studentGroup]?.[0] 
               || elementContent.content?.question?.groups?.[1]?.[0];
-            
-            if (question?.infoImage) {
-              if (question.infoImage.imageKey) {
-                imageData = await getImage(question.infoImage.imageKey);
-              } else if (question.infoImage.data) {
-                imageData = question.infoImage.data;
-              }
-            }
+            imageKey = question?.infoImage?.imageKey;
           } else if (elementContent.interactionType === 'info') {
-            if (elementContent.content?.infoImage) {
-              if (elementContent.content.infoImage.imageKey) {
-                imageData = await getImage(elementContent.content.infoImage.imageKey);
-              } else if (elementContent.content.infoImage.data) {
-                imageData = elementContent.content.infoImage.data;
-              }
-            }
+            imageKey = elementContent.content?.infoImage?.imageKey;
           }
           
-          setLoadedInfoImage(imageData);
+          if (imageKey) {
+            const imageData = await imageLifecycle.loadImage(
+              imageKey,
+              `modal-solved-${elementId}`
+            );
+            
+            if (imageData) {
+              setLoadedInfoImage(imageData);
+              setCurrentImageKeys(prev => [...prev, imageKey]);
+            }
+          }
         } catch (error) {
           console.error('Error loading solved element image:', error);
           setLoadedInfoImage(null);
@@ -97,8 +103,8 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       }
     };
     
-    loadSolvedElementImages();
-  }, [isAlreadySolved, elementContent, studentGroup]);
+    loadSolvedElementImage();
+  }, [isAlreadySolved, elementContent, studentGroup, elementId]);
 
   const loadContent = async () => {
     setIsLoading(true);
@@ -109,9 +115,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     setShowHint(false)
     setIsAlreadySolved(false)
     setSolvedInfo('')
-    setLoadedInfoImage(null) // Reset loaded image
+    setLoadedInfoImage(null)
+    setCurrentImageKeys([])
     
-    // Check if this element was already solved
+    // Check if already solved
     const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
     const sessionId = studentInfo?.sessionId || 'default'
     const elementKey = `${sessionId}_${elementId}`
@@ -123,7 +130,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       return
     }
     
-    // Load room element content
+    // Load element content (no images yet)
     const element = await getRoomElement(elementId)
     setElementContent(element)
     
@@ -131,27 +138,23 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       const question = await getElementQuestion(elementId, studentGroup)
       setCurrentQuestion(question)
       
-      // Set up display options for multiple choice questions - WITH RANDOMIZATION
+      // Setup display options for multiple choice
       if (question && question.type === 'multiple_choice') {
         const cleanedOptions = (question.options || []).map(option => option.trim())
         
-        // Check if randomization is enabled for this question
         if (question.randomizeAnswers) {
-          // Create array of indices and shuffle them
           const indices = cleanedOptions.map((_, index) => index)
           for (let i = indices.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [indices[i], indices[j]] = [indices[j], indices[i]]
           }
           
-          // Create shuffled options and mapping
           const shuffledOptions = indices.map(originalIndex => cleanedOptions[originalIndex])
           setDisplayOptions(shuffledOptions)
-          setAnswerMapping(indices) // Track original indices
+          setAnswerMapping(indices)
         } else {
-          // No randomization - use original order
           setDisplayOptions(cleanedOptions)
-          setAnswerMapping(cleanedOptions.map((_, index) => index)) // 1:1 mapping
+          setAnswerMapping(cleanedOptions.map((_, index) => index))
         }
       }
     } else if (element && element.interactionType === 'info') {
@@ -186,7 +189,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       }
     }
     
-    // Return a default question if none exists
     return {
       id: `${elementId}_default`,
       question: `What do you observe about ${element?.name || 'this element'}?`,
@@ -210,14 +212,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
     const isCorrect = checkAnswer(userAnswer, currentQuestion)
     setAttempts(prev => prev + 1)
     
-    // Track the attempt
     const trackingId = `${elementId}_${currentQuestion.id}`
     trackAttempt('lab', trackingId, userAnswer, isCorrect)
     
     if (isCorrect) {
       const clueText = currentQuestion.info || currentQuestion.clue || elementContent?.content?.info || 'Information discovered!'
       
-      // Save this element as solved
       const solvedElements = JSON.parse(localStorage.getItem('solved-elements') || '{}')
       const sessionId = studentInfo?.sessionId || 'default'
       const elementKey = `${sessionId}_${elementId}`
@@ -239,24 +239,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   const checkAnswer = (answer, question) => {
     if (!question || !answer) return false
     
-    // Trim both the user answer and any comparison strings
     const trimmedAnswer = answer.trim()
     
     if (question.type === 'multiple_choice') {
-      // Handle randomized answers
       if (question.randomizeAnswers && answerMapping.length > 0) {
-        // Find which display option was selected
         const selectedDisplayIndex = displayOptions.findIndex(option => option === trimmedAnswer)
         if (selectedDisplayIndex === -1) return false
         
-        // Map back to original index
         const originalIndex = answerMapping[selectedDisplayIndex]
-        
-        // Check if original index matches correct answer
         return originalIndex === question.correctAnswer
       } else {
-        // Original logic for non-randomized questions
-        // Method 1: Check using correctAnswer index with trimmed comparison
         if (question.options && typeof question.correctAnswer === 'number') {
           const correctAnswerText = question.options[question.correctAnswer]
           if (correctAnswerText && trimmedAnswer === correctAnswerText.trim()) {
@@ -264,12 +256,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           }
         }
         
-        // Method 2: Check against answer field (legacy support) - also trimmed
         if (question.answer && trimmedAnswer === question.answer.trim()) {
           return true
         }
         
-        // Method 3: Find the answer in options array (trimmed comparison)
         if (question.answer && question.options) {
           const matchingOption = question.options.find(opt => opt.trim() === question.answer.trim())
           if (matchingOption && trimmedAnswer === matchingOption.trim()) {
@@ -279,12 +269,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
       }
       
     } else if (question.type === 'text') {
-      // For text questions, check against correctText (case-insensitive)
       if (question.correctText) {
         return question.correctText.trim().toLowerCase() === trimmedAnswer.toLowerCase()
       }
       
-      // Fallback check against the answer field for backwards compatibility
       if (question.answer) {
         return question.answer.trim().toLowerCase() === trimmedAnswer.toLowerCase()
       }
@@ -310,7 +298,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   }
 
   const handleInfoOnly = () => {
-    // For info-only elements, just show the information and close
     const infoText = elementContent.content?.info || 'Information discovered!'
     onSolved(elementId, infoText)
   }
@@ -329,7 +316,7 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
   }
 
   const handleClose = () => {
-    setLoadedInfoImage(null) // Clean up image when closing
+    // Cleanup will happen automatically via useEffect
     onClose()
   }
 
@@ -366,14 +353,12 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
             <div className="bg-green-50 border border-green-200 rounded-lg p-6">
               <h3 className="font-bold text-green-800 mb-4">📋 Previously Analyzed</h3>
               
-              {/* Show the previously discovered information */}
               <div className="mb-4">
                 <p className="text-green-700 mb-4">
                   {solvedInfo}
                 </p>
               </div>
 
-              {/* Show image if it exists */}
               {loadedInfoImage && (
                 <div className="mb-4">
                   <img
@@ -394,7 +379,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
           ) : (
             <div className="space-y-6">
               
-              {/* Content Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-bold text-blue-800 mb-2">
                   🔍 Equipment Analysis
@@ -404,19 +388,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </p>
               </div>
 
-              {/* Info-only elements */}
               {showInfoOnly && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6">
                   <h3 className="font-bold text-green-800 mb-4">📋 Analysis Results</h3>
                   
-                  {/* Text Information */}
                   <div className="mb-4">
                     <p className="text-green-700 mb-4">
                       {elementContent?.content?.info || 'You have discovered important diagnostic information!'}
                     </p>
                   </div>
 
-                  {/* Info Image */}
                   {loadedInfoImage && (
                     <div className="mb-4">
                       <img
@@ -436,7 +417,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </div>
               )}
 
-              {/* Question Section */}
               {currentQuestion && !showInfoOnly && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <h3 className="font-bold text-gray-800 mb-4 text-lg">{currentQuestion.question}</h3>
@@ -477,7 +457,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                       />
                     )}
 
-                    {/* Action Buttons */}
                     <div className="flex gap-3">
                       <button
                         type="submit"
@@ -505,19 +484,16 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                     </div>
                   </form>
 
-                  {/* Success Information Display */}
                   {feedback?.type === 'success' && (
                     <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
                       <h4 className="font-bold text-green-800 mb-3">📊 Diagnostic Results</h4>
                       
-                      {/* Text Information */}
                       <div className="mb-4">
                         <p className="text-green-700">
                           {currentQuestion.info || currentQuestion.clue || 'Diagnostic analysis completed successfully!'}
                         </p>
                       </div>
 
-                      {/* Info Image */}
                       {loadedInfoImage && (
                         <div className="mb-4">
                           <img
@@ -541,7 +517,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </div>
               )}
 
-              {/* Hint Display */}
               {showHint && currentQuestion?.hint && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <h4 className="font-bold text-yellow-800 mb-2">💡 Analysis Hint</h4>
@@ -549,7 +524,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </div>
               )}
 
-              {/* Feedback */}
               {feedback && feedback.type !== 'success' && (
                 <div className={`p-4 rounded-lg border-2 ${
                   feedback.type === 'error'
@@ -560,7 +534,6 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </div>
               )}
 
-              {/* Attempt Counter */}
               {attempts > 0 && (
                 <div className="text-center text-sm text-gray-500">
                   Analysis attempts: {attempts}
