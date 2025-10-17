@@ -37,6 +37,7 @@ export default function LabNotebook() {
     const sessionId = studentInfo.sessionId
     
     // Filter entries for this student's session and create notebook entries
+    // NO IMAGE LOADING HERE - just metadata
     const entries = Object.entries(solvedElements)
       .filter(([key]) => key.startsWith(`${sessionId}_`))
       .map(([key, info]) => {
@@ -62,6 +63,7 @@ export default function LabNotebook() {
     }
   }
 
+  // ONLY load image when modal opens - not before!
   const handleEntryClick = async (entry) => {
     setSelectedEntry(entry)
     setLoadedImage(null)
@@ -117,10 +119,6 @@ export default function LabNotebook() {
   const getEntryIcon = (elementId) => {
     const element = getElementDetails(elementId)
     return element.defaultIcon || '🔬'
-  }
-
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString()
   }
 
   const getWallDisplayName = (wall) => {
@@ -191,7 +189,7 @@ export default function LabNotebook() {
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-bold text-gray-800">🔍 Investigation Log</h2>
             <p className="text-gray-600 text-sm mt-1">
-              Click on any entry to view detailed findings and images
+              Click on any entry to view detailed findings
             </p>
           </div>
           
