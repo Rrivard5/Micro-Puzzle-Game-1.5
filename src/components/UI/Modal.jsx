@@ -1,4 +1,3 @@
-// src/components/UI/Modal.jsx - UPDATED with proper image lifecycle
 import { useState, useEffect } from 'react'
 import { useGame } from '../../context/GameStateContext'
 import imageLifecycle from '../../utils/imageLifecycleManager'
@@ -359,10 +358,10 @@ export default function Modal({ isOpen, onClose, title, elementId, studentGroup,
                 </p>
               </div>
 
-              {loadedInfoImage && (
-                <div className="mb-4">
-                  <img
-                    src={loadedInfoImage}
+              {entryImage && (
+              <div className="mb-4">
+                <img
+                  src={entryImage}
                     alt={`${elementId} diagnostic results`}
                     className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                   />
