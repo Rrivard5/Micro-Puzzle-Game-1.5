@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { checkAndInitializeSession } from '../utils/sessionInitializer';
 
 const GameContext = createContext()
 
@@ -41,6 +42,10 @@ export const GameProvider = ({ children }) => {
 
   // Save progress to localStorage whenever state changes
   useEffect(() => {
+  if (studentInfo) {
+    checkAndInitializeSession(studentInfo);
+  }
+}, [studentInfo]);
     if (studentInfo) {
       const progressData = {
         labCompleted,
