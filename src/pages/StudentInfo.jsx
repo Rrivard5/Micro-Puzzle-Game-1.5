@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameStateContext';
+import { initializeFreshSession } from '../utils/sessionInitializer';
 
 export default function StudentInfo() {
   const [studentData, setStudentData] = useState({
@@ -47,7 +48,14 @@ export default function StudentInfo() {
     
     if (validateForm()) {
       setIsSubmitting(true);
-      
+
+      initializeFreshSession(); // This clears all cached images
+
+      const studentInfo = {
+      ...studentData,
+      sessionId: Date.now(),
+      startTime: new Date().toISOString()
+      };
       const studentInfo = {
         ...studentData,
         sessionId: Date.now(),
