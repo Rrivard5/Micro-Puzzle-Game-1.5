@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameStateContext'
+import { loadImage } from '../utils/imageLifecycleManager';
 
 export default function LabNotebook() {
   const [notebookEntries, setNotebookEntries] = useState([])
   const [roomElements, setRoomElements] = useState({})
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showEntryModal, setShowEntryModal] = useState(false)
+  const [entryImage, setEntryImage] = useState(null)
   
   const navigate = useNavigate()
   const { studentInfo } = useGame()
@@ -59,14 +61,27 @@ export default function LabNotebook() {
     }
   }
 
-  const handleEntryClick = (entry) => {
+   const handleEntryClick = async (entry) => {
     setSelectedEntry(entry)
+    
+    // Load image if it exists
+    if (entry.imageKey) {
+      const img = await loadImage(entry.imageKey, 'notebook')
+      setEntryImage(img)
+    }
+    
     setShowEntryModal(true)
   }
 
   const handleCloseModal = () => {
+    // Cleanup image when closing modal
+    if (selectedEntry?.imageKey) {
+      unloadImage(selectedEntry.imageKey)
+    }
+    
     setShowEntryModal(false)
     setSelectedEntry(null)
+    setEntryImage(null)
   }
 
   const getEntryIcon = (elementId) => {
