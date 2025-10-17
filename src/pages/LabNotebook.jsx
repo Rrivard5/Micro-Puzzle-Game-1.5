@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameStateContext'
-import { getImage } from '../utils/imageStorage'
 
 export default function LabNotebook() {
   const [notebookEntries, setNotebookEntries] = useState([])
   const [roomElements, setRoomElements] = useState({})
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showEntryModal, setShowEntryModal] = useState(false)
-  const [loadedImage, setLoadedImage] = useState(null)
-  const [isLoadingImage, setIsLoadingImage] = useState(false)
   
   const navigate = useNavigate()
   const { studentInfo } = useGame()
@@ -37,7 +34,6 @@ export default function LabNotebook() {
     const sessionId = studentInfo.sessionId
     
     // Filter entries for this student's session and create notebook entries
-    // NO IMAGE LOADING HERE - just metadata
     const entries = Object.entries(solvedElements)
       .filter(([key]) => key.startsWith(`${sessionId}_`))
       .map(([key, info]) => {
@@ -63,57 +59,14 @@ export default function LabNotebook() {
     }
   }
 
-  // ONLY load image when modal opens - not before!
-  const handleEntryClick = async (entry) => {
+  const handleEntryClick = (entry) => {
     setSelectedEntry(entry)
-    setLoadedImage(null)
-    setIsLoadingImage(true)
     setShowEntryModal(true)
-    
-    // Load the image ONLY when modal opens
-    const element = roomElements[entry.elementId]
-    if (element) {
-      try {
-        let imageData = null
-        
-        if (element.interactionType === 'question') {
-          const groupNumber = studentInfo?.groupNumber || 1
-          const question = element.content?.question?.groups?.[groupNumber]?.[0] 
-            || element.content?.question?.groups?.[1]?.[0]
-          
-          if (question?.infoImage) {
-            if (question.infoImage.imageKey) {
-              imageData = await getImage(question.infoImage.imageKey)
-            } else if (question.infoImage.data) {
-              imageData = question.infoImage.data
-            }
-          }
-        } else if (element.interactionType === 'info') {
-          if (element.content?.infoImage) {
-            if (element.content.infoImage.imageKey) {
-              imageData = await getImage(element.content.infoImage.imageKey)
-            } else if (element.content.infoImage.data) {
-              imageData = element.content.infoImage.data
-            }
-          }
-        }
-        
-        setLoadedImage(imageData)
-      } catch (error) {
-        console.error('Error loading entry image:', error)
-      } finally {
-        setIsLoadingImage(false)
-      }
-    } else {
-      setIsLoadingImage(false)
-    }
   }
 
   const handleCloseModal = () => {
     setShowEntryModal(false)
     setSelectedEntry(null)
-    setLoadedImage(null)
-    setIsLoadingImage(false)
   }
 
   const getEntryIcon = (elementId) => {
@@ -250,7 +203,7 @@ export default function LabNotebook() {
           )}
         </div>
 
-        {/* Detailed Entry Modal */}
+        {/* Detailed Entry Modal - NO IMAGES */}
         {showEntryModal && selectedEntry && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -294,37 +247,6 @@ export default function LabNotebook() {
                   </div>
                 </div>
 
-                {/* Show loading indicator while image loads */}
-                {isLoadingImage && (
-                  <div className="mb-6 text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading investigation evidence...</p>
-                  </div>
-                )}
-
-                {/* Show image if loaded */}
-                {!isLoadingImage && loadedImage && (
-                  <div className="mb-6">
-                    <h4 className="font-bold text-gray-800 mb-3">🖼️ Investigation Evidence</h4>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <img
-                        src={loadedImage}
-                        alt={`${selectedEntry.elementId} investigation results`}
-                        className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Show message if no image available */}
-                {!isLoadingImage && !loadedImage && (
-                  <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <p className="text-gray-600 text-center">
-                      No visual evidence recorded for this investigation.
-                    </p>
-                  </div>
-                )}
-
                 {/* Equipment Details */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h4 className="font-bold text-gray-800 mb-3">🔧 Equipment Information</h4>
@@ -366,10 +288,11 @@ export default function LabNotebook() {
           <div className="mt-8 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl p-6 text-white">
             <h3 className="text-xl font-bold mb-3">📚 Laboratory Notebook Usage</h3>
             <ul className="space-y-2 text-sm">
-              <li>• <strong>Review Findings:</strong> Click on any entry to view detailed results and images</li>
+              <li>• <strong>Review Findings:</strong> Click on any entry to view detailed results</li>
               <li>• <strong>Track Progress:</strong> All solved equipment analyses are automatically recorded here</li>
               <li>• <strong>Reference Data:</strong> Use this notebook to review evidence before making final diagnosis</li>
               <li>• <strong>Continue Investigation:</strong> Return to the laboratory to analyze more equipment</li>
+              <li>• <strong>Note:</strong> Images are displayed in the lab equipment modals during investigation</li>
             </ul>
           </div>
         )}
