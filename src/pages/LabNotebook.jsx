@@ -9,6 +9,7 @@ export default function LabNotebook() {
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showEntryModal, setShowEntryModal] = useState(false)
   const [loadedImage, setLoadedImage] = useState(null)
+  const [isLoadingImage, setIsLoadingImage] = useState(false)
   
   const navigate = useNavigate()
   const { studentInfo } = useGame()
@@ -63,9 +64,11 @@ export default function LabNotebook() {
 
   const handleEntryClick = async (entry) => {
     setSelectedEntry(entry)
-    setLoadedImage(null) // Reset image
+    setLoadedImage(null)
+    setIsLoadingImage(true)
+    setShowEntryModal(true)
     
-    // Load the image for this entry
+    // Load the image ONLY when modal opens
     const element = roomElements[entry.elementId]
     if (element) {
       try {
@@ -96,10 +99,19 @@ export default function LabNotebook() {
         setLoadedImage(imageData)
       } catch (error) {
         console.error('Error loading entry image:', error)
+      } finally {
+        setIsLoadingImage(false)
       }
+    } else {
+      setIsLoadingImage(false)
     }
-    
-    setShowEntryModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowEntryModal(false)
+    setSelectedEntry(null)
+    setLoadedImage(null)
+    setIsLoadingImage(false)
   }
 
   const getEntryIcon = (elementId) => {
@@ -259,10 +271,7 @@ export default function LabNotebook() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      setShowEntryModal(false)
-                      setLoadedImage(null)
-                    }}
+                    onClick={handleCloseModal}
                     className="text-white hover:text-gray-300 text-3xl font-bold"
                   >
                     ×
@@ -287,8 +296,16 @@ export default function LabNotebook() {
                   </div>
                 </div>
 
+                {/* Show loading indicator while image loads */}
+                {isLoadingImage && (
+                  <div className="mb-6 text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading investigation evidence...</p>
+                  </div>
+                )}
+
                 {/* Show image if loaded */}
-                {loadedImage && (
+                {!isLoadingImage && loadedImage && (
                   <div className="mb-6">
                     <h4 className="font-bold text-gray-800 mb-3">🖼️ Investigation Evidence</h4>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -298,6 +315,15 @@ export default function LabNotebook() {
                         className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg border-2 border-gray-300"
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Show message if no image available */}
+                {!isLoadingImage && !loadedImage && (
+                  <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-gray-600 text-center">
+                      No visual evidence recorded for this investigation.
+                    </p>
                   </div>
                 )}
 
@@ -326,10 +352,7 @@ export default function LabNotebook() {
 
                 <div className="flex justify-center mt-6">
                   <button
-                    onClick={() => {
-                      setShowEntryModal(false)
-                      setLoadedImage(null)
-                    }}
+                    onClick={handleCloseModal}
                     className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-bold transition-all"
                   >
                     Close Entry
