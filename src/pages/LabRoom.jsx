@@ -623,12 +623,15 @@ export default function LabRoom() {
           <div className="mt-8 bg-white bg-opacity-95 rounded-xl p-6 shadow-xl border border-gray-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800">📋 Investigation Results</h3>
+              {/* Laboratory Notebook Button */}
+{/* TEMPORARILY DISABLED
               <button
                 onClick={handleClueClick}
                 className="text-amber-600 hover:text-amber-700 text-sm font-medium underline"
               >
                 📔 View in Lab Notebook
               </button>
+              */}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(discoveredClues).map(([item, clue]) => {
